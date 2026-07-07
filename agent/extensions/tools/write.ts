@@ -21,11 +21,11 @@ const Params = Type.Object({
 });
 
 async function execute(filePath: string, content: string): Promise<string> {
-  if (existsSync(filePath)) {
-    // TODO: also prohibit files from .gitignore, .gitattributes
-    const short = shortenPath(filePath);
-    throw new Error(`File already exists: "${short}".\nUse the \`edit\` tool to make precise changes to existing content, or \`hashline-edit\` for line-anchored edits.`);
-  }
+  //if (existsSync(filePath)) {
+  //  // TODO: also prohibit files from .gitignore, .gitattributes
+  //  const short = shortenPath(filePath);
+  //  throw new Error(`File already exists: "${short}".\nUse the \`edit\` tool to make precise changes to existing content, or \`hashline-edit\` for line-anchored edits.`);
+  //}
 
   await mkdir(dirname(filePath), { recursive: true });
   await writeFile(filePath, content, "utf-8");
@@ -36,8 +36,7 @@ export default {
   name: "write",
   label: "write (safe)",
   description: [
-    "Create file with the given content if it does not already exist.",
-    "If the file already exists, use edit or hashline-edit instead.",
+    "Create file with the given content.",
     "Automatically creates parent directories if they do not exist.",
   ].join(" "),
   parameters: Params,

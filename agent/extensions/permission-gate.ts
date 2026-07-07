@@ -12,6 +12,7 @@ export default function (pi: ExtensionAPI) {
     /\brm\s+(-rf?|--recursive)/i,
     /\bsudo\b/i,
     /\b(chmod|chown)\b.*777/i,
+    /\bgit\s+(add|am|apply|archive|bisect|branch|checkout|cherry-pick|clean|clone|commit|config|merge|mv|notes|pull|push|rebase|reflog|remote|reset|restore|revert|rm|stash|submodule|switch|tag|update-ref).*/i,
   ];
 
   pi.on("tool_call", async (event, ctx) => {

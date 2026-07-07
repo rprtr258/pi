@@ -6,7 +6,7 @@
  */
 
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
-import { Editor, type EditorTheme, Key, matchesKey, Text, truncateToWidth } from "@mariozechner/pi-tui";
+import { Editor, type EditorTheme, Key, matchesKey, Text, truncateToWidth, wrapTextWithAnsi } from "@mariozechner/pi-tui";
 import { Type } from "typebox";
 
 // Types
@@ -313,7 +313,9 @@ export default function questionnaire(pi: ExtensionAPI) {
 
           // Content
           if (inputMode && q) {
-            add(theme.fg("text", ` ${q.prompt}`));
+            for (const line of wrapTextWithAnsi(theme.fg("text", ` ${q.prompt}`), width)) {
+              add(line);
+            }
             lines.push("");
             // Show options for reference
             renderOptions();
@@ -345,7 +347,9 @@ export default function questionnaire(pi: ExtensionAPI) {
               add(theme.fg("warning", ` Unanswered: ${missing}`));
             }
           } else if (q) {
-            add(theme.fg("text", ` ${q.prompt}`));
+            for (const line of wrapTextWithAnsi(theme.fg("text", ` ${q.prompt}`), width)) {
+              add(line);
+            }
             lines.push("");
             renderOptions();
           }
