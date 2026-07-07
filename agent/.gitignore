@@ -1,0 +1,4 @@
+sessions/
+bin/
+mcp-cache.json
+run-history.jsonl

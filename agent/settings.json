@@ -1,0 +1,20 @@
+{
+  "lastChangelogVersion": "0.80.3",
+  "defaultProvider": "deepseek",
+  "defaultModel": "deepseek-v4-flash",
+  "defaultThinkingLevel": "medium",
+  "editorPaddingX": 0,
+  "theme": "dark",
+  "packages": [
+    "npm:@plannotator/pi-extension",
+    "npm:pi-autoresearch",
+    "git:github.com/DietrichGebert/ponytail",
+    "npm:pi-mcp-adapter",
+    "npm:context-mode",
+    "npm:pi-subagents",
+    "npm:pi-dynamic-workflows",
+    "npm:napkin-ai"
+  ],
+  "enableInstallTelemetry": false,
+  "hideThinkingBlock": true
+}

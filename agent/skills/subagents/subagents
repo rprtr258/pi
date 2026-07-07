@@ -1,0 +1,433 @@
+#!/usr/bin/env bash
+#
+# subagents — tmux + bash delegation to subagent Pi instances.
+#
+#   spawn     low-level: explicit pi-like flags, no template knowledge
+#   template  sugar: map an agent template's frontmatter into spawn flags
+#
+# Runs live in a private tmux server (own socket) so we never touch the
+# user's personal tmux. Output persists to per-run files under the cache dir.
+
+set -euo pipefail
+
+readonly CACHE="${SUBAGENTS_HOME:-${XDG_CACHE_HOME:-$HOME/.cache}/pi-subagents}"
+readonly RUNS="$CACHE/runs"
+readonly SOCK="$CACHE/tmux.sock"
+readonly AGENTS_DIR="${SUBAGENTS_AGENTS_DIR:-$HOME/.pi/agent/agents}"
+readonly SKILLS_DIR="${SUBAGENTS_SKILLS_DIR:-$HOME/.pi/agent/skills}"
+readonly WAIT_TIMEOUT_DEFAULT=600
+readonly EXIT_WAIT_TIMEOUT=124  # `wait` timed out with the run still live
+
+# Tools that exist only inside the pi-subagents runtime; stripped from a
+# template's `tools` list since they have no pi CLI equivalent.
+readonly RUNTIME_ONLY_TOOLS="intercom contact_supervisor"
+
+# Subagents run headless via `pi --mode json -p`, which streams one JSON event
+# per line and exits on completion. LIVE_FORMAT renders that stream into a
+# human-readable pane (thinking dim, tool calls cyan, answer plain) so `attach`
+# and `inspect` show live progress. RESULT_EXTRACT recovers the clean final
+# answer (last non-empty assistant text message) once the run finishes.
+readonly LIVE_FORMAT='
+if .type=="message_update" then
+  (.assistantMessageEvent.type) as $e
+  | if $e=="text_delta" then .assistantMessageEvent.delta
+    elif $e=="thinking_delta" then .assistantMessageEvent.delta
+    elif $e=="thinking_start" then "\u001b[2m"
+    elif $e=="thinking_end" then "\u001b[0m\n"
+    elif $e=="text_start" then "\n"
+    else empty end
+elif .type=="tool_execution_start" then "\n\u001b[36m\u2192 \(.toolName)\u001b[0m \((.args|tostring)[0:140])\n"
+elif .type=="tool_execution_end" then (if .isError then "\u001b[31m  \u2717\u001b[0m\n" else "\u001b[32m  \u2713\u001b[0m\n" end)
+elif .type=="agent_end" then "\n"
+else empty end'
+readonly RESULT_EXTRACT='[ .[] | select(.type=="message_end" and .message.role=="assistant") | [ .message.content[]? | select(.type=="text") | .text ] | join("") ] | map(select(. != "")) | last // ""'
+
+# --- dispatch ----------------------------------------------------------------
+
+function main() {
+  local cmd=${1:-}; shift || true
+  case $cmd in
+    spawn)    cmd_spawn "$@" ;;
+    template) cmd_template "$@" ;;
+    wait)     cmd_wait "$@" ;;
+    list)     cmd_list "$@" ;;
+    inspect)  cmd_inspect "$@" ;;
+    attach)   cmd_attach "$@" ;;
+    kill)     cmd_kill "$@" ;;
+    clean)    cmd_clean "$@" ;;
+    ""|-h|--help|help) usage ;;
+    *)        die "unknown command: $cmd (try: subagents --help)" ;;
+  esac
+}
+
+usage() {
+  cat <<'EOF'
+subagents — delegate work to subagent Pi instances (tmux + bash)
+
+Usage:
+  subagents spawn "<task>" [flags]          launch from explicit flags
+  subagents template <agent> "<task>" [..]  launch from an agent template
+  subagents wait <id> [--timeout <s>]       block until finished; print output
+  subagents list                            show all runs
+  subagents inspect <id>                    print output, or capture live pane
+  subagents attach <id>                     attach to the live tmux session
+  subagents kill <id>                       kill a live run
+  subagents clean <id|--all>                remove finished run dirs
+
+spawn flags:
+  --model <provider/id>        --thinking <off|minimal|low|medium|high|xhigh>
+  --tools <list>               --skill <path>         (repeatable, explicit paths)
+  --system-prompt <text|@file> --append-system-prompt <text|@file>
+  --no-skills                  --no-context-files
+  --parent-session <path|id>   fork the parent session (path must exist)
+  --name <hint>                --cwd <dir>            --wait
+
+template flags:
+  any spawn flag overrides (or augments) the template's frontmatter, e.g.
+  --model --thinking --tools --skill --system-prompt --cwd --parent-session --wait
+EOF
+}
+
+# --- spawn -------------------------------------------------------------------
+
+cmd_spawn() {
+  require tmux pi jq
+  local task="" model="" thinking="" tools="" parent="" name="" cwd="$PWD"
+  local sysprompt="" sysprompt_mode="replace" no_skills=0 no_context=0 wait=0
+  local agent_label="spawn"
+  local -a skills=()
+
+  while [[ $# -gt 0 ]]; do
+    case $1 in
+      --model)                model=$2; shift 2 ;;
+      --thinking)             thinking=$2; shift 2 ;;
+      --tools)                tools=$2; shift 2 ;;
+      --skill)                skills+=("$2"); shift 2 ;;
+      --system-prompt)        sysprompt=$(read_value "$2"); sysprompt_mode=replace; shift 2 ;;
+      --append-system-prompt) sysprompt=$(read_value "$2"); sysprompt_mode=append; shift 2 ;;
+      --no-skills)            no_skills=1; shift ;;
+      --no-context-files)     no_context=1; shift ;;
+      --parent-session)       parent=$2; shift 2 ;;
+      --name)                 name=$2; shift 2 ;;
+      --cwd)                  cwd=$2; shift 2 ;;
+      --agent-label)          agent_label=$2; shift 2 ;;  # internal: set by `template`
+      --wait)                 wait=1; shift ;;
+      --)                     shift; task=${1:?task required after --}; shift ;;
+      -*)                     die "unknown spawn flag: $1" ;;
+      *)                      [[ -z $task ]] && task=$1 || die "unexpected argument: $1"; shift ;;
+    esac
+  done
+
+  [[ -n $task ]] || die "spawn requires a task"
+  [[ -d $cwd ]]  || die "cwd does not exist: $cwd"
+
+  # Validate the parent session up front (fail loud, not at run time). A path
+  # must exist; a bare token is treated as a partial UUID resolved by pi.
+  if [[ -n $parent && $parent == */* && ! -f $parent ]]; then
+    die "parent session path does not exist: $parent"
+  fi
+
+  local id run
+  id=$(gen_id "${name:-$agent_label}")
+  run="$RUNS/$id"
+  mkdir -p "$run/session"
+  printf '%s\n' "$task" > "$run/task"
+  printf '%s\n' "$agent_label" > "$run/agent"
+  printf '%s\n' "$cwd" > "$run/cwd"
+
+  # Assemble the pi argv. --mode json -p runs headless but streams events.
+  local -a argv=(pi --mode json -p --name "$id")
+  if [[ -n $parent ]]; then
+    # --fork cannot combine with --session; steer its output into the run dir.
+    argv+=(--fork "$parent" --session-dir "$run/session")
+    printf '%s\n' "$run/session" > "$run/session-loc"
+  else
+    argv+=(--session "$run/session/session.jsonl")
+    printf '%s\n' "$run/session/session.jsonl" > "$run/session-loc"
+  fi
+  [[ -n $model ]]    && argv+=(--model "$model")
+  [[ -n $thinking ]] && argv+=(--thinking "$thinking")
+  [[ -n $tools ]]    && argv+=(--tools "$tools")
+  local s
+  for s in "${skills[@]}"; do argv+=(--skill "$s"); done
+  if [[ -n $sysprompt ]]; then
+    [[ $sysprompt_mode == append ]] \
+      && argv+=(--append-system-prompt "$sysprompt") \
+      || argv+=(--system-prompt "$sysprompt")
+  fi
+  [[ $no_skills -eq 1 ]]  && argv+=(--no-skills)
+  [[ $no_context -eq 1 ]] && argv+=(--no-context-files)
+  argv+=("$task")
+
+  # Emit a self-contained run.sh so tmux execs it without quoting hazards.
+  # The event stream is teed raw to events.jsonl and rendered live to the pane;
+  # after pi exits, the clean answer is extracted into out.
+  {
+    echo '#!/usr/bin/env bash'
+    printf 'cd %q || exit 1\n' "$cwd"
+    local a
+    for a in "${argv[@]}"; do printf '%q ' "$a"; done
+    printf '2> %q | tee %q | jq -j --unbuffered %q\n' "$run/err" "$run/events.jsonl" "$LIVE_FORMAT"
+    printf 'code=${PIPESTATUS[0]}\n'
+    printf 'jq -rs %q %q > %q 2>/dev/null || true\n' "$RESULT_EXTRACT" "$run/events.jsonl" "$run/out"
+    printf 'printf %%s "$code" > %q.tmp && mv %q.tmp %q\n' "$run/exit" "$run/exit" "$run/exit"
+  } > "$run/run.sh"
+
+  tmuxs new-session -d -s "$id" -c "$cwd" "bash $(printf '%q' "$run/run.sh")"
+
+  if [[ $wait -eq 1 ]]; then
+    cmd_wait "$id"
+    return
+  fi
+  echo "id:      $id"
+  echo "out:     $run/out"
+  echo "attach:  subagents attach $id"
+}
+
+# --- template ----------------------------------------------------------------
+
+cmd_template() {
+  require yq
+  local agent=${1:-}; shift || true
+  [[ -n $agent ]] || die "template requires an agent name"
+  local file="$AGENTS_DIR/$agent.md"
+  [[ -f $file ]] || die "agent template not found: $file"
+
+  # Any spawn flag may be passed to override (or augment) the frontmatter.
+  # Overrides are appended after the derived flags; spawn keeps the last value
+  # for scalars, so the CLI wins. --skill is additive.
+  local task=""
+  local -a override=()
+  while [[ $# -gt 0 ]]; do
+    case $1 in
+      --model|--thinking|--tools|--skill|--system-prompt|--append-system-prompt|--name|--cwd|--parent-session)
+                          override+=("$1" "$2"); shift 2 ;;
+      --no-skills|--no-context-files|--wait)
+                          override+=("$1"); shift ;;
+      -*)                 die "unknown template flag: $1" ;;
+      *)                  [[ -z $task ]] && task=$1 || die "unexpected argument: $1"; shift ;;
+    esac
+  done
+  [[ -n $task ]] || die "template requires a task"
+
+  local -a sp=(--agent-label "$agent")
+  local model thinking
+  model=$(frontmatter "$file" model)
+  thinking=$(frontmatter "$file" thinking)
+  [[ -n $model ]]    && sp+=(--model "$model")
+  [[ -n $thinking ]] && sp+=(--thinking "$thinking")
+
+  # tools: drop runtime-only entries, re-join as a comma list.
+  local tools deny="${RUNTIME_ONLY_TOOLS// /|}"
+  tools=$(frontmatter "$file" tools | tr ',' '\n' | grep -oE '[a-zA-Z_]+' | grep -vxE "$deny" | paste -sd,) || true
+  [[ -n $tools ]] && sp+=(--tools "$tools")
+
+  # skills: comma-separated names -> explicit, validated --skill paths.
+  local sk
+  while read -r sk; do
+    [[ -e "$SKILLS_DIR/$sk" ]] || die "skill '$sk' (from $agent) not found at $SKILLS_DIR/$sk"
+    sp+=(--skill "$SKILLS_DIR/$sk")
+  done < <(frontmatter "$file" skills | tr ',' '\n' | grep -oE '[a-zA-Z0-9_-]+')
+
+  # body becomes the system prompt; systemPromptMode picks replace vs append.
+  local body
+  body=$(awk 'shown{print} /^---$/{n++; if(n==2)shown=1}' "$file")
+  if [[ -n $body ]]; then
+    [[ "$(frontmatter "$file" systemPromptMode)" == append ]] \
+      && sp+=(--append-system-prompt "$body") \
+      || sp+=(--system-prompt "$body")
+  fi
+
+  # inheritProjectContext: false -> drop AGENTS.md/CLAUDE.md discovery.
+  [[ "$(frontmatter "$file" inheritProjectContext)" == false ]] && sp+=(--no-context-files)
+  # inheritSkills: anything but explicit true disables discovery. Explicit
+  # --skill paths above still load.
+  [[ "$(frontmatter "$file" inheritSkills)" == true ]] || sp+=(--no-skills)
+
+  [[ ${#override[@]} -gt 0 ]] && sp+=("${override[@]}")
+
+  cmd_spawn "${sp[@]}" "$task"
+}
+
+# --- wait --------------------------------------------------------------------
+
+cmd_wait() {
+  local timeout=$WAIT_TIMEOUT_DEFAULT id_arg=""
+  while [[ $# -gt 0 ]]; do
+    case $1 in
+      --timeout) timeout=$2; shift 2 ;;
+      -*)        die "unknown wait flag: $1" ;;
+      *)         id_arg=$1; shift ;;
+    esac
+  done
+  local run id elapsed=0
+  run=$(resolve_run "$id_arg")
+  id=$(run_id "$run")
+
+  while [[ "$(run_status "$run")" == live ]]; do
+    if (( elapsed >= timeout )); then
+      echo "subagents: wait timed out after ${timeout}s; run '$id' still live" >&2
+      return "$EXIT_WAIT_TIMEOUT"
+    fi
+    sleep 1; elapsed=$((elapsed + 1))
+  done
+
+  [[ -s "$run/out" ]] && cat "$run/out"
+  [[ -f "$run/exit" ]] && return "$(cat "$run/exit")"
+  return 1
+}
+
+# --- list / inspect / attach / kill / clean ----------------------------------
+
+cmd_list() {
+  local d found=0 id agent task
+  printf '%-30s %-12s %-8s %s\n' "ID" "AGENT" "STATUS" "TASK"
+  for d in "$RUNS"/*/; do
+    [[ -d $d ]] || continue
+    found=1; d=${d%/}
+    id=$(run_id "$d")
+    agent=$(cat "$d/agent" 2>/dev/null || echo "-")
+    task=$(head -1 "$d/task" 2>/dev/null || echo "")
+    [[ ${#task} -gt 50 ]] && task="${task:0:47}..."
+    printf '%-30s %-12s %-8s %s\n' "$id" "$agent" "$(run_status "$d")" "$task"
+  done
+  [[ $found -eq 0 ]] && echo "(no runs)"
+  return 0
+}
+
+cmd_inspect() {
+  local run st
+  run=$(resolve_run "${1:-}")
+  st=$(run_status "$run")
+  echo "# status: $st" >&2
+  if [[ $st == live ]]; then
+    tmuxs capture-pane -p -t "$(run_id "$run")"
+  else
+    [[ -s "$run/out" ]] && cat "$run/out"
+    if [[ $st == failed && -s "$run/err" ]]; then
+      echo "--- stderr ---" >&2
+      cat "$run/err" >&2
+    fi
+  fi
+  return 0
+}
+
+cmd_attach() {
+  local run id
+  run=$(resolve_run "${1:-}")
+  id=$(run_id "$run")
+  tmuxs has-session -t "$id" 2>/dev/null || die "run '$id' is not live"
+  exec tmux -S "$SOCK" attach -t "$id"
+}
+
+cmd_kill() {
+  local run id
+  run=$(resolve_run "${1:-}")
+  id=$(run_id "$run")
+  if tmuxs has-session -t "$id" 2>/dev/null; then
+    tmuxs kill-session -t "$id"
+    echo "killed $id"
+  else
+    echo "run '$id' not live"
+  fi
+}
+
+cmd_clean() {
+  local arg=${1:-} d id
+  if [[ $arg == --all ]]; then
+    for d in "$RUNS"/*/; do
+      [[ -d $d ]] && assert_dead "$(run_id "${d%/}")"
+    done
+    rm -rf "${RUNS:?}"/*
+    echo "cleaned all runs"
+  elif [[ -n $arg ]]; then
+    d=$(resolve_run "$arg"); id=$(run_id "$d")
+    assert_dead "$id"
+    rm -rf "$d"
+    echo "cleaned $id"
+  else
+    die "clean requires <id> or --all"
+  fi
+}
+
+# --- helpers -----------------------------------------------------------------
+
+die() { echo "subagents: $*" >&2; exit 1; }
+
+require() {
+  local c
+  for c in "$@"; do
+    command -v "$c" >/dev/null 2>&1 || die "$c is required but not installed"
+  done
+}
+
+tmuxs() { tmux -S "$SOCK" "$@"; }
+
+run_id() { basename "$1"; }
+
+# Read a frontmatter field from a template, empty string if absent.
+# Avoid yq's `// ""` fallback: it follows jq semantics where `false` is also
+# "empty", which would silently drop boolean `false` fields.
+frontmatter() {
+  local v
+  v=$(yq --front-matter=extract ".$2" "$1")
+  [[ $v == null ]] && v=""
+  printf '%s' "$v"
+}
+
+# Resolve a @file value to its contents; pass plain text through unchanged.
+read_value() {
+  local v=$1
+  if [[ $v == @* ]]; then
+    [[ -f ${v#@} ]] || die "file not found: ${v#@}"
+    cat "${v#@}"
+  else
+    printf '%s' "$v"
+  fi
+}
+
+gen_id() {
+  local hint stamp id n=1
+  hint=$(printf '%s' "${1:-agent}" | tr -c 'a-zA-Z0-9' '-' | sed 's/-\{2,\}/-/g; s/^-//; s/-$//')
+  stamp=$(date +%Y%m%d-%H%M%S)
+  id="${hint:-agent}-$stamp-$$"
+  while [[ -e "$RUNS/$id" ]]; do id="${hint:-agent}-$stamp-$$-$n"; n=$((n + 1)); done
+  printf '%s' "$id"
+}
+
+# Resolve an id argument to a run dir, accepting an exact id or unique prefix.
+resolve_run() {
+  [[ -n ${1:-} ]] || die "missing run id"
+  if [[ -d "$RUNS/$1" ]]; then printf '%s' "$RUNS/$1"; return; fi
+  local matches=() d
+  for d in "$RUNS/$1"*; do [[ -d $d ]] && matches+=("$d"); done
+  case ${#matches[@]} in
+    1) printf '%s' "${matches[0]}" ;;
+    0) die "no run matching '$1'" ;;
+    *) die "ambiguous id '$1' matches ${#matches[@]} runs" ;;
+  esac
+}
+
+# live | done | failed
+run_status() {
+  local run=$1
+  if [[ -f "$run/exit" ]]; then
+    [[ "$(cat "$run/exit")" == "0" ]] && echo "done" || echo "failed"
+  elif tmuxs has-session -t "$(run_id "$run")" 2>/dev/null; then
+    echo "live"
+  else
+    echo "failed"  # pane vanished without writing an exit code (killed/crashed)
+  fi
+}
+
+assert_dead() {
+  tmuxs has-session -t "$1" 2>/dev/null && die "run '$1' still live; kill it first"
+  return 0
+}
+
+# --- entrypoint --------------------------------------------------------------
+
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+  mkdir -p "$RUNS"
+  main "$@"
+fi

@@ -1,0 +1,45 @@
+{
+  "providers": {
+    "deepseek": {
+      "baseUrl": "https://api.deepseek.com/v1",
+      "api": "openai-completions",
+      "apiKey": "!printenv DEEPSEEK_API_KEY",
+      "models": [
+        {
+          "id": "deepseek-v4-flash",
+          "name": "DeepSeek Flash",
+          "reasoning": false,
+          "input": ["text"],
+          "contextWindow": 1000000,
+          "maxTokens": 384000,
+          "cost": { "input": 0.14, "output": 0.28, "cacheRead": 0.028, "cacheWrite": 0.28 }
+        },
+        {
+          "id": "deepseek-v4-pro",
+          "name": "DeepSeek Pro",
+          "reasoning": true,
+          "input": ["text"],
+          "contextWindow": 1000000,
+          "maxTokens": 384000,
+          "cost": { "input": 1.74, "output": 3.48, "cacheRead": 0.145, "cacheWrite": 3.48 }
+        }
+      ]
+    },
+    "z.ai": {
+      "baseUrl": "https://api.z.ai/api/paas/v4",
+      "api": "openai-completions",
+      "apiKey": "!printenv ZAI_API_KEY",
+      "models": [
+        {
+          "id": "GLM-5.2",
+          "name": "GLM 5.2",
+          "reasoning": true,
+          "input": ["text"],
+          "contextWindow": 1000000,
+          "maxTokens": 131072,
+          "cost": { "input": 1.40, "output": 4.40, "cacheRead": 0.26, "cacheWrite": 0.00 }
+        }
+      ]
+    }
+  }
+}
