@@ -1,7 +1,7 @@
 {
-  "lastChangelogVersion": "1.0.2",
   "defaultProvider": "deepseek",
   "defaultModel": "deepseek-v4-flash",
+  "lastChangelogVersion": "1.1.0",
   "defaultThinkingLevel": "medium",
   "defaultTools": [
     "+codemode",
@@ -21,7 +21,6 @@
     "npm:pi-interactive-shell",
     "git:github.com/nicobailon/visual-explainer",
     "git:github.com/cathrynlavery/diagram-design",
-    "npm:@lolipopshock/pi-clm",
     "npm:@rprtr258/md-pi"
   ],
   "enableInstallTelemetry": false,
