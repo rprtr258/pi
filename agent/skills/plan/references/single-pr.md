@@ -12,7 +12,9 @@ Assume they are a skilled developer, but know almost nothing about our toolset o
 
 **Context:** This should be run in a dedicated worktree (created by the requirements skill, when used).
 
-**Save plans to:** `./plans/YY-MM-DD-<slug>.md`
+**Save plans to:** `./plans/YYYY-MM-DD-<task-name>-vN.md`
+
+(Spec-driven plans in this format are checked by the Self-Review below; `validate-plan.sh` targets the strategic template structure instead.)
 - (User preferences for plan location override this default)
 
 ## Scope Check

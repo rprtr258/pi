@@ -17,7 +17,7 @@ Run a 5-phase pipeline:
 
 1. **Research** - Read project structure, existing plans, and memory/docs files to gather context.
 2. **Design** - Break the objective into one-PR-sized steps (3-12 typical). Assign dependency edges, parallel/serial ordering, model tier (strongest vs default), and rollback strategy per step.
-3. **Draft** - Write a self-contained Markdown plan file to `./plans/YY-MM-DD-<slug>.md`. Every step includes a context brief, task list, verification commands, and exit criteria - so a fresh agent can execute any step without reading prior steps.
+3. **Draft** - Write a self-contained Markdown plan file to `./plans/YYYY-MM-DD-<task-name>-vN.md`. Every step includes a context brief, task list, verification commands, and exit criteria - so a fresh agent can execute any step without reading prior steps.
 4. **Review** - Delegate adversarial review to a strongest-available-model sub-agent against a checklist and anti-pattern catalog. Fix all critical findings before finalizing.
 5. **Register** - Save the plan and present the step count and parallelism summary to the user.
 
@@ -27,7 +27,7 @@ Detect git/gh availability automatically. With git + GitHub CLI, generate full b
 
 Request: "migrate database to PostgreSQL"
 
-Produces `plans/YY-MM-DD-migrate-database-to-postgresql.md` with steps like:
+Produces `plans/YYYY-MM-DD-migrate-database-to-postgresql-v1.md` with steps like:
 - Step 1: Add PostgreSQL driver and connection config
 - Step 2: Create migration scripts for each table
 - Step 3: Update repository layer to use new driver

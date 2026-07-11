@@ -27,7 +27,7 @@ Pick the plan mode:
 - **Single-PR** (default): work completable in one PR. Follow `template.md` for structure; apply `single-pr.md` discipline when a spec exists or a fresh agent will execute the plan.
 - **Multi-session**: work spanning multiple PRs or sessions, parallel workstreams, or high cost of context loss. Follow `multi-session.md` instead of `template.md`.
 
-Prefer 2–5 top-level steps (single-PR) or 3–12 PR-sized steps (multi-session). Use more than 5 single-PR steps only when the work clearly breaks into several independently shippable phases.
+Prefer 3–8 checkbox tasks (single-PR; the validator requires at least 3) or 3–12 PR-sized steps (multi-session). Use more than 8 single-PR tasks only when the work clearly breaks into several independently shippable phases.
 
 Each step should represent a coherent unit of work with a clear, verifiable outcome. Avoid mixing unrelated concerns in a single step.
 
@@ -35,15 +35,23 @@ If the user gives structural feedback, rewrite the step layout cleanly instead o
 
 ## 5. Write the final plan
 
-Save to `./plans/YY-MM-DD-<slug>.md` using the template in `references/template.md` (single-PR) or the format in `references/multi-session.md` (multi-session).
+Save to `./plans/YYYY-MM-DD-<task-name>-vN.md` (lowercase and hyphens only) using the template in `references/template.md` (single-PR) or the format in `references/multi-session.md` (multi-session).
 
 The saved plan is the clean result — not a transcript of your exploration. Keep background short.
 
 ## 6. Validate before finishing
 
-- file name matches `YY-MM-DD-<slug>.md`
-- required headings are present
-- steps are numbered and actionable
+Single-PR plans — run the validator and fix every error:
+
+```bash
+~/.pi/agent/skills/plan/validate-plan.sh plans/YYYY-MM-DD-<task-name>-vN.md
+```
+
+Multi-session plans — validation is the adversarial review gate in `references/multi-session.md` (the script above does not apply).
+
+Then confirm manually:
+
+- file name matches `YYYY-MM-DD-<task-name>-vN.md`
 - each step includes file paths, changes, and acceptance criteria (or verification commands plus exit criteria in multi-session plans)
-- non-goals and risks are explicit
+- non-goals are explicit
 - structure reflects user feedback exactly

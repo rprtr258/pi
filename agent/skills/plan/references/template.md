@@ -1,101 +1,82 @@
-# Plan Template
+# Plan Template (Single-PR)
 
-Save plans under `./plans/` using `YY-MM-DD-<slug>.md`.
-
-> This is the single-PR plan structure. For multi-session construction plans, see [multi-session](multi-session.md).
+Save plans under `./plans/` using `YYYY-MM-DD-task-name-vN.md` — lowercase and hyphens only, no underscores or uppercase.
 
 Example names:
 
-- `plans/26-03-01-refactor-map-view.md`
-- `plans/26-02-15-allow-password-resets.md`
+- `plans/2026-03-01-refactor-map-view-v1.md`
+- `plans/2026-02-15-allow-password-resets-v2.md`
+
+> This is the single-PR plan structure. For multi-session construction plans, see [multi-session](multi-session.md).
 
 ## Required Structure
 
 ```markdown
-# <Title>
+# [Task Name]
 
-## Goal
+## Objective
 
-<What this achieves and why — 2-3 sentences max>
+[Clear statement of goal and expected outcomes — 2-4 sentences max]
 
-## Tasks
+## Implementation Plan
 
-1. **Step 1**: Description
-   - File: `path/to/file.ts`
-   - Changes: What to modify and how. Include relevant, non-trivial snippets when useful.
-   - Acceptance: How to verify
+- [ ] 1. [First task with detailed description]
+  - Details: what needs to be done, affected files as `filepath:line` references, integration points
+  - Rationale: why this task is necessary
+  - Dependencies: what must be completed before this
 
-2. **Step 2**: Description
-   - File: `path/to/file.ts`
-   - Changes: What to modify and how. Include relevant, non-trivial snippets when useful.
-   - Acceptance: How to verify
+- [ ] 2. [Second task with detailed description]
+  - Details: ...
+  - Rationale: ...
+  - Dependencies: ...
 
-## Files to Modify
+## Verification Criteria
 
-- `path/to/file.rb` - what changes.
+- [Criterion 1: specific, measurable outcome]
+- [Criterion 2: measurable outcome]
 
-## New Files (if any)
+## Potential Risks and Mitigations
 
-- `path/to/new.rb` - purpose
+1. **[Risk Description]**
+   - Impact: potential impact if the risk occurs
+   - Mitigation: specific strategy to prevent or minimize it
 
-## What We're NOT Doing
+2. **[Risk Description]**
+   - Mitigation: ...
 
-<Explicitly scope out related work that is deferred or out of scope.>
+## Alternative Approaches
 
-## Risks & Edge Cases
+1. **[Alternative 1]** — description, trade-offs, why it was not chosen
+2. **[Alternative 2]** — ...
 
-<Things that could go wrong or need special handling.>
+## Non-Goals (optional)
+
+[Explicitly scope out related work that is deferred or out of scope.]
+
+## Assumptions (when requirements are ambiguous)
+
+- [Assumption]: why it was made
 ```
+
+Add Assumptions / Dependencies / Notes sections only when they carry real content.
 
 ## Writing Rules
 
-- Prefer 2–5 top-level steps.
-- Use sub-tasks only when a single top-level step genuinely needs internal sequencing.
-- Keep each step small and actionable.
-- Prefer concrete file-level changes over abstract architecture prose.
-- Each step must include acceptance criteria.
-- Avoid long background sections unless they are necessary to explain the step breakdown.
+- Tasks use checkbox format (`- [ ]`). Numbered lists or plain top-level bullets inside Implementation Plan fail validation.
+- 3–8 tasks; the validator errors with fewer than 3.
+- Be concrete: file paths as `filepath:line`, rationale for each task, integration points.
+- Describe the strategy in natural language; code snippets are allowed where they make a task unambiguous.
+- No placeholder tasks ("TODO", "TBD", "implement later").
+- Verification criteria must be specific and measurable.
+- Every risk needs a mitigation; document alternatives with trade-offs for non-obvious decisions.
+- Make assumptions explicit for ambiguous requirements.
 
-## Good Pattern
+## Validation
 
-```markdown
-## Tasks
+After saving (mandatory):
 
-1. **Step 1**: Move bottom-sheet controller state into the native context
-   - File: `app/javascript/components/bottom-sheet/context.svelte.ts`
-   - Changes: Create a class-backed context that owns snap-point state and app-facing helpers such as `collapse`, `setHalf`, and `expand`.
-   - Acceptance: Mobile sheet consumers can import the native context and no longer depend on `app/javascript/lib/bottom_sheet_context.svelte.ts`.
-
-2. **Step 2**: Remove helper imports from layout and pages
-   - File: `app/javascript/pages/layout.svelte`
-   - Changes: Replace `~/lib/bottom_sheet_context.svelte` imports with the native bottom-sheet context API and keep existing drag-collapse behavior intact.
-   - Acceptance: `rg "lib/bottom_sheet_context" app/javascript` returns no results.
+```bash
+~/.pi/agent/skills/plan/validate-plan.sh plans/YYYY-MM-DD-task-name-vN.md
 ```
 
-## Bad Pattern
-
-```markdown
-## Tasks
-
-### Architecture
-
-Long narrative about the desired system.
-
-### Refactor notes
-
-More prose without file-level changes or acceptance criteria.
-```
-
-## Validation Checklist
-
-Use this before finishing:
-
-- title is specific
-- goal is 2–3 sentences max
-- tasks are numbered
-- steps are actionable
-- file paths are explicit
-- acceptance criteria exist for every step
-- files-to-modify list is complete
-- non-goals are explicit
-- risks mention likely failure modes or tricky transitions
+Fix all errors and re-run until the plan passes. Warnings are advisory but worth resolving.
