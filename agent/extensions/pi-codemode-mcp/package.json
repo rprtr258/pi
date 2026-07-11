@@ -1,0 +1,39 @@
+{
+  "name": "pi-codemode-mcp",
+  "version": "0.1.0",
+  "description": "Pi extension that exposes MCP through list_mcp_tools and sandboxed call_mcp",
+  "type": "module",
+  "license": "MIT",
+  "keywords": [
+    "pi-package",
+    "pi",
+    "mcp",
+    "extension"
+  ],
+  "pi": {
+    "extensions": [
+      "./src/index.ts"
+    ]
+  },
+  "files": [
+    "src/index.ts",
+    "src/types.ts",
+    "src/config.ts",
+    "src/server-manager.ts",
+    "src/lifecycle.ts",
+    "src/metadata-cache.ts",
+    "src/npx-resolver.ts",
+    "src/oauth-handler.ts",
+    "src/sandbox-runtime.ts",
+    "README.md"
+  ],
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "@sinclair/typebox": "^0.34.52",
+    "@types/bun": "^1.3.14",
+    "@earendil-works/pi-coding-agent": "^0.80.10"
+  },
+  "devDependencies": {
+    "typescript": "^7.0.2"
+  }
+}
