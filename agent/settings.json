@@ -15,7 +15,8 @@
     "npm:pi-dynamic-workflows",
     "npm:napkin-ai",
     "npm:pi-lsp",
-    "npm:pi-fff"
+    "npm:pi-fff",
+    "npm:pi-interactive-shell"
   ],
   "enableInstallTelemetry": false,
   "hideThinkingBlock": false

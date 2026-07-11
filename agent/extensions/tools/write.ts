@@ -36,7 +36,7 @@ export default {
   name: "write",
   label: "write (safe)",
   description: [
-    "Create file with the given content.",
+    "Create file with the given content if it does not already exist.",
     "If the file already exists, use edit or hashline-edit instead.",
     "Automatically creates parent directories if they do not exist.",
   ].join(" "),
