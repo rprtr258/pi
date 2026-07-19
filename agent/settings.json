@@ -1,5 +1,5 @@
 {
-  "lastChangelogVersion": "0.80.3",
+  "lastChangelogVersion": "0.80.10",
   "defaultProvider": "deepseek",
   "defaultModel": "deepseek-v4-flash",
   "defaultThinkingLevel": "medium",
@@ -13,8 +13,9 @@
     "npm:context-mode",
     "npm:pi-subagents",
     "npm:pi-dynamic-workflows",
-    "npm:napkin-ai"
+    "npm:napkin-ai",
+    "npm:pi-lsp"
   ],
   "enableInstallTelemetry": false,
-  "hideThinkingBlock": true
+  "hideThinkingBlock": false
 }
