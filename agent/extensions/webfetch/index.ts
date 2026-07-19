@@ -1,6 +1,6 @@
 import {Text, type Component} from "@earendil-works/pi-tui";
 import {type ExtensionAPI, type AgentToolResult, type ToolDefinition, Theme, type ToolRenderResultOptions, keyHint} from "@earendil-works/pi-coding-agent";
-import {Type, type Static} from "@sinclair/typebox";
+import {Type, type Static} from "typebox";
 import {htmlToText, htmlToMd} from "./format";
 
 const MAX_RESPONSE_SIZE = 5 * 1024 * 1024 // 5MB

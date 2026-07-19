@@ -1,8 +1,8 @@
 import {existsSync, readdirSync, statSync} from "fs";
 import nodePath from "path";
 import stripAnsi from "strip-ansi";
+import {Type, type Static} from "typebox";
 import {Text} from "@earendil-works/pi-tui";
-import {Type, type Static} from "@sinclair/typebox";
 import {getCapabilities, getImageDimensions, imageFallback} from "@earendil-works/pi-tui";
 import {keyHint, type AgentToolResult, type Theme, type ToolDefinition} from "@earendil-works/pi-coding-agent";
 import {resolveToCwd, shortenPath} from "./path-utils.ts";

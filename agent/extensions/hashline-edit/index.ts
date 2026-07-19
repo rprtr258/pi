@@ -22,7 +22,7 @@
 import {readFile, stat} from "node:fs/promises";
 import {readFileSync, writeFileSync} from "node:fs";
 import {xxh32} from "xxh32";
-import {Type, type Static} from "@sinclair/typebox";
+import {Type, type Static} from "typebox";
 import {Text} from "@earendil-works/pi-tui";
 import {type ExtensionAPI, type AgentToolResult, type ThemeColor, Theme} from "@earendil-works/pi-coding-agent";
 
