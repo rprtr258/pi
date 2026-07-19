@@ -14,7 +14,8 @@
     "npm:pi-subagents",
     "npm:pi-dynamic-workflows",
     "npm:napkin-ai",
-    "npm:pi-lsp"
+    "npm:pi-lsp",
+    "npm:pi-fff"
   ],
   "enableInstallTelemetry": false,
   "hideThinkingBlock": false

@@ -15,8 +15,9 @@
  * Install:
  *   pi -e ~/.pi/agent/extensions/gcm
  */
-import {complete, type UserMessage} from "@mariozechner/pi-ai";
-import {type ExtensionAPI} from "@mariozechner/pi-coding-agent";
+import {type UserMessage} from "@earendil-works/pi-ai";
+import {complete} from "@earendil-works/pi-ai/compat";
+import {type ExtensionAPI} from "@earendil-works/pi-coding-agent";
 
 async function getDiff(pi: ExtensionAPI): Promise<string> {
   const result = await pi.exec("git", ["diff"]);

@@ -165,7 +165,7 @@
         "maxTokens": 131072
       }
     ],
-    "checkedAt": 1784458094989
+    "checkedAt": 1784491024834
   },
   "deepseek": {
     "models": [
@@ -234,6 +234,6 @@
         }
       }
     ],
-    "checkedAt": 1784458095263
+    "checkedAt": 1784491024806
   }
 }

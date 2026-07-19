@@ -2,17 +2,18 @@
  * Extension to get system prompt token count.
  * Demonstrates how to use estimateTokens() with system prompt.
  */
-import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
-import { estimateTokens } from "@mariozechner/pi-coding-agent";
+import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { estimateTokens } from "@earendil-works/pi-coding-agent";
 
 export default function (pi: ExtensionAPI) {
   pi.on("before_agent_start", (event, ctx) => {
     const prompt = ctx.getSystemPrompt();
     const tokens = estimateTokens({
       role: "user",
-      content: [{ type: "text", text: prompt }]
+      content: [{type: "text", text: prompt}],
+      timestamp: 0, // TODO: ebal rot etovo govna nahuya eto tut
     });
-    
+
     console.log(`System prompt tokens: ${tokens}`);
     ctx.ui.setStatus("system-tokens", `System: ${tokens} tokens`);
   });
@@ -28,9 +29,10 @@ export default function (pi: ExtensionAPI) {
       const prompt = ctx.getSystemPrompt();
       const tokens = estimateTokens({
         role: "user",
-        content: [{ type: "text", text: prompt }]
+        content: [{type: "text", text: prompt}],
+        timestamp: 0, // TODO: ebal rot etovo govna nahuya eto tut
       });
-      
+
       ctx.ui.notify(`System prompt: ${prompt.length} chars, ~${tokens} tokens`, "info");
     }
   });

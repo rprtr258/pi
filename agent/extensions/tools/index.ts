@@ -1,4 +1,4 @@
-import {createFindTool, type ExtensionAPI} from "@mariozechner/pi-coding-agent";
+import {createFindTool, type ExtensionAPI} from "@earendil-works/pi-coding-agent";
 import writeTool from "./write.ts";
 import lsTool from "./ls.ts";
 

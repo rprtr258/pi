@@ -16,11 +16,11 @@ import {spawn} from "node:child_process";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import {Type as ty} from "@sinclair/typebox";
-import type {AgentToolResult} from "@mariozechner/pi-agent-core";
-import {type Message, StringEnum} from "@mariozechner/pi-ai";
-import {type ExtensionAPI, getMarkdownTheme, withFileMutationQueue} from "@mariozechner/pi-coding-agent";
-import {Container, Markdown, Spacer, Text} from "@mariozechner/pi-tui";
+import {Type as ty} from "typebox";
+import type {AgentToolResult} from "@earendil-works/pi-agent-core";
+import {type Message} from "@earendil-works/pi-ai";
+import {type ExtensionAPI, getMarkdownTheme, withFileMutationQueue} from "@earendil-works/pi-coding-agent";
+import {Container, Markdown, Spacer, Text} from "@earendil-works/pi-tui";
 import {type AgentConfig, type AgentScope, discoverAgents, projectScopeDir, userScopeDir} from "./agents.js";
 
 const MAX_PARALLEL_TASKS = 8;
@@ -416,7 +416,7 @@ const ChainItem = ty.Object({
   cwd: ty.Optional(ty.String({ description: "Working directory for the agent process" })),
 });
 
-const AgentScopeSchema = StringEnum(["user", "project", "both"] as const, {
+const AgentScopeSchema = ty.Enum(["user", "project", "both"] as const, {
   description: 'Which agent directories to use. Default: "user". Use "both" to include project-local agents.',
   default: "user",
 });

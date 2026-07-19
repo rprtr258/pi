@@ -1,6 +1,6 @@
-import type { AgentMessage } from "@mariozechner/pi-agent-core";
-import type {ExtensionAPI, ExtensionCommandContext} from "@mariozechner/pi-coding-agent";
-import {DEFAULT_COMPACTION_SETTINGS, estimateTokens} from "@mariozechner/pi-coding-agent";
+import {type AgentMessage} from "@earendil-works/pi-agent-core";
+import {type ExtensionAPI, type ExtensionCommandContext} from "@earendil-works/pi-coding-agent";
+import {DEFAULT_COMPACTION_SETTINGS, estimateTokens} from "@earendil-works/pi-coding-agent";
 
 function myEstimateTokens(text: string): number {
   return estimateTokens({

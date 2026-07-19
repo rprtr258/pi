@@ -12,7 +12,7 @@ import {existsSync} from "fs";
 import {mkdir, writeFile} from "fs/promises";
 import {dirname} from "path";
 import {Type} from "@sinclair/typebox";
-import type {AgentToolResult, ToolDefinition} from "@mariozechner/pi-coding-agent";
+import type {AgentToolResult, ToolDefinition} from "@earendil-works/pi-coding-agent";
 import {resolveToCwd, shortenPath} from "./path-utils.ts";
 
 const Params = Type.Object({

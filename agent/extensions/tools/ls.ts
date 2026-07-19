@@ -1,10 +1,10 @@
 import {existsSync, readdirSync, statSync} from "fs";
 import nodePath from "path";
 import stripAnsi from "strip-ansi";
-import {Text} from "@mariozechner/pi-tui";
+import {Text} from "@earendil-works/pi-tui";
 import {Type, type Static} from "@sinclair/typebox";
-import {getCapabilities, getImageDimensions, imageFallback} from "@mariozechner/pi-tui";
-import {keyHint, type AgentToolResult, type Theme, type ToolDefinition} from "@mariozechner/pi-coding-agent";
+import {getCapabilities, getImageDimensions, imageFallback} from "@earendil-works/pi-tui";
+import {keyHint, type AgentToolResult, type Theme, type ToolDefinition} from "@earendil-works/pi-coding-agent";
 import {resolveToCwd, shortenPath} from "./path-utils.ts";
 
 // Format bytes as human-readable size.
