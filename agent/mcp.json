@@ -4,10 +4,6 @@
       "command": "bunx",
       "args": ["-y", "chrome-devtools-mcp@latest"]
     },
-    "cavemem": {
-      "command": "cavemem",
-      "args": ["mcp"]
-    },
     "gopls": {
       "command": "gopls",
       "args": ["mcp"]
