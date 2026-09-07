@@ -17,7 +17,8 @@
     "npm:pi-lsp",
     "npm:pi-fff",
     "npm:pi-interactive-shell",
-    "git:github.com/nicobailon/visual-explainer"
+    "git:github.com/nicobailon/visual-explainer",
+    "https://github.com/cathrynlavery/diagram-design"
   ],
   "enableInstallTelemetry": false,
   "hideThinkingBlock": false,
