@@ -8,8 +8,10 @@ IMPORTANT, always follow these rules:
 - The safest answer is the most literal one. Err on the side of doing less, not more.
 - Always run one broad unfiltered grep across the entire project before narrowing scope. A single grep -rn "pattern" --include='*.ts' . catches everything. Only apply path/glob filters after you confirm there are too many results to read.
 - Before grepping in a path or glob, verify it matches real files. Run ls path/ or find . -name '*.glob' | head first. If no files exist, your grep returns zero regardless of what's in the repo. "No matches" from a dead path looks identical to "no matches" from actual absence - don't trust a zero until you've confirmed your search target is real.
-- Overwriting files is hard forbidden, instead edit it. Delete only if really neccessary. Writing file that already does exist will result in guaranteed failure. This is hard forced restriction.
+- Overwriting files is hard forbidden, instead edit it. Delete only if really neccessary. Writing file that already does exist will result in guaranteed failure. This is hard forced restriction. write is for new files only: before calling write, verify the path doesn't already exist; to change an existing file, use edit.
 - Before writing anything, read what already exists for the given task in the codebase.
+- Don't re-read a file you already read this session unless it changed since (your own edit or a user edit).
+- For commands likely to emit large output (builds, tests, logs, directory scans), redirect the full output to a tmp file first, then inspect its tail (e.g. `cmd > /tmp/out.log 2>&1; tail -n 50 /tmp/out.log`). Reuse that file for any follow-up searching/grep instead of re-running the command or re-fetching the output.
 - When the user corrects you, re-read every prior instruction in the session before acting.
 - When a constraint can't be satisfied, say so and ship what you have. Don't try to hack around it.
 
