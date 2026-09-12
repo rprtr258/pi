@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
- * ck — Context Keeper v2
- * resume.mjs — full project briefing
+ * ck - Context Keeper v2
+ * resume.mjs - full project briefing
  *
  * Usage: node resume.mjs [name|number]
  * stdout: bordered briefing box

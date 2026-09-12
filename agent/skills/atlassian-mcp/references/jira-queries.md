@@ -303,7 +303,7 @@ Use `jira_create_issue_link` to create dependency relationships between issues.
 | `inward_issue_key` | **Blocker** | This issue blocks the other |
 | `outward_issue_key` | **Blocked** | This issue is blocked by the other |
 
-**Memory aid:** `inward_issue_key` = the issue receiving the inward description ("is blocked by") — but it is the *blocker*. Think: "the inward key is where the arrow points FROM."
+**Memory aid:** `inward_issue_key` = the issue receiving the inward description ("is blocked by") - but it is the *blocker*. Think: "the inward key is where the arrow points FROM."
 
 #### Single Blocks Link
 
@@ -372,7 +372,7 @@ await client.callTool({
 #### Anti-Pattern: Reversed Parameters
 
 ```typescript
-// WRONG — This makes AUTH-2 block AUTH-1 (backwards!)
+// WRONG - This makes AUTH-2 block AUTH-1 (backwards!)
 await client.callTool({
   name: "jira_create_issue_link",
   arguments: {

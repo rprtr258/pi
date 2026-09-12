@@ -1,6 +1,6 @@
 # benchstat Reference
 
-`benchstat` computes statistical summaries and A/B comparisons of Go benchmark results. A single benchmark run tells you nothing about variance — `benchstat` tells you whether the difference between two runs is real or noise.
+`benchstat` computes statistical summaries and A/B comparisons of Go benchmark results. A single benchmark run tells you nothing about variance - `benchstat` tells you whether the difference between two runs is real or noise.
 
 ## Installation
 
@@ -24,13 +24,13 @@ Use the standard Go benchmark function signature in `*_test.go`:
 
 ### Step 1: Measure baseline
 
-Run benchmarks with `-count=10` or more. Each run produces one data point — you need at least 10 to compute a meaningful confidence interval:
+Run benchmarks with `-count=10` or more. Each run produces one data point - you need at least 10 to compute a meaningful confidence interval:
 
 ```bash
 go test -run='^$' -bench=BenchmarkParse -benchmem -count=10 ./pkg/parser | tee old.txt
 ```
 
-`-run='^$'` skips unit tests so only benchmarks run — avoids wasting time on tests during measurement sessions.
+`-run='^$'` skips unit tests so only benchmarks run - avoids wasting time on tests during measurement sessions.
 
 ### Step 2: Make your change
 
@@ -74,12 +74,12 @@ Parse-32    12.00 ± 0%   6.000 ± 0%  -50.00% (p=0.000 n=10)
 
 | Element | Meaning | What to look for |
 | --- | --- | --- |
-| **median** (e.g., `4.592µ`) | Central value across runs — more robust than mean because outliers don't skew it | The reference number for this benchmark |
-| **± N%** (e.g., `± 2%`) | Half-width of the 95% confidence interval as a percentage of the median | Low (≤2%) = stable measurement. High (>5%) = noisy — investigate noise sources before trusting results |
+| **median** (e.g., `4.592µ`) | Central value across runs - more robust than mean because outliers don't skew it | The reference number for this benchmark |
+| **± N%** (e.g., `± 2%`) | Half-width of the 95% confidence interval as a percentage of the median | Low (≤2%) = stable measurement. High (>5%) = noisy - investigate noise sources before trusting results |
 | **vs base** (e.g., `-33.78%`) | Percentage change from the first input (base) to subsequent inputs | Negative = faster/smaller. Positive = slower/larger |
 | **p=N** (e.g., `p=0.000`) | p-value from Mann-Whitney U-test (non-parametric) | <0.05 = statistically significant. ≥0.05 = difference could be noise |
 | **n=N** (e.g., `n=10`) | Number of samples used in the comparison | Should match your `-count`. Lower means some samples were filtered as outliers |
-| **`~`** | No statistically significant difference detected | Do NOT claim improvement — the change might be zero |
+| **`~`** | No statistically significant difference detected | Do NOT claim improvement - the change might be zero |
 | **geomean** row | Geometric mean of changes across all benchmarks in the table | Overall proportional change; useful when comparing many benchmarks at once |
 
 ### Unit normalization
@@ -112,7 +112,7 @@ These flags control how benchmark results are grouped into tables, rows, and col
 | `-table KEYS` | `.config` | Group results into separate tables by these keys |
 | `-row KEYS` | `.fullname` | Group results into table rows by these keys |
 | `-col KEYS` | `.file` | Compare across columns with different values of these keys |
-| `-ignore KEYS` | (none) | Omit keys from grouping — suppresses "benchmarks vary" warnings |
+| `-ignore KEYS` | (none) | Omit keys from grouping - suppresses "benchmarks vary" warnings |
 
 **Available keys:**
 
@@ -124,13 +124,13 @@ These flags control how benchmark results are grouped into tables, rows, and col
 | `.config` | All file-level configuration keys combined | `goos/goarch/pkg/cpu` |
 | `.unit` | Metric unit name | `sec/op`, `B/op`, `allocs/op` |
 | `/{name-key}` | Per-benchmark sub-name key | `/size` extracts `4k` from `Parse/size=4k` |
-| `/gomaxprocs` | GOMAXPROCS value — recognizes both `/gomaxprocs=N` and the `-N` suffix convention | `16` from `Parse-16` |
+| `/gomaxprocs` | GOMAXPROCS value - recognizes both `/gomaxprocs=N` and the `-N` suffix convention | `16` from `Parse-16` |
 | `goos` | Operating system (from benchmark output header) | `linux`, `darwin` |
 | `goarch` | Architecture (from benchmark output header) | `amd64`, `arm64` |
 | `pkg` | Package path (from benchmark output header) | `myapp/pkg/parser` |
 | `cpu` | CPU model (from benchmark output header) | `AMD Ryzen 9 5950X` |
 
-**Sort order modifiers** — append to any key:
+**Sort order modifiers** - append to any key:
 
 | Modifier | Meaning | Example |
 | --- | --- | --- |
@@ -148,7 +148,7 @@ See [Filter Expression Syntax](#filter-expression-syntax) below for full details
 
 ### Input labeling
 
-Not a flag but a syntax feature — label input files for clearer column headers:
+Not a flag but a syntax feature - label input files for clearer column headers:
 
 ```bash
 # Default: file names become column headers
@@ -181,10 +181,10 @@ Filters select which benchmarks to include before grouping and comparison. The s
 
 | Operator | Meaning | Example |
 | --- | --- | --- |
-| `x y` | AND — both must match (implicit) | `goos:linux goarch:amd64` |
-| `x AND y` | AND — explicit form | `goos:linux AND goarch:amd64` |
-| `x OR y` | OR — either must match | `goos:linux OR goos:darwin` |
-| `-x` | NOT — must not match | `-goos:windows` |
+| `x y` | AND - both must match (implicit) | `goos:linux goarch:amd64` |
+| `x AND y` | AND - explicit form | `goos:linux AND goarch:amd64` |
+| `x OR y` | OR - either must match | `goos:linux OR goos:darwin` |
+| `-x` | NOT - must not match | `-goos:windows` |
 | `(...)` | Grouping / subexpression | `(goos:linux OR goos:darwin) -pkg:/internal/` |
 
 ### Filter key types
@@ -277,7 +277,7 @@ Compares performance across different GOMAXPROCS values within the same file.
 benchstat -table pkg old.txt new.txt
 ```
 
-Creates one table per package — useful when comparing benchmarks across multiple packages.
+Creates one table per package - useful when comparing benchmarks across multiple packages.
 
 ### Ignore a dimension
 
@@ -320,11 +320,11 @@ With `assume=exact`:
 
 ### `assume=nothing` (default)
 
-Standard behavior — uses non-parametric statistics (median + Mann-Whitney U-test). Requires multiple samples.
+Standard behavior - uses non-parametric statistics (median + Mann-Whitney U-test). Requires multiple samples.
 
 ## Interleaving Runs
 
-Sequential runs (all old, then all new) are vulnerable to **systematic bias** — thermal throttling builds up over time, background processes come and go, CPU frequency scaling adapts. Interleaving reduces this:
+Sequential runs (all old, then all new) are vulnerable to **systematic bias** - thermal throttling builds up over time, background processes come and go, CPU frequency scaling adapts. Interleaving reduces this:
 
 ```bash
 # Pre-compile both versions to avoid measuring compilation time
@@ -332,7 +332,7 @@ go test -c -o old.test ./pkg/parser
 # ... make your change ...
 go test -c -o new.test ./pkg/parser
 
-# Interleave runs — alternating reduces systematic bias
+# Interleave runs - alternating reduces systematic bias
 for i in $(seq 1 10); do
     ./old.test -test.bench=BenchmarkParse -test.benchmem >> old.txt
     ./new.test -test.bench=BenchmarkParse -test.benchmem >> new.txt
@@ -341,7 +341,7 @@ done
 benchstat old.txt new.txt
 ```
 
-Pre-compiling with `go test -c` is critical — without it, each `go test -bench` invocation includes compilation time, which varies and contaminates results.
+Pre-compiling with `go test -c` is critical - without it, each `go test -bench` invocation includes compilation time, which varies and contaminates results.
 
 ## How Many Runs?
 
@@ -352,9 +352,9 @@ Pre-compiling with `go test -c` is critical — without it, each `go test -bench
 | Detecting small changes (<5%) | 20-30 | More samples narrow the CI; needed when signal is small relative to noise |
 | Noisy CI environment | 20+ | Shared CI runners have higher variance; more runs compensate |
 
-**Never "retry until significant"** — rerunning benchmarks until `~` goes away introduces selection bias (p-hacking). If 10 runs show `~`, the change is probably not meaningful. Increase run count **once** and accept the result.
+**Never "retry until significant"** - rerunning benchmarks until `~` goes away introduces selection bias (p-hacking). If 10 runs show `~`, the change is probably not meaningful. Increase run count **once** and accept the result.
 
-At α=0.05, expect ~5% of benchmarks to randomly report significance with no real change (false positives). This is normal — don't chase them.
+At α=0.05, expect ~5% of benchmarks to randomly report significance with no real change (false positives). This is normal - don't chase them.
 
 ## Single-File Summary
 
@@ -377,7 +377,7 @@ Shows median and confidence interval for each benchmark. Use to:
 | `-count=1` | Single run has no variance information; benchstat can't compute confidence | Always use `-count=6` minimum, prefer `-count=10` |
 | Running on a laptop on battery | CPU throttles to save power; variance explodes | Plug in, disable power saving, or use a desktop/server |
 | Running with browser/IDE open | Background processes steal CPU cycles; adds noise | Close unnecessary applications, or accept wider CIs |
-| Rerunning until `~` disappears | Selection bias (p-hacking) — you're cherry-picking runs that showed improvement | Run once with high `-count`, accept the result |
+| Rerunning until `~` disappears | Selection bias (p-hacking) - you're cherry-picking runs that showed improvement | Run once with high `-count`, accept the result |
 | Comparing across machines | Different CPUs, memory, OS = incomparable baselines | Same machine, same conditions, both runs |
 | Not interleaving | Systematic bias from thermal throttling, background load drift | Pre-compile both versions with `go test -c`, alternate runs |
 | Measuring compilation time | `go test -bench` compiles first; startup overhead varies | Pre-compile with `go test -c`, run the binary directly |

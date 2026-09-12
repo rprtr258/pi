@@ -3,7 +3,7 @@
  *
  * Adapts the microcompact concept from claude-code's context management system
  * into a provider-agnostic Pi extension. Works with any LLM provider (Anthropic,
- * Google, OpenAI, etc.) — no Anthropic API dependency.
+ * Google, OpenAI, etc.) - no Anthropic API dependency.
  *
  * What it does:
  * 1. Before each LLM call, scans the message list for tool results
@@ -15,10 +15,10 @@
  * These produce large output that becomes stale once the LLM has moved on.
  *
  * Unlike full compaction (/compact), microcompact is:
- * - Silent — no summarization API call needed
- * - Near-zero cost — just local message mutation
- * - Fine-grained — clears individual tool results, not entire turns
- * - Reversible — the placeholder preserves the tool name and call ID
+ * - Silent - no summarization API call needed
+ * - Near-zero cost - just local message mutation
+ * - Fine-grained - clears individual tool results, not entire turns
+ * - Reversible - the placeholder preserves the tool name and call ID
  *
  * Usage:
  *   pi --extension microcompact-pi-extension.ts
@@ -29,7 +29,7 @@
 
 import type {ExtensionAPI} from "@earendil-works/pi-coding-agent";
 
-// ─── Configuration ──────────────────────────────────────────────────────────
+// === Configuration ==========================================================
 
 /** Tool names whose result content is compactable (large, stale-able output). */
 const COMPACTABLE_TOOL_NAMES = new Set([
@@ -58,7 +58,7 @@ const KEEP_RECENT = 5;
  */
 const IDLE_GAP_THRESHOLD_MINUTES = 60;
 
-// ─── State ──────────────────────────────────────────────────────────────────
+// === State ==================================================================
 
 /** Track which messages we've already cleared to avoid redundant operations. */
 const clearedMessageKeys = new Set<string>();
@@ -81,7 +81,7 @@ function isIdleSession(messages: readonly { role: string; timestamp?: number }[]
       return gapMs > IDLE_GAP_THRESHOLD_MINUTES * 60_000;
     }
   }
-  return false; // no assistant message found — first turn, not idle
+  return false; // no assistant message found - first turn, not idle
 }
 
 /**
@@ -106,7 +106,7 @@ function estimateContentSize(content: unknown): string {
  */
 function clearToolResult(msg: { content: unknown; toolName?: string }): void {
   const size = estimateContentSize(msg.content);
-  const placeholder = `[Cleared by microcompact — old tool result. Original size: ${size}]`;
+  const placeholder = `[Cleared by microcompact - old tool result. Original size: ${size}]`;
   msg.content = [{ type: "text" as const, text: placeholder }];
 }
 
@@ -118,7 +118,7 @@ function deepClone<T>(obj: T): T {
   return JSON.parse(JSON.stringify(obj));
 }
 
-// ─── Extension ──────────────────────────────────────────────────────────────
+// === Extension ==============================================================
 
 export default function (pi: ExtensionAPI) {
   pi.on("context", (event) => {

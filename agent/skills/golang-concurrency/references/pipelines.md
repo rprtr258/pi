@@ -57,7 +57,7 @@ func main() {
 
 **Key rules for pipelines**:
 
-- Pipeline stages MUST accept and respect context cancellation — every stage must select on `ctx.Done()` to avoid goroutine leaks on early cancellation
+- Pipeline stages MUST accept and respect context cancellation - every stage must select on `ctx.Done()` to avoid goroutine leaks on early cancellation
 - The producer (first stage) closes its output channel; each subsequent stage closes its own output
 - NEVER create unbounded goroutines in pipeline stages
 - Use unbuffered channels unless you have measured throughput needs

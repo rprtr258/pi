@@ -12,7 +12,7 @@ Before spawning subagents, write a user-facing explanation of the problem space 
 
 - the constraints any new interface must satisfy;
 - the dependencies it relies on, and which category they fall into from [deepening](deepening.md);
-- a rough illustrative code sketch to ground the constraints — not a proposal, just enough to make constraints concrete.
+- a rough illustrative code sketch to ground the constraints - not a proposal, just enough to make constraints concrete.
 
 Show this to the user, then proceed to Step 2. The user reads while the subagents work in parallel.
 
@@ -22,9 +22,9 @@ Spawn three or more subagents in parallel. Each must produce a radically differe
 
 Prompt each subagent with a separate technical brief: file paths, coupling details, dependency category from [deepening](deepening.md), and what sits behind the seam. Give each agent a different design constraint:
 
-- Agent 1: minimize the interface — aim for 1–3 entry points and maximum leverage per entry point.
-- Agent 2: maximize flexibility — support many use cases and extension.
-- Agent 3: optimize for the most common caller — make the default case trivial.
+- Agent 1: minimize the interface - aim for 1–3 entry points and maximum leverage per entry point.
+- Agent 2: maximize flexibility - support many use cases and extension.
+- Agent 3: optimize for the most common caller - make the default case trivial.
 - Agent 4, when applicable: design around adapters for cross-seam dependencies.
 
 Include [language](language.md) vocabulary and project vocabulary in the brief so each subagent names things consistently.
@@ -41,8 +41,8 @@ Each subagent outputs:
 
 Present designs sequentially so the user can absorb each one, then compare them in prose. Contrast by:
 
-- **depth** — leverage at the interface;
-- **locality** — where change concentrates;
-- **seam placement** — what callers and tests cross.
+- **depth** - leverage at the interface;
+- **locality** - where change concentrates;
+- **seam placement** - what callers and tests cross.
 
-After comparing, give your own recommendation. If elements from different designs combine well, propose a hybrid. Be opinionated — the user wants a strong read, not a menu.
+After comparing, give your own recommendation. If elements from different designs combine well, propose a hybrid. Be opinionated - the user wants a strong read, not a menu.

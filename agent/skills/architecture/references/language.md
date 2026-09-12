@@ -1,11 +1,11 @@
 # Language
 
-Shared vocabulary for every suggestion this skill makes. Use these terms exactly — don't substitute "component," "service," "API," or "boundary" when one of these terms is meant. Consistent language is the point.
+Shared vocabulary for every suggestion this skill makes. Use these terms exactly - don't substitute "component," "service," "API," or "boundary" when one of these terms is meant. Consistent language is the point.
 
 ## Terms
 
 **Module**
-Anything with an interface and an implementation. Deliberately scale-agnostic — applies equally to a function, class, package, or tier-spanning slice.
+Anything with an interface and an implementation. Deliberately scale-agnostic - applies equally to a function, class, package, or tier-spanning slice.
 _Avoid_: unit, component, service.
 
 **Interface**
@@ -13,10 +13,10 @@ Everything a caller must know to use the module correctly. Includes the type sig
 _Avoid_: API, signature.
 
 **Implementation**
-What's inside a module — its body of code. Distinct from **Adapter**: a thing can be a small adapter with a large implementation or a large adapter with a small implementation. Reach for "adapter" when the seam is the topic; "implementation" otherwise.
+What's inside a module - its body of code. Distinct from **Adapter**: a thing can be a small adapter with a large implementation or a large adapter with a small implementation. Reach for "adapter" when the seam is the topic; "implementation" otherwise.
 
 **Depth**
-Leverage at the interface — the amount of behaviour a caller or test can exercise per unit of interface they have to learn. A module is **deep** when a large amount of behaviour sits behind a small interface. A module is **shallow** when the interface is nearly as complex as the implementation.
+Leverage at the interface - the amount of behaviour a caller or test can exercise per unit of interface they have to learn. A module is **deep** when a large amount of behaviour sits behind a small interface. A module is **shallow** when the interface is nearly as complex as the implementation.
 
 **Seam**
 A place where you can alter behaviour without editing in that place. The location at which a module's interface lives. Choosing where to put the seam is its own design decision, distinct from what goes behind it.

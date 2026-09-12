@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
- * ck — Context Keeper v2
- * init.mjs — auto-detect project info and output JSON for Claude to confirm
+ * ck - Context Keeper v2
+ * init.mjs - auto-detect project info and output JSON for Claude to confirm
  *
  * Usage: node init.mjs
  * stdout: JSON with auto-detected project info
@@ -38,7 +38,7 @@ function extractSection(md, heading) {
   return m ? m[1].trim() : null;
 }
 
-// ── package.json ──────────────────────────────────────────────────────────────
+// == package.json ==============================================================
 const pkg = readFile('package.json');
 if (pkg) {
   try {
@@ -66,7 +66,7 @@ if (pkg) {
   } catch { /* malformed package.json */ }
 }
 
-// ── go.mod ────────────────────────────────────────────────────────────────────
+// == go.mod ====================================================================
 const goMod = readFile('go.mod');
 if (goMod) {
   if (!output.stack.includes('Go')) output.stack.push('Go');
@@ -74,7 +74,7 @@ if (goMod) {
   if (modName && !output.name) output.name = modName.split('/').pop();
 }
 
-// ── Cargo.toml ────────────────────────────────────────────────────────────────
+// == Cargo.toml ================================================================
 const cargo = readFile('Cargo.toml');
 if (cargo) {
   if (!output.stack.includes('Rust')) output.stack.push('Rust');
@@ -82,7 +82,7 @@ if (cargo) {
   if (crateName && !output.name) output.name = crateName;
 }
 
-// ── pyproject.toml ────────────────────────────────────────────────────────────
+// == pyproject.toml ============================================================
 const pyproject = readFile('pyproject.toml');
 if (pyproject) {
   if (!output.stack.includes('Python')) output.stack.push('Python');
@@ -90,14 +90,14 @@ if (pyproject) {
   if (pyName && !output.name) output.name = pyName;
 }
 
-// ── .git/config (repo URL) ────────────────────────────────────────────────────
+// == .git/config (repo URL) ====================================================
 const gitConfig = readFile('.git/config');
 if (gitConfig) {
   const repoMatch = gitConfig.match(/url\s*=\s*(.+)/);
   if (repoMatch) output.repo = repoMatch[1].trim();
 }
 
-// ── CLAUDE.md ─────────────────────────────────────────────────────────────────
+// == CLAUDE.md =================================================================
 const claudeMd = readFile('CLAUDE.md');
 if (claudeMd) {
   const goal = extractSection(claudeMd, 'Current Goal');
@@ -121,7 +121,7 @@ if (claudeMd) {
   if (whatItIs && !output.description) output.description = whatItIs.split('\n')[0].trim();
 }
 
-// ── README.md (description fallback) ─────────────────────────────────────────
+// == README.md (description fallback) =========================================
 const readme = readFile('README.md');
 if (readme && !output.description) {
   // First non-header, non-badge, non-empty paragraph
@@ -135,7 +135,7 @@ if (readme && !output.description) {
   }
 }
 
-// ── Name fallback: directory name ─────────────────────────────────────────────
+// == Name fallback: directory name =============================================
 if (!output.name) {
   output.name = basename(cwd).toLowerCase().replace(/\s+/g, '-');
 }

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
- * ck — Context Keeper v2
- * session-start.mjs — inject compact project context on session start.
+ * ck - Context Keeper v2
+ * session-start.mjs - inject compact project context on session start.
  *
  * Injects ~100 tokens (not ~2,500 like v1).
  * SKILL.md is injected separately (still small at ~50 lines).
@@ -24,7 +24,7 @@ const PROJECTS_FILE   = resolve(CK_HOME, 'projects.json');
 const CURRENT_SESSION = resolve(CK_HOME, 'current-session.json');
 const SKILL_FILE      = resolve(homedir(), '.claude', 'skills', 'ck', 'SKILL.md');
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+// === Helpers ==================================================================
 
 function readJson(p) {
   try { return JSON.parse(readFileSync(p, 'utf8')); } catch { return null; }
@@ -69,7 +69,7 @@ function extractClaudeMdGoal(projectPath) {
   } catch { return null; }
 }
 
-// ─── Session ID from stdin ────────────────────────────────────────────────────
+// === Session ID from stdin ====================================================
 
 function readSessionId() {
   try {
@@ -78,13 +78,13 @@ function readSessionId() {
   } catch { return null; }
 }
 
-// ─── Main ─────────────────────────────────────────────────────────────────────
+// === Main =====================================================================
 
 function main() {
   const cwd = process.env.PWD || process.cwd();
   const sessionId = readSessionId();
 
-  // Load skill (always inject — now only ~50 lines)
+  // Load skill (always inject - now only ~50 lines)
   const skill = existsSync(SKILL_FILE) ? readFileSync(SKILL_FILE, 'utf8') : '';
 
   const projects = readJson(PROJECTS_FILE) || {};
@@ -106,7 +106,7 @@ function main() {
   const parts = [];
   if (skill) parts.push(skill);
 
-  // ── REGISTERED PROJECT ────────────────────────────────────────────────────
+  // == REGISTERED PROJECT ====================================================
   if (entry?.contextDir) {
     const contextFile = resolve(CK_HOME, 'contexts', entry.contextDir, 'context.json');
     const context = readJson(contextFile);
@@ -117,32 +117,32 @@ function main() {
       const sessionCount = context.sessions?.length || 0;
       const displayName = context.displayName ?? context.name;
 
-      // ── Compact summary block (~100 tokens) ──────────────────────────────
+      // == Compact summary block (~100 tokens) ==============================
       const summaryLines = [
         `ck: ${displayName} | ${daysAgo(sessionDate)} | ${sessionCount} session${sessionCount !== 1 ? 's' : ''}`,
-        `Goal: ${context.goal || '—'}`,
+        `Goal: ${context.goal || '-'}`,
         latest.leftOff ? `Left off: ${latest.leftOff.split('\n')[0]}` : null,
         latest.nextSteps?.length ? `Next: ${latest.nextSteps.slice(0, 2).join(' · ')}` : null,
       ].filter(Boolean);
 
-      // ── Unsaved session detection ─────────────────────────────────────────
+      // == Unsaved session detection =========================================
       if (prevSession?.sessionId && prevSession.sessionId !== sessionId) {
         // Check if previous session ID exists in sessions array
         const alreadySaved = context.sessions?.some(s => s.id === prevSession.sessionId);
         if (!alreadySaved) {
-          summaryLines.push(`WARNING Last session wasn't saved — run /ck:save to capture it`);
+          summaryLines.push(`WARNING Last session wasn't saved - run /ck:save to capture it`);
         }
       }
 
-      // ── Git activity ──────────────────────────────────────────────────────
+      // == Git activity ======================================================
       const gitLine = gitLogSince(cwd, sessionDate);
       if (gitLine) summaryLines.push(`Git: ${gitLine}`);
 
-      // ── Goal mismatch detection ───────────────────────────────────────────
+      // == Goal mismatch detection ===========================================
       const claudeMdGoal = extractClaudeMdGoal(cwd);
       if (claudeMdGoal && context.goal &&
           claudeMdGoal.toLowerCase().trim() !== context.goal.toLowerCase().trim()) {
-        summaryLines.push(`WARNING Goal mismatch — ck: "${context.goal.slice(0, 40)}" · CLAUDE.md: "${claudeMdGoal.slice(0, 40)}"`);
+        summaryLines.push(`WARNING Goal mismatch - ck: "${context.goal.slice(0, 40)}" · CLAUDE.md: "${claudeMdGoal.slice(0, 40)}"`);
         summaryLines.push(`   Run /ck:save with updated goal to sync`);
       }
 
@@ -164,7 +164,7 @@ function main() {
         summaryLines.join('\n'),
         '```',
         ``,
-        `After the block, add one line: "Ready — what are we working on?"`,
+        `After the block, add one line: "Ready - what are we working on?"`,
         `If you see WARNING lines above, mention them briefly after the block.`,
       ].join('\n'));
 
@@ -172,7 +172,7 @@ function main() {
     }
   }
 
-  // ── NOT IN A REGISTERED PROJECT ────────────────────────────────────────────
+  // == NOT IN A REGISTERED PROJECT ============================================
   const entries = Object.entries(projects);
   if (entries.length === 0) return parts;
 
@@ -181,7 +181,7 @@ function main() {
     .map(([path, info]) => {
       const ctx = readJson(resolve(CK_HOME, 'contexts', info.contextDir, 'context.json'));
       const latest = ctx?.sessions?.[ctx.sessions.length - 1] || {};
-      return { name: info.name, path, lastDate: latest.date || '', summary: latest.summary || '—', ctx };
+      return { name: info.name, path, lastDate: latest.date || '', summary: latest.summary || '-', ctx };
     })
     .sort((a, b) => (b.lastDate > a.lastDate ? 1 : -1))
     .slice(0, 3);
@@ -196,7 +196,7 @@ function main() {
   });
 
   const miniStatus = [
-    `ck — recent projects:`,
+    `ck - recent projects:`,
     `  ${'PROJECT'.padEnd(16)}  S  ${'LAST SEEN'.padEnd(12)}  LAST SESSION`,
     `  ${'─'.repeat(68)}`,
     ...miniRows,

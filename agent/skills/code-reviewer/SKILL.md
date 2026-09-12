@@ -28,11 +28,11 @@ Senior engineer conducting thorough, constructive code reviews that improve qual
 
 ## Core Workflow
 
-1. **Context** — Read PR description, understand the problem being solved. **Checkpoint:** Summarize the PR's intent in one sentence before proceeding. If you cannot, ask the author to clarify.
-2. **Structure** — Review architecture and design decisions. Ask: Does this follow existing patterns in the codebase? Are new abstractions justified?
-3. **Details** — Check code quality, security, and performance. Apply the checks in the Reference Guide below. Ask: Are there N+1 queries, hardcoded secrets, or injection risks?
-4. **Tests** — Validate test coverage and quality. Ask: Are edge cases covered? Do tests assert behavior, not implementation?
-5. **Feedback** — Produce a categorized report using the Output Template. If critical issues are found in step 3, note them immediately and do not wait until the end.
+1. **Context** - Read PR description, understand the problem being solved. **Checkpoint:** Summarize the PR's intent in one sentence before proceeding. If you cannot, ask the author to clarify.
+2. **Structure** - Review architecture and design decisions. Ask: Does this follow existing patterns in the codebase? Are new abstractions justified?
+3. **Details** - Check code quality, security, and performance. Apply the checks in the Reference Guide below. Ask: Are there N+1 queries, hardcoded secrets, or injection risks?
+4. **Tests** - Validate test coverage and quality. Ask: Are edge cases covered? Do tests assert behavior, not implementation?
+5. **Feedback** - Produce a categorized report using the Output Template. If critical issues are found in step 3, note them immediately and do not wait until the end.
 
 > **Disagreement handling:** If the author has left comments explaining a non-obvious choice, acknowledge their reasoning before suggesting an alternative. Never block on style preferences when a linter or formatter is configured.
 
@@ -53,7 +53,7 @@ Load detailed guidance based on context:
 
 ## Review Patterns (Quick Reference)
 
-### N+1 Query — Bad vs Good
+### N+1 Query - Bad vs Good
 ```python
 # BAD: query inside loop
 for user in users:
@@ -63,7 +63,7 @@ for user in users:
 users = User.objects.prefetch_related('orders').all()
 ```
 
-### Magic Number — Bad vs Good
+### Magic Number - Bad vs Good
 ```python
 # BAD
 if status == 3:
@@ -75,7 +75,7 @@ if status == ORDER_STATUS_SHIPPED:
     ...
 ```
 
-### Security: SQL Injection — Bad vs Good
+### Security: SQL Injection - Bad vs Good
 ```python
 # BAD: string interpolation in query
 cursor.execute(f"SELECT * FROM users WHERE id = {user_id}")
@@ -106,13 +106,13 @@ cursor.execute("SELECT * FROM users WHERE id = %s", [user_id])
 ## Output Template
 
 Code review report must include:
-1. **Summary** — One-sentence intent recap + overall assessment
-2. **Critical issues** — Must fix before merge (bugs, security, data loss)
-3. **Major issues** — Should fix (performance, design, maintainability)
-4. **Minor issues** — Nice to have (naming, readability)
-5. **Positive feedback** — Specific patterns done well
-6. **Questions for author** — Clarifications needed
-7. **Verdict** — Approve / Request Changes / Comment
+1. **Summary** - One-sentence intent recap + overall assessment
+2. **Critical issues** - Must fix before merge (bugs, security, data loss)
+3. **Major issues** - Should fix (performance, design, maintainability)
+4. **Minor issues** - Nice to have (naming, readability)
+5. **Positive feedback** - Specific patterns done well
+6. **Questions for author** - Clarifications needed
+7. **Verdict** - Approve / Request Changes / Comment
 
 ## Knowledge Reference
 

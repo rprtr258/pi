@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 /**
- * ck — Context Keeper v2
- * migrate.mjs — convert v1 (CONTEXT.md + meta.json) to v2 (context.json)
+ * ck - Context Keeper v2
+ * migrate.mjs - convert v1 (CONTEXT.md + meta.json) to v2 (context.json)
  *
  * Usage:
- *   node migrate.mjs           — migrate all v1 projects
- *   node migrate.mjs --dry-run — preview without writing
+ *   node migrate.mjs           - migrate all v1 projects
+ *   node migrate.mjs --dry-run - preview without writing
  *
  * Safe: backs up meta.json to meta.json.v1-backup, never deletes data.
  * exit 0: success  exit 1: error
@@ -18,10 +18,10 @@ import { readProjects, writeProjects, saveContext, today, shortId, CONTEXTS_DIR 
 const isDryRun = process.argv.includes('--dry-run');
 
 if (isDryRun) {
-  console.log('ck migrate — DRY RUN (no files will be written)\n');
+  console.log('ck migrate - DRY RUN (no files will be written)\n');
 }
 
-// ── v1 markdown parsers ───────────────────────────────────────────────────────
+// == v1 markdown parsers =======================================================
 
 function extractSection(md, heading) {
   const re = new RegExp(`## ${heading}\\n([\\s\\S]*?)(?=\\n## |$)`);
@@ -79,7 +79,7 @@ function parseLeftOff(text) {
   return [{ leftOff: bullets.length ? bullets.join('\n') : text.trim() }];
 }
 
-// ── Main migration ─────────────────────────────────────────────────────────────
+// == Main migration =============================================================
 
 const projects = readProjects();
 let migrated = 0;
@@ -98,7 +98,7 @@ for (const [projectPath, info] of Object.entries(projects)) {
     try {
       const existing = JSON.parse(readFileSync(contextJsonPath, 'utf8'));
       if (existing.version === 2) {
-        console.log(`  ✓ ${contextDir} — already v2, skipping`);
+        console.log(`  ✓ ${contextDir} - already v2, skipping`);
         skipped++;
         continue;
       }
@@ -185,7 +185,7 @@ for (const [projectPath, info] of Object.entries(projects)) {
     // Update projects.json entry
     projects[projectPath].lastUpdated = today();
 
-    console.log(`    ✓ Migrated — ${sessions.length} session(s), ${decisions.length} decision(s)`);
+    console.log(`    ✓ Migrated - ${sessions.length} session(s), ${decisions.length} decision(s)`);
     migrated++;
   } catch (e) {
     console.log(`    ✗ Error: ${e.message}`);

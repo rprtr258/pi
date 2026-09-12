@@ -15,13 +15,13 @@ Do NOT write any code, run any tests, or take any implementation action until th
 
 ## Process
 
-1. **Understand** — ask clarifying questions. Confirm acceptance criteria.
-2. **Explore** — use list_dir, glob, grep, read to understand the codebase structure, patterns, and testing framework.
-3. **Scope check** — if the spec covers multiple independent subsystems, suggest breaking into separate plans.
-4. **File structure mapping** — map which files will be created or modified and what each is responsible for.
-5. **Write the plan** — each task is one action (2-5 min). Include exact file paths, complete code snippets, and expected test output (PASS/FAIL).
-6. **Save the plan** — write to `PLAN-<topic>.md`.
-7. **Present and wait** — present the plan and ask for approval. Do not proceed until the user explicitly confirms.
+1. **Understand** - ask clarifying questions. Confirm acceptance criteria.
+2. **Explore** - use list_dir, glob, grep, read to understand the codebase structure, patterns, and testing framework.
+3. **Scope check** - if the spec covers multiple independent subsystems, suggest breaking into separate plans.
+4. **File structure mapping** - map which files will be created or modified and what each is responsible for.
+5. **Write the plan** - each task is one action (2-5 min). Include exact file paths, complete code snippets, and expected test output (PASS/FAIL).
+6. **Save the plan** - write to `PLAN-<topic>.md`.
+7. **Present and wait** - present the plan and ask for approval. Do not proceed until the user explicitly confirms.
 
 ## Plan Structure
 

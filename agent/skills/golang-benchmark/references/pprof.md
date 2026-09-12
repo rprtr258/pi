@@ -4,12 +4,12 @@
 
 ## Profile Types
 
-Each profile type answers a different performance question. Choosing the wrong profile type wastes investigation time — match the symptom to the profile before capturing.
+Each profile type answers a different performance question. Choosing the wrong profile type wastes investigation time - match the symptom to the profile before capturing.
 
 | Profile | Flag / Endpoint | Use when | Why this profile and not another |
 | --- | --- | --- | --- |
 | **CPU** | `-cpuprofile` or `/debug/pprof/profile?seconds=30` | High CPU usage, slow functions | Samples which functions are on-CPU at 100Hz; misses off-CPU time (I/O, sleep) |
-| **Heap (alloc_objects)** | `-memprofile` then `pprof -alloc_objects` | GC pressure, too many allocations | Counts allocation events regardless of size — a 1-byte alloc counts the same as 1MB; reveals GC churn sources |
+| **Heap (alloc_objects)** | `-memprofile` then `pprof -alloc_objects` | GC pressure, too many allocations | Counts allocation events regardless of size - a 1-byte alloc counts the same as 1MB; reveals GC churn sources |
 | **Heap (alloc_space)** | `pprof -alloc_space` | Finding largest allocation sites by volume | Measures total bytes allocated; use when you need to reduce peak memory, not just GC frequency |
 | **Heap (inuse_space)** | `pprof -inuse_space` | Memory growing over time, suspected leaks | Shows currently live heap objects; compare two snapshots to isolate leak sources |
 | **Heap (inuse_objects)** | `pprof -inuse_objects` | Object count growth, suspected leak of small objects | Counts live objects regardless of size; useful when leak is many small objects not visible in inuse_space |
@@ -20,14 +20,14 @@ Each profile type answers a different performance question. Choosing the wrong p
 
 ### Choosing between alloc_objects and alloc_space
 
-- **alloc_objects** — "where do I allocate the most often?" — use for reducing GC frequency (GC cares about object count, not size)
-- **alloc_space** — "where do I allocate the most bytes?" — use for reducing peak memory usage and RSS
+- **alloc_objects** - "where do I allocate the most often?" - use for reducing GC frequency (GC cares about object count, not size)
+- **alloc_space** - "where do I allocate the most bytes?" - use for reducing peak memory usage and RSS
 - In practice, start with `alloc_objects` because GC churn is the most common allocation-related bottleneck in Go.
 
 ### Choosing between inuse_space and alloc_space
 
-- **alloc_space** is cumulative since program start — it includes objects already freed by GC
-- **inuse_space** is a point-in-time snapshot — only currently live objects
+- **alloc_space** is cumulative since program start - it includes objects already freed by GC
+- **inuse_space** is a point-in-time snapshot - only currently live objects
 - Use `alloc_space` to find allocation hot spots for optimization. Use `inuse_space` to debug memory leaks.
 
 ### Enabling mutex and block profiles
@@ -59,13 +59,13 @@ runtime.SetBlockProfileRate(0)
 ### From benchmarks (no HTTP server needed)
 
 ```bash
-# CPU profile — measures where compute time goes during benchmark execution
+# CPU profile - measures where compute time goes during benchmark execution
 go test -bench=BenchmarkParse -cpuprofile=cpu.prof ./pkg/parser
 
-# Memory profile — captures allocation patterns during benchmark
+# Memory profile - captures allocation patterns during benchmark
 go test -bench=BenchmarkParse -memprofile=mem.prof ./pkg/parser
 
-# Both at once — but be aware CPU profiling adds ~5% overhead which can skew memory results
+# Both at once - but be aware CPU profiling adds ~5% overhead which can skew memory results
 go test -bench=BenchmarkParse -cpuprofile=cpu.prof -memprofile=mem.prof ./pkg/parser
 ```
 
@@ -74,19 +74,19 @@ go test -bench=BenchmarkParse -cpuprofile=cpu.prof -memprofile=mem.prof ./pkg/pa
 Requires `import _ "net/http/pprof"` (see `samber/cc-skills-golang@golang-troubleshooting` skill for secure setup):
 
 ```bash
-# CPU profile — captures 30 seconds of CPU samples
+# CPU profile - captures 30 seconds of CPU samples
 go tool pprof http://localhost:6060/debug/pprof/profile?seconds=30
 
-# Heap profile — snapshots current heap state
+# Heap profile - snapshots current heap state
 go tool pprof -alloc_objects http://localhost:6060/debug/pprof/heap
 
-# Goroutine profile — snapshots all goroutine stacks
+# Goroutine profile - snapshots all goroutine stacks
 go tool pprof http://localhost:6060/debug/pprof/goroutine
 
-# Mutex profile — contention data since last reset
+# Mutex profile - contention data since last reset
 go tool pprof http://localhost:6060/debug/pprof/mutex
 
-# Block profile — blocking data since last reset
+# Block profile - blocking data since last reset
 go tool pprof http://localhost:6060/debug/pprof/block
 ```
 
@@ -119,7 +119,7 @@ go tool pprof cpu.prof
 go tool pprof http://localhost:6060/debug/pprof/profile?seconds=30
 ```
 
-### `top` — self time ranking (start here)
+### `top` - self time ranking (start here)
 
 The first command to run. Shows functions ranked by the time (or allocations) spent in the function itself:
 
@@ -142,7 +142,7 @@ Showing nodes accounting for 4.2s, 84% of 5s total
 | **flat%** | flat as percentage of total sample time | Quick way to see relative cost |
 | **sum%** | Running total of flat% going down the list | "The top 3 functions account for 58% of total time" |
 | **cum** | Time in function + all functions it calls (cumulative) | High cum with low flat = the function delegates to expensive callees |
-| **cum%** | cum as percentage of total | Compare with flat% — big gap means the cost is in callees |
+| **cum%** | cum as percentage of total | Compare with flat% - big gap means the cost is in callees |
 
 **Limiting output:**
 
@@ -152,7 +152,7 @@ Showing nodes accounting for 4.2s, 84% of 5s total
 (pprof) top -flat 20       # top 20 by flat time (default sort)
 ```
 
-### `top -cum` — cumulative time ranking
+### `top -cum` - cumulative time ranking
 
 Critical when `top` shows runtime functions (`runtime.mallocgc`, `runtime.memmove`, `runtime.scanobject`) dominating. These are symptoms, not causes. `top -cum` reveals which **application** functions trigger them:
 
@@ -166,7 +166,7 @@ Critical when `top` shows runtime functions (`runtime.mallocgc`, `runtime.memmov
 
 Now you can see that `HandleRequest` → `serializeResponse` → `json.Marshal` is the hot path. The optimization target is `serializeResponse`, not `runtime.mallocgc`.
 
-### `list funcName` — annotated source
+### `list funcName` - annotated source
 
 Shows the source code of a function with per-line cost annotations. This is how you pinpoint the **exact line** causing the bottleneck:
 
@@ -197,9 +197,9 @@ ROUTINE ======================== myapp/pkg/handler.serializeResponse
 (pprof) list \.Handle      # all Handle methods across packages
 ```
 
-### `peek funcName` — callers and callees
+### `peek funcName` - callers and callees
 
-Shows who calls a function and what it calls — the one-hop neighborhood in the call graph. Use to trace the responsibility chain when a function appears hot but you're unsure whether the problem is upstream (too many calls) or downstream (expensive callees):
+Shows who calls a function and what it calls - the one-hop neighborhood in the call graph. Use to trace the responsibility chain when a function appears hot but you're unsure whether the problem is upstream (too many calls) or downstream (expensive callees):
 
 ```
 (pprof) peek json.Marshal
@@ -217,7 +217,7 @@ Showing nodes accounting for 5s, 100% of 5s total
 
 Top section = callers (who calls json.Marshal). Bottom section = callees (what json.Marshal calls internally).
 
-### `tree` — hierarchical call tree
+### `tree` - hierarchical call tree
 
 Displays the full call tree with cumulative costs at each level. Useful when you need more context than `peek` provides:
 
@@ -231,7 +231,7 @@ Displays the full call tree with cumulative costs at each level. Useful when you
               0.10s  myapp/pkg/handler.fetchData
 ```
 
-### `traces` — raw stack traces
+### `traces` - raw stack traces
 
 Dumps all raw sample stack traces. Each stack trace shows what the program was doing at the moment it was sampled:
 
@@ -248,7 +248,7 @@ Dumps all raw sample stack traces. Each stack trace shows what the program was d
 
 Useful for spotting unexpected call paths (e.g., a function you didn't expect being called from a hot path).
 
-### `web` / `svg` — graphical call graph
+### `web` / `svg` - graphical call graph
 
 `web` opens a call graph in the browser. `svg` saves it to a file. Both require graphviz installed (`brew install graphviz` or `apt install graphviz`).
 
@@ -259,9 +259,9 @@ Visual encoding:
 - **Red/dark nodes** = hot spots (high flat time)
 - **Edge labels** = time flowing through that call path
 
-Use when the text commands don't reveal the full picture — the visual layout often reveals call patterns that are hard to see in text.
+Use when the text commands don't reveal the full picture - the visual layout often reveals call patterns that are hard to see in text.
 
-### `disasm funcName` — assembly-level
+### `disasm funcName` - assembly-level
 
 Shows generated assembly with per-instruction cost. Use for micro-optimization: verifying SIMD instructions, bounds check elimination, or inlining at the instruction level:
 
@@ -276,7 +276,7 @@ ROUTINE ======================== myapp/pkg/parser.Parse
      0.10s      1.50s    4a3b35: CALL runtime.makeslice(SB) ;parser.go:17
 ```
 
-### `weblist funcName` — annotated source in browser
+### `weblist funcName` - annotated source in browser
 
 Like `list` but opens the annotated source in a browser with color-coded cost highlighting. Each line is shaded from white (no cost) to red (hot). More visually immediate than the text version:
 
@@ -286,7 +286,7 @@ Like `list` but opens the annotated source in a browser with color-coded cost hi
 
 Requires a browser. Falls back to `list` if no browser is available.
 
-### `tags` — profile label breakdown
+### `tags` - profile label breakdown
 
 Shows tag values present in the profile. Go runtime profiles carry tags like `thread_id`; custom profiles can add arbitrary labels via `pprof.Do()`:
 
@@ -303,7 +303,7 @@ request_type: api (85%), batch (15%)
 endpoint: /users (40%), /orders (35%), /products (25%)
 ```
 
-### `tagroot` and `tagleaf` — group by labels
+### `tagroot` and `tagleaf` - group by labels
 
 Group the profile data by tag values, creating a virtual call tree rooted on tag names:
 
@@ -315,28 +315,28 @@ Group the profile data by tag values, creating a virtual call tree rooted on tag
 
 Useful for multi-tenant profiling or breaking down by request type without code changes.
 
-### `granularity` — control grouping level
+### `granularity` - control grouping level
 
 Changes how samples are aggregated:
 
 ```
-(pprof) granularity=functions    # default — group by function name
+(pprof) granularity=functions    # default - group by function name
 (pprof) granularity=filefunctions # group by file:function
 (pprof) granularity=files        # group by file only
 (pprof) granularity=lines        # group by exact source line
 (pprof) granularity=addresses    # group by instruction address (most granular)
 ```
 
-`lines` is especially useful when a single function has multiple hot spots — it reveals which specific lines are expensive without needing `list`.
+`lines` is especially useful when a single function has multiple hot spots - it reveals which specific lines are expensive without needing `list`.
 
-### `sort` — change sort order
+### `sort` - change sort order
 
 ```
 (pprof) sort=flat     # sort by flat time (default for top)
 (pprof) sort=cum      # sort by cumulative time (same as top -cum)
 ```
 
-### `source` — show source for matching regex
+### `source` - show source for matching regex
 
 Similar to `list` but searches all functions matching a pattern and shows their annotated source:
 
@@ -344,9 +344,9 @@ Similar to `list` but searches all functions matching a pattern and shows their 
 (pprof) source handler   # show annotated source for all functions matching "handler"
 ```
 
-### `focus`, `ignore`, `hide`, `show` — filtering
+### `focus`, `ignore`, `hide`, `show` - filtering
 
-Narrow the analysis to specific functions or exclude noise. These are stateful — they persist across commands until explicitly cleared:
+Narrow the analysis to specific functions or exclude noise. These are stateful - they persist across commands until explicitly cleared:
 
 ```
 (pprof) focus=myapp            # only show call paths that pass through "myapp"
@@ -359,10 +359,10 @@ Narrow the analysis to specific functions or exclude noise. These are stateful �
 
 **Difference between `focus`, `show`, `hide`, and `ignore`:**
 
-- `focus` — keeps only paths that contain a matching function; everything else is dropped
-- `ignore` — removes matching functions from the graph entirely; their costs are attributed to callers
-- `show` — like `focus` but only affects display, not cost accounting
-- `hide` — like `ignore` but only hides from display, not cost accounting
+- `focus` - keeps only paths that contain a matching function; everything else is dropped
+- `ignore` - removes matching functions from the graph entirely; their costs are attributed to callers
+- `show` - like `focus` but only affects display, not cost accounting
+- `hide` - like `ignore` but only hides from display, not cost accounting
 
 **Clear all filters:**
 
@@ -370,7 +370,7 @@ Narrow the analysis to specific functions or exclude noise. These are stateful �
 (pprof) reset
 ```
 
-### `normalize` — normalize against a base profile
+### `normalize` - normalize against a base profile
 
 When comparing two profiles with `-base`, values are deltas by default. `normalize` scales the base profile to match the total of the main profile, making ratios comparable even if run durations differ:
 
@@ -378,7 +378,7 @@ When comparing two profiles with `-base`, values are deltas by default. `normali
 (pprof) normalize
 ```
 
-### `sample_index` — switch metric in multi-metric profiles
+### `sample_index` - switch metric in multi-metric profiles
 
 Heap profiles contain multiple metrics (alloc_objects, alloc_space, inuse_objects, inuse_space). Switch between them without reloading:
 
@@ -389,7 +389,7 @@ Heap profiles contain multiple metrics (alloc_objects, alloc_space, inuse_object
 (pprof) top                       # now shows live memory
 ```
 
-### `unit` — change display units
+### `unit` - change display units
 
 ```
 (pprof) unit=ms         # display time in milliseconds
@@ -398,7 +398,7 @@ Heap profiles contain multiple metrics (alloc_objects, alloc_space, inuse_object
 (pprof) unit=auto       # automatic (default)
 ```
 
-### `callgrind` — export for KCachegrind
+### `callgrind` - export for KCachegrind
 
 Exports the profile in callgrind format, which can be opened in KCachegrind or QCachegrind for advanced visualization:
 
@@ -407,7 +407,7 @@ Exports the profile in callgrind format, which can be opened in KCachegrind or Q
 Generating report in callgrind format
 ```
 
-### `proto` — save processed profile
+### `proto` - save processed profile
 
 Save the current profile (after filtering) in protobuf format for sharing or later analysis:
 
@@ -415,14 +415,14 @@ Save the current profile (after filtering) in protobuf format for sharing or lat
 (pprof) proto > filtered.pb.gz
 ```
 
-### `help` — list all commands
+### `help` - list all commands
 
 ```
 (pprof) help             # full command list with descriptions
 (pprof) help top         # detailed help for a specific command
 ```
 
-### `show_from=regex` — trim callers above match
+### `show_from=regex` - trim callers above match
 
 Hides all frames above the first matching function. Useful when you're only interested in a specific subsystem and want to remove framework/routing noise above it:
 
@@ -430,7 +430,7 @@ Hides all frames above the first matching function. Useful when you're only inte
 (pprof) show_from=handler.Handle   # start the graph from Handle, hide all callers above
 ```
 
-### `noinlines` — flatten inlined functions
+### `noinlines` - flatten inlined functions
 
 Attributes inlined functions to their first out-of-line caller. Useful when inlined functions create confusing call chains in the graph:
 
@@ -440,30 +440,30 @@ Attributes inlined functions to their first out-of-line caller. Useful when inli
 
 ### Full command reference
 
-Every command below works both as a standalone shell command and inside the interactive `(pprof)` prompt. The interactive form omits `go tool pprof` and the profile path — e.g., `go tool pprof -top cpu.prof` becomes just `top` inside the prompt.
+Every command below works both as a standalone shell command and inside the interactive `(pprof)` prompt. The interactive form omits `go tool pprof` and the profile path - e.g., `go tool pprof -top cpu.prof` becomes just `top` inside the prompt.
 
 **Reporting commands:**
 
 ```bash
-# Top functions by self (flat) cost — the first command to run
+# Top functions by self (flat) cost - the first command to run
 go tool pprof -top cpu.prof
 
 # Top 20 functions by cumulative cost (self + callees)
 go tool pprof -cum -top -nodecount=20 cpu.prof
 
-# Annotated source for a specific function — pinpoints the exact expensive line
+# Annotated source for a specific function - pinpoints the exact expensive line
 go tool pprof -list=json.Marshal cpu.prof
 
-# Callers and callees of a function — trace the responsibility chain
+# Callers and callees of a function - trace the responsibility chain
 go tool pprof -peek=serializeResponse cpu.prof
 
 # Hierarchical call tree with costs at each level
 go tool pprof -tree cpu.prof
 
-# Raw sample stack traces — spot unexpected call paths
+# Raw sample stack traces - spot unexpected call paths
 go tool pprof -traces cpu.prof
 
-# Per-instruction assembly cost — verify SIMD, bounds checks, inlining
+# Per-instruction assembly cost - verify SIMD, bounds checks, inlining
 go tool pprof -disasm=Parse cpu.prof
 
 # Annotated source for all functions matching a regex
@@ -504,13 +504,13 @@ go tool pprof -proto -focus=handler cpu.prof > handler-only.pb.gz
 go tool pprof -weblist=serializeResponse cpu.prof
 ```
 
-**Filtering flags** — narrow analysis to relevant functions:
+**Filtering flags** - narrow analysis to relevant functions:
 
 ```bash
 # Focus: keep only call paths passing through matching functions
 go tool pprof -focus=myapp/pkg/handler -top cpu.prof
 
-# Ignore: remove matching functions — their cost is attributed to callers
+# Ignore: remove matching functions - their cost is attributed to callers
 go tool pprof -ignore=runtime -top cpu.prof
 
 # Show: display only matching functions (display-only, does not change cost accounting)
@@ -519,7 +519,7 @@ go tool pprof -show=handler -top cpu.prof
 # Hide: hide matching functions from display (does not change cost accounting)
 go tool pprof -hide=testing -svg cpu.prof > clean.svg
 
-# Show_from: trim all frames above the first match — hides framework/routing callers
+# Show_from: trim all frames above the first match - hides framework/routing callers
 go tool pprof -show_from=handler.Handle -top cpu.prof
 
 # Noinlines: attribute inlined functions to their first out-of-line caller
@@ -529,7 +529,7 @@ go tool pprof -noinlines -top cpu.prof
 go tool pprof -cum -top -nodecount=10 -focus=handler -ignore=runtime cpu.prof
 ```
 
-**Tag-based filtering** — for profiles with labels (via `pprof.Do()`):
+**Tag-based filtering** - for profiles with labels (via `pprof.Do()`):
 
 ```bash
 # Show all tag keys and their value distributions
@@ -541,10 +541,10 @@ go tool pprof -tagfocus=endpoint=/users -top cpu.prof
 # Exclude samples with a specific tag
 go tool pprof -tagignore=request_type=batch -top cpu.prof
 
-# Group by tag — insert pseudo frames at root, breaking down by tag value
+# Group by tag - insert pseudo frames at root, breaking down by tag value
 go tool pprof -tagroot=request_type -top cpu.prof
 
-# Group by tag as leaf — breaks down each function by tag value
+# Group by tag as leaf - breaks down each function by tag value
 go tool pprof -tagleaf=endpoint -top cpu.prof
 
 # Show/hide tags as annotations in graph output
@@ -555,7 +555,7 @@ go tool pprof -taghide=thread_id -svg cpu.prof > clean.svg
 **Granularity and display control:**
 
 ```bash
-# Group by source line instead of function — reveals hot lines in multi-hot-spot functions
+# Group by source line instead of function - reveals hot lines in multi-hot-spot functions
 go tool pprof -granularity=lines -top cpu.prof
 
 # Group by file:function
@@ -570,26 +570,26 @@ go tool pprof -granularity=addresses -top cpu.prof
 # Change display units
 go tool pprof -unit=ms -top cpu.prof
 
-# Edge/node fraction cutoffs — hide small contributions from graphs
+# Edge/node fraction cutoffs - hide small contributions from graphs
 go tool pprof -edgefraction=0.01 -nodefraction=0.005 -svg cpu.prof > clean.svg
 
-# Disable trimming — show the full graph including tiny nodes
+# Disable trimming - show the full graph including tiny nodes
 go tool pprof -trim=false -svg cpu.prof > full.svg
 ```
 
 **Heap profile commands:**
 
 ```bash
-# Top allocation sites by object count — diagnose GC churn
+# Top allocation sites by object count - diagnose GC churn
 go tool pprof -top -alloc_objects mem.prof
 
-# Top allocation sites by bytes — diagnose peak memory
+# Top allocation sites by bytes - diagnose peak memory
 go tool pprof -top -alloc_space mem.prof
 
-# Currently live objects — diagnose memory leaks
+# Currently live objects - diagnose memory leaks
 go tool pprof -top -inuse_space mem.prof
 
-# Currently live object count — diagnose leak of many small objects
+# Currently live object count - diagnose leak of many small objects
 go tool pprof -top -inuse_objects mem.prof
 
 # Annotated source showing allocation sites by object count
@@ -598,13 +598,13 @@ go tool pprof -alloc_objects -list=Parse mem.prof
 # SVG call graph colored by allocation objects
 go tool pprof -alloc_objects -svg mem.prof > allocs.svg
 
-# Compare two heap snapshots — show only growth (memory leak detection)
+# Compare two heap snapshots - show only growth (memory leak detection)
 go tool pprof -top -base heap-baseline.prof heap-after.prof
 
-# Diff with normalization — makes ratios comparable when capture durations differ
+# Diff with normalization - makes ratios comparable when capture durations differ
 go tool pprof -normalize -top -base heap-baseline.prof heap-after.prof
 
-# Diff as SVG — visualize what grew
+# Diff as SVG - visualize what grew
 go tool pprof -base heap-baseline.prof -svg heap-after.prof > leak.svg
 
 # Diff with annotated source for a specific function
@@ -614,25 +614,25 @@ go tool pprof -base heap-baseline.prof -list=handleRequest heap-after.prof
 **Fetching profiles from a running service:**
 
 ```bash
-# CPU profile — fetch 30 seconds of samples and open interactive mode
+# CPU profile - fetch 30 seconds of samples and open interactive mode
 go tool pprof http://localhost:6060/debug/pprof/profile?seconds=30
 
-# CPU profile — fetch and immediately generate SVG (no interactive mode)
+# CPU profile - fetch and immediately generate SVG (no interactive mode)
 go tool pprof -svg http://localhost:6060/debug/pprof/profile?seconds=10 > cpu.svg
 
-# CPU profile — fetch with a timeout
+# CPU profile - fetch with a timeout
 go tool pprof -seconds=30 -timeout=60 http://localhost:6060/debug/pprof/profile
 
-# Heap profile — fetch and show top allocation sites
+# Heap profile - fetch and show top allocation sites
 go tool pprof -top -alloc_objects http://localhost:6060/debug/pprof/heap
 
-# Goroutine profile — fetch and show top goroutine stacks
+# Goroutine profile - fetch and show top goroutine stacks
 go tool pprof -top http://localhost:6060/debug/pprof/goroutine
 
-# Mutex profile — fetch contention data
+# Mutex profile - fetch contention data
 go tool pprof -top http://localhost:6060/debug/pprof/mutex
 
-# Block profile — fetch blocking data
+# Block profile - fetch blocking data
 go tool pprof -top http://localhost:6060/debug/pprof/block
 
 # Fetch and save to a file without analysis (using curl)
@@ -657,13 +657,13 @@ go tool pprof https+insecure://myservice:6060/debug/pprof/profile?seconds=30
 **Comparison commands (diff two profiles):**
 
 ```bash
-# Diff: subtract base from source — all values become deltas
+# Diff: subtract base from source - all values become deltas
 go tool pprof -base cpu-before.prof cpu-after.prof
 
 # Diff base: percentages shown relative to base profile
 go tool pprof -diff_base=cpu-before.prof cpu-after.prof
 
-# Diff with normalization — scale base to match source total
+# Diff with normalization - scale base to match source total
 go tool pprof -normalize -base heap-before.prof heap-after.prof
 
 # Diff as top report
@@ -738,20 +738,20 @@ go tool pprof -http=:8080 -alloc_objects mem.prof
 # Open with filters pre-applied
 go tool pprof -http=:8080 -focus=handler cpu.prof
 
-# Compare two profiles — open with -base
+# Compare two profiles - open with -base
 go tool pprof -http=:8080 -base heap-baseline.prof heap-after.prof
 ```
 
 The web UI provides:
 
-- **Flamegraph** (most intuitive) — horizontal width proportional to cost; click to zoom into subtrees; inverted flamegraph available (icicle graph)
-- **Graph** — directed call graph with edge weights; nodes and edges sized/colored by cost; interactive zoom and click-to-focus
-- **Top** — same as `top` command but sortable columns, clickable to navigate to source
-- **Source** — annotated source with per-line cost; browsable across all functions
-- **Disassembly** — same as `disasm` but browsable across functions
-- **Peek** — interactive peek view with expandable callers/callees
+- **Flamegraph** (most intuitive) - horizontal width proportional to cost; click to zoom into subtrees; inverted flamegraph available (icicle graph)
+- **Graph** - directed call graph with edge weights; nodes and edges sized/colored by cost; interactive zoom and click-to-focus
+- **Top** - same as `top` command but sortable columns, clickable to navigate to source
+- **Source** - annotated source with per-line cost; browsable across all functions
+- **Disassembly** - same as `disasm` but browsable across functions
+- **Peek** - interactive peek view with expandable callers/callees
 
-Default to CLI commands for quick diagnosis — use the web UI when exploring unfamiliar call graphs, comparing profiles visually, or presenting findings to others.
+Default to CLI commands for quick diagnosis - use the web UI when exploring unfamiliar call graphs, comparing profiles visually, or presenting findings to others.
 
 ## Comparing Profiles
 
@@ -768,9 +768,9 @@ curl http://localhost:6060/debug/pprof/heap > heap-baseline.prof
 # Step 3: take a second snapshot
 curl http://localhost:6060/debug/pprof/heap > heap-after.prof
 
-# Step 4: diff — shows only what grew between the two snapshots
+# Step 4: diff - shows only what grew between the two snapshots
 go tool pprof -base heap-baseline.prof heap-after.prof
-# Then use top, list, peek as usual — all values are deltas
+# Then use top, list, peek as usual - all values are deltas
 ```
 
 ### Comparing CPU profiles across code versions
@@ -782,7 +782,7 @@ go test -bench=BenchmarkParse -cpuprofile=cpu-before.prof ./pkg/parser
 # After your change
 go test -bench=BenchmarkParse -cpuprofile=cpu-after.prof ./pkg/parser
 
-# Compare visually — load both in separate browser tabs
+# Compare visually - load both in separate browser tabs
 go tool pprof -http=:8080 cpu-before.prof
 go tool pprof -http=:8081 cpu-after.prof
 ```
@@ -791,11 +791,11 @@ For statistical comparison of benchmark numbers (not profiles), use [benchstat](
 
 ## Common Patterns
 
-Learn to recognize these recurring shapes — they tell you what class of problem you're dealing with before you start fixing.
+Learn to recognize these recurring shapes - they tell you what class of problem you're dealing with before you start fixing.
 
 ### Flat high + cum high
 
-The function itself is the bottleneck. It does expensive work directly (tight loop, heavy computation, complex string processing). Optimize the function's own code — algorithm, data structure, or implementation.
+The function itself is the bottleneck. It does expensive work directly (tight loop, heavy computation, complex string processing). Optimize the function's own code - algorithm, data structure, or implementation.
 
 ### Flat low + cum high
 
@@ -803,7 +803,7 @@ The function calls slow things but does little work itself. It's a coordinator o
 
 ### `alloc_objects` high, `inuse_space` low
 
-Short-lived allocations creating GC churn. Objects are allocated and freed rapidly — each one is cheap individually but the aggregate volume triggers frequent GC cycles. Common sources: `fmt.Errorf` in hot paths (allocates every call), interface boxing (`any` arguments), string-to-byte conversions, slice growth without preallocation. → See `samber/cc-skills-golang@golang-performance` skill for allocation reduction patterns.
+Short-lived allocations creating GC churn. Objects are allocated and freed rapidly - each one is cheap individually but the aggregate volume triggers frequent GC cycles. Common sources: `fmt.Errorf` in hot paths (allocates every call), interface boxing (`any` arguments), string-to-byte conversions, slice growth without preallocation. → See `samber/cc-skills-golang@golang-performance` skill for allocation reduction patterns.
 
 ### `inuse_space` growing over time
 
@@ -823,7 +823,7 @@ Allocation rate is the bottleneck, not computation. The Go runtime is spending m
 
 ### `runtime.memmove` high in CPU profile
 
-Large memory copies — usually from slice `append` growing beyond capacity, `copy()` of large slices, or string-to-byte conversions. Pre-allocate slices to final capacity, reuse buffers, or work with `[]byte` directly.
+Large memory copies - usually from slice `append` growing beyond capacity, `copy()` of large slices, or string-to-byte conversions. Pre-allocate slices to final capacity, reuse buffers, or work with `[]byte` directly.
 
 ### `runtime.scanobject` high in CPU profile
 
@@ -840,5 +840,5 @@ GC pointer scanning. The heap contains many pointers that the GC must trace. Red
 | Lock contention | Mutex | `pprof/mutex` (enable `SetMutexProfileFraction` first) |
 | Goroutines blocked on sync | Block | `pprof/block` (enable `SetBlockProfileRate` first) |
 | Too many goroutines / leak | Goroutine | `pprof/goroutine` |
-| High latency but low CPU | Goroutine + Block + Trace | Scheduling delays, I/O waits — see [Trace Reference](./trace.md) |
+| High latency but low CPU | Goroutine + Block + Trace | Scheduling delays, I/O waits - see [Trace Reference](./trace.md) |
 | Excessive thread creation | Threadcreate | `pprof/threadcreate` |

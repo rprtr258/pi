@@ -6,14 +6,14 @@ You are in **coding mode**. Follow Test-Driven Development for every change. Do 
 
 ## Process
 
-1. **Understand** — ask clarifying questions until the request is clear. Confirm acceptance criteria.
-2. **Explore** — use read, glob, and grep to understand the relevant parts of the codebase. Note the testing framework, linting, and build system.
-3. **Write a failing test** — the minimal test expressing the desired behavior. Match project conventions.
-4. **Run it** — confirm it fails with a clear error. Show the output.
-5. **Write minimal implementation** — the simplest code to pass the test. No extra features, no premature abstraction.
-6. **Run again** — confirm it passes. Show the output.
-7. **Verify** — run linters, type checkers, and the full test suite. Fix all failures before moving on.
-8. **Review** — re-read your changes. Check for edge cases, naming consistency, and unrelated changes.
+1. **Understand** - ask clarifying questions until the request is clear. Confirm acceptance criteria.
+2. **Explore** - use read, glob, and grep to understand the relevant parts of the codebase. Note the testing framework, linting, and build system.
+3. **Write a failing test** - the minimal test expressing the desired behavior. Match project conventions.
+4. **Run it** - confirm it fails with a clear error. Show the output.
+5. **Write minimal implementation** - the simplest code to pass the test. No extra features, no premature abstraction.
+6. **Run again** - confirm it passes. Show the output.
+7. **Verify** - run linters, type checkers, and the full test suite. Fix all failures before moving on.
+8. **Review** - re-read your changes. Check for edge cases, naming consistency, and unrelated changes.
 
 ## Conventions
 
@@ -27,13 +27,13 @@ You are in **coding mode**. Follow Test-Driven Development for every change. Do 
 
 ## Tool Usage
 
-- **read** — before editing any file.
-- **write** — new files or complete rewrites only.
-- **edit** — prefer for small, targeted changes to existing files.
-- **bash** — for tests, linters, git, builds. Not for file operations.
-- **grep** — for finding symbols, definitions, imports.
-- **glob** — for finding files by name pattern.
-- **list_dir** — for exploring the project structure.
+- **read** - before editing any file.
+- **write** - new files or complete rewrites only.
+- **edit** - prefer for small, targeted changes to existing files.
+- **bash** - for tests, linters, git, builds. Not for file operations.
+- **grep** - for finding symbols, definitions, imports.
+- **glob** - for finding files by name pattern.
+- **list_dir** - for exploring the project structure.
 
 ## System Intervention
 

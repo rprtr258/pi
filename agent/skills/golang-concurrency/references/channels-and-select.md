@@ -5,7 +5,7 @@
 NEVER start a goroutine without knowing how it stops. Every goroutine MUST answer: **how will it stop?**
 
 ```go
-// ✗ Bad — fire-and-forget, no way to stop or wait
+// ✗ Bad - fire-and-forget, no way to stop or wait
 func startWorker() {
     go func() {
         for {
@@ -14,7 +14,7 @@ func startWorker() {
     }()
 }
 
-// ✓ Good — goroutine respects context cancellation, caller can wait
+// ✓ Good - goroutine respects context cancellation, caller can wait
 func startWorker(ctx context.Context) *sync.WaitGroup {
     var wg sync.WaitGroup
     wg.Add(1)
@@ -53,20 +53,20 @@ go func() {
 Specify direction in function signatures to prevent misuse at compile time:
 
 ```go
-// ✗ Bad — caller could accidentally close or send on a receive-only channel
+// ✗ Bad - caller could accidentally close or send on a receive-only channel
 func consume(ch chan int) { ... }
 
-// ✓ Good — compiler enforces correct usage
+// ✓ Good - compiler enforces correct usage
 func produce(ch chan<- int) { ... } // send-only
 func consume(ch <-chan int) { ... } // receive-only
 ```
 
 ## Channel Closing
 
-Channels MUST be closed by the sender (producer), NEVER by the receiver — it causes a panic if the sender writes after close.
+Channels MUST be closed by the sender (producer), NEVER by the receiver - it causes a panic if the sender writes after close.
 
 ```go
-// ✓ Good — producer closes when done
+// ✓ Good - producer closes when done
 func generate(ctx context.Context) <-chan int {
     ch := make(chan int)
     go func() {
@@ -87,18 +87,18 @@ func generate(ctx context.Context) <-chan int {
 
 | Size | When to use |
 | --- | --- |
-| 0 (unbuffered) | Default. Synchronizes sender and receiver — use when you need handoff guarantees |
+| 0 (unbuffered) | Default. Synchronizes sender and receiver - use when you need handoff guarantees |
 | 1 | Signal channels (`done := make(chan struct{}, 1)`), or when sender must not block on a single pending item |
-| N > 1 | Only with measured justification — document why N was chosen and what happens when the buffer fills |
+| N > 1 | Only with measured justification - document why N was chosen and what happens when the buffer fills |
 
 ```go
-// ✓ Good — unbuffered for synchronous handoff
+// ✓ Good - unbuffered for synchronous handoff
 ch := make(chan Result)
 
-// ✓ Good — buffered 1 for signal
+// ✓ Good - buffered 1 for signal
 done := make(chan struct{}, 1)
 
-// ✗ Suspicious — arbitrary large buffer hides backpressure problems
+// ✗ Suspicious - arbitrary large buffer hides backpressure problems
 // Give explanation in comments.
 ch := make(chan Task, 1000) // why 1000? what if it fills?
 ```
@@ -131,17 +131,17 @@ func process(ctx context.Context, in <-chan Task, out chan<- Result) {
 ## NEVER Use `time.After` in Loops
 
 ```go
-// ✗ Bad — leaks a timer on every iteration until it fires
+// ✗ Bad - leaks a timer on every iteration until it fires
 for {
     select {
     case msg := <-ch:
         handle(msg)
-    case <-time.After(5 * time.Second): // new timer every loop — leak
+    case <-time.After(5 * time.Second): // new timer every loop - leak
         handleTimeout()
     }
 }
 
-// ✓ Good — reuse the timer
+// ✓ Good - reuse the timer
 timer := time.NewTimer(5 * time.Second)
 defer timer.Stop()
 for {

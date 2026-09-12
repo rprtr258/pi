@@ -17,11 +17,11 @@ metadata:
 
 ## Core Workflow
 
-1. **Analyze UX** — Identify user workflows, command hierarchy, common tasks. Validate by listing all commands and their expected `--help` output before writing code.
-2. **Design commands** — Plan subcommands, flags, arguments, configuration. Confirm flag naming is consistent and no existing signatures are broken.
-3. **Implement** — Build with the appropriate CLI framework for the language (see Reference Guide below). After wiring up commands, run `<cli> --help` to verify help text renders correctly and `<cli> --version` to confirm version output.
-4. **Polish** — Add completions, help text, error messages, progress indicators. Verify TTY detection for color output and graceful SIGINT handling.
-5. **Test** — Run cross-platform smoke tests; benchmark startup time (target: <50ms).
+1. **Analyze UX** - Identify user workflows, command hierarchy, common tasks. Validate by listing all commands and their expected `--help` output before writing code.
+2. **Design commands** - Plan subcommands, flags, arguments, configuration. Confirm flag naming is consistent and no existing signatures are broken.
+3. **Implement** - Build with the appropriate CLI framework for the language (see Reference Guide below). After wiring up commands, run `<cli> --help` to verify help text renders correctly and `<cli> --version` to confirm version output.
+4. **Polish** - Add completions, help text, error messages, progress indicators. Verify TTY detection for color output and graceful SIGINT handling.
+5. **Test** - Run cross-platform smoke tests; benchmark startup time (target: <50ms).
 
 ## Reference Guide
 
@@ -77,9 +77,9 @@ For Python (click/typer) and Go (cobra) quick-start examples, see `references/py
 
 ### MUST NOT DO
 
-- **Block on synchronous I/O unnecessarily** — use async reads or stream processing instead.
-- **Print to stdout when output will be piped** — write logs/diagnostics to stderr.
-- **Use colors when output is not a TTY** — detect before applying color:
+- **Block on synchronous I/O unnecessarily** - use async reads or stream processing instead.
+- **Print to stdout when output will be piped** - write logs/diagnostics to stderr.
+- **Use colors when output is not a TTY** - detect before applying color:
   ```js
   // Node.js
   const useColor = process.stdout.isTTY;
@@ -94,10 +94,10 @@ For Python (click/typer) and Go (cobra) quick-start examples, see `references/py
   import "golang.org/x/term"
   useColor := term.IsTerminal(int(os.Stdout.Fd()))
   ```
-- **Break existing command signatures** — treat flag/subcommand renames as breaking changes.
-- **Require interactive input in CI/CD environments** — always provide non-interactive fallbacks via flags or env vars.
-- **Hardcode paths or platform-specific logic** — use `os.homedir()` / `os.UserHomeDir()` / `Path.home()` instead.
-- **Ship without shell completions** — all three frameworks above have built-in completion generation.
+- **Break existing command signatures** - treat flag/subcommand renames as breaking changes.
+- **Require interactive input in CI/CD environments** - always provide non-interactive fallbacks via flags or env vars.
+- **Hardcode paths or platform-specific logic** - use `os.homedir()` / `os.UserHomeDir()` / `Path.home()` instead.
+- **Ship without shell completions** - all three frameworks above have built-in completion generation.
 
 ## Output Templates
 

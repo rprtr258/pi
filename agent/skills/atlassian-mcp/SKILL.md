@@ -89,7 +89,7 @@ space = "ENG" AND type = page AND text ~ "deployment runbook"
   }
 }
 ```
-> **Note:** Always load `JIRA_API_TOKEN` and `CONFLUENCE_API_TOKEN` from environment variables or a secrets manager — never hardcode credentials.
+> **Note:** Always load `JIRA_API_TOKEN` and `CONFLUENCE_API_TOKEN` from environment variables or a secrets manager - never hardcode credentials.
 
 ## Constraints
 

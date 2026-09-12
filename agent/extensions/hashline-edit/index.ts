@@ -1,5 +1,5 @@
 /**
- * Hashline Edit Tool — standalone pi extension.
+ * Hashline Edit Tool - standalone pi extension.
  *
  * A compact, line-anchored edit format. Each section starts with `@PATH`.
  * Edit ops reference lines by line number + content hash ("anchors", e.g. `5sr`, `123ab`).
@@ -38,7 +38,7 @@ const BODY_SEP = "|";
 const ANCHOR_REBASE_WINDOW = 5;
 const MISMATCH_CONTEXT = 2;
 
-/** Bigram table (647 entries) — stable, each entry is 1 BPE token */
+/** Bigram table (647 entries) - stable, each entry is 1 BPE token */
 const BIGRAMS = [
   "aa","ab","ac","ad","ae","af","ag","ah","ai","aj","ak","al","am","an","ao","ap","aq","ar","as","at","au","av","aw","ax","ay","az",
   "ba","bb","bc","bd","be","bf","bg","bh","bi","bj","bk","bl","bm","bn","bo","bp","br","bs","bt","bu","bv","bw","bx","by","bz",
@@ -621,7 +621,7 @@ export function executeHashlineEdit(input: string): {headline: string, warnings:
       if (!isEnoent(err)) {
         throw err;
       }
-      // File doesn't exist — only allow create-like ops
+      // File doesn't exist - only allow create-like ops
       const hasAnchorEdit = section.ops.some(op => !["insert_before_bof", "insert_after_bof", "insert_before_eof", "insert_after_eof"].includes(op.kind));
       if (hasAnchorEdit) {
         throw new Error(`File not found: ${absolutePath}. Only BOF/EOF insertions are valid for new files.`);
@@ -744,8 +744,8 @@ This format is purely textual. The tool has NO awareness of language, indentatio
 - \`- A..B\` deletes the inclusive range; omit \`..B\` for one line.
 - \`= A..B\` deletes exactly the lines A through B, then inserts your payload at that position.
   If your payload has MORE lines than the range (B-A+1), the extra lines push existing
-  content DOWN — they do NOT overwrite lines beyond B. This DUPLICATES the lines after B.
-  If your payload has FEWER lines, a gap does NOT appear — lines shift up.
+  content DOWN - they do NOT overwrite lines beyond B. This DUPLICATES the lines after B.
+  If your payload has FEWER lines, a gap does NOT appear - lines shift up.
 </rules>
 
 <case file="a.ts">
@@ -806,7 +806,7 @@ ${SEP}export const done = true;
 - Every inserted/replacement content line **MUST** start with \`${SEP}\`; raw content lines are invalid.
 - Do not write unified diff syntax (\`@@\`, \`-OLD\`, \`+NEW\`).
 - To replace a block, use one \`= A..B\` op followed by all replacement \`${SEP}TEXT\` payload lines.
-- \`= A..B\` deletes the range; payload is what's written. If a payload edge line already exists immediately outside \`A..B\`, widen the range to cover it — otherwise it duplicates.
+- \`= A..B\` deletes the range; payload is what's written. If a payload edge line already exists immediately outside \`A..B\`, widen the range to cover it - otherwise it duplicates.
 - For \`= A..B\`, verify that (B-A+1) matches your payload line count. If they differ, you're either duplicating (payload too long) or deleting unintended lines (payload too short).
 </critical>
 `;

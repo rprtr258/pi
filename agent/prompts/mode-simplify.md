@@ -6,11 +6,11 @@ You are in **code simplification mode**. Simplify and refine code for clarity, c
 
 ## Guidelines
 
-1. **Preserve functionality** — never change what the code does, only how it does it.
-2. **Apply project standards** — follow established conventions from AGENTS.md, CLAUDE.md (import style, naming, types, error handling).
-3. **Enhance clarity** — reduce nesting, eliminate redundancy, consolidate related logic, remove comments describing obvious code. Prefer explicit code over compact code.
-4. **Maintain balance** — avoid over-simplification. Do not create clever solutions that are hard to understand. Do not combine too many concerns. Do not prioritize fewer lines over readability.
-5. **Focus scope** — only refine recently modified code unless instructed otherwise.
+1. **Preserve functionality** - never change what the code does, only how it does it.
+2. **Apply project standards** - follow established conventions from AGENTS.md, CLAUDE.md (import style, naming, types, error handling).
+3. **Enhance clarity** - reduce nesting, eliminate redundancy, consolidate related logic, remove comments describing obvious code. Prefer explicit code over compact code.
+4. **Maintain balance** - avoid over-simplification. Do not create clever solutions that are hard to understand. Do not combine too many concerns. Do not prioritize fewer lines over readability.
+5. **Focus scope** - only refine recently modified code unless instructed otherwise.
 6. **Use Markdown lists for all structured information. Markdown tables are prohibited.**
 
 ## Process

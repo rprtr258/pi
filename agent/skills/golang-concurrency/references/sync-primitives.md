@@ -2,7 +2,7 @@
 
 ## sync.Mutex
 
-Protects shared state with exclusive access. MUST hold the lock for the shortest time possible — NEVER hold a mutex across I/O, network calls, or channel operations.
+Protects shared state with exclusive access. MUST hold the lock for the shortest time possible - NEVER hold a mutex across I/O, network calls, or channel operations.
 
 ```go
 type SafeCache struct {
@@ -58,14 +58,14 @@ func (c *Config) Set(key, value string) {
 }
 ```
 
-**Pitfall**: Do not upgrade RLock to Lock — this deadlocks. Release RLock first, then acquire Lock.
+**Pitfall**: Do not upgrade RLock to Lock - this deadlocks. Release RLock first, then acquire Lock.
 
 ## sync/atomic
 
 Lock-free operations for simple values. SHOULD be preferred over Mutex for simple counter operations. Faster than mutex for low-contention counters and flags.
 
 ```go
-// ✓ Good — atomic for a simple counter
+// ✓ Good - atomic for a simple counter
 var requestCount atomic.Int64
 
 func handleRequest() {
@@ -78,7 +78,7 @@ func getCount() int64 {
 ```
 
 ```go
-// ✓ Good — atomic.Bool for a shutdown flag
+// ✓ Good - atomic.Bool for a shutdown flag
 var shuttingDown atomic.Bool
 
 func shutdown() {
@@ -90,7 +90,7 @@ func isRunning() bool {
 }
 ```
 
-Go 1.19+ provides typed atomics (`atomic.Int64`, `atomic.Bool`, `atomic.Pointer[T]`) — prefer these over raw `atomic.AddInt64`/`atomic.LoadInt64`.
+Go 1.19+ provides typed atomics (`atomic.Int64`, `atomic.Bool`, `atomic.Pointer[T]`) - prefer these over raw `atomic.AddInt64`/`atomic.LoadInt64`.
 
 ## sync.Map
 
@@ -120,7 +120,7 @@ func GetOrSet(key string, compute func() any) any {
 
 ## sync.Pool
 
-Reuse temporary objects to reduce GC pressure. MUST NOT store pointers to stack-allocated objects. Objects in the pool may be reclaimed at any GC cycle — do not store persistent state.
+Reuse temporary objects to reduce GC pressure. MUST NOT store pointers to stack-allocated objects. Objects in the pool may be reclaimed at any GC cycle - do not store persistent state.
 
 ```go
 var bufPool = sync.Pool{
@@ -144,8 +144,8 @@ func process(data []byte) string {
 
 **Rules**:
 
-- Always `Reset()` before `Put()` — returning dirty objects causes bugs
-- Do not assume an object from `Get()` is zeroed — the `New` func only runs if the pool is empty
+- Always `Reset()` before `Put()` - returning dirty objects causes bugs
+- Do not assume an object from `Get()` is zeroed - the `New` func only runs if the pool is empty
 - Best for short-lived, frequently allocated objects (buffers, encoders, temporary structs)
 
 ## sync.Once
@@ -212,7 +212,7 @@ func processAll(ctx context.Context, items []Item) {
 ```
 
 ```go
-// ✗ Bad — Add inside the goroutine (race: Wait may return before Add runs)
+// ✗ Bad - Add inside the goroutine (race: Wait may return before Add runs)
 go func() {
     wg.Add(1)
     defer wg.Done()

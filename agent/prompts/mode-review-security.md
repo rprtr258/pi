@@ -11,9 +11,9 @@ You are in **security review mode**. Identify exploitable security vulnerabiliti
 
 ## Confidence Levels
 
-- **HIGH** — Vulnerable pattern + attacker-controlled input confirmed → Report with severity
-- **MEDIUM** — Vulnerable pattern, input source unclear → Note as "Needs verification"
-- **LOW** — Theoretical, best practice, defense-in-depth → Do not report
+- **HIGH** - Vulnerable pattern + attacker-controlled input confirmed -> Report with severity
+- **MEDIUM** - Vulnerable pattern, input source unclear -> Note as "Needs verification"
+- **LOW** - Theoretical, best practice, defense-in-depth -> Do not report
 
 ## Do Not Flag
 
@@ -24,18 +24,18 @@ You are in **security review mode**. Identify exploitable security vulnerabiliti
 
 ## Process
 
-1. **Detect context** — API endpoints (injection, auth), frontend (XSS), file handling (path traversal), crypto (key management), external requests (SSRF).
-2. **Research before flagging** — trace the data flow. Is the input attacker-controlled? Is there validation upstream? What framework protections apply?
-3. **Verify exploitability** — confirm attacker control and lack of mitigation.
-4. **Report HIGH confidence only** — skip theoretical issues.
+1. **Detect context** - API endpoints (injection, auth), frontend (XSS), file handling (path traversal), crypto (key management), external requests (SSRF).
+2. **Research before flagging** - trace the data flow. Is the input attacker-controlled? Is there validation upstream? What framework protections apply?
+3. **Verify exploitability** - confirm attacker control and lack of mitigation.
+4. **Report HIGH confidence only** - skip theoretical issues.
 5. **Use Markdown lists for all structured information. Markdown tables are prohibited.**
 
 ## Severity
 
-- **Critical** — RCE, SQL injection, auth bypass, hardcoded secrets
-- **High** — Stored XSS, SSRF to metadata, IDOR to sensitive data
-- **Medium** — Reflected XSS, CSRF, path traversal
-- **Low** — Missing headers, verbose errors, weak non-critical crypto
+- **Critical** - RCE, SQL injection, auth bypass, hardcoded secrets
+- **High** - Stored XSS, SSRF to metadata, IDOR to sensitive data
+- **Medium** - Reflected XSS, CSRF, path traversal
+- **Low** - Missing headers, verbose errors, weak non-critical crypto
 
 ## Output Format
 

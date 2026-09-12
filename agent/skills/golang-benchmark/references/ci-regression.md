@@ -1,6 +1,6 @@
 # CI Benchmark Regression Detection
 
-> **Run these tools in CI only, not on local machines.** Local benchmark results are noisy due to background processes, thermal throttling, and inconsistent CPU frequency — regressions detected locally are unreliable and waste developer time. Even shared CI runners can produce significant variance (5-10%); use statistical methods like `benchstat` with multiple iterations and relative comparisons to filter noise, or invest in dedicated benchmark runners for critical paths.
+> **Run these tools in CI only, not on local machines.** Local benchmark results are noisy due to background processes, thermal throttling, and inconsistent CPU frequency - regressions detected locally are unreliable and waste developer time. Even shared CI runners can produce significant variance (5-10%); use statistical methods like `benchstat` with multiple iterations and relative comparisons to filter noise, or invest in dedicated benchmark runners for critical paths.
 
 ## benchdiff
 
@@ -20,7 +20,7 @@ benchdiff -base-ref main -head-ref feature-branch
 # Compare against a specific commit or tag
 benchdiff -base-ref v1.2.0
 
-# Pass extra flags to go test — everything after -- goes to go test
+# Pass extra flags to go test - everything after -- goes to go test
 benchdiff -- -benchmem -count=10 -benchtime=3s
 
 # Filter to specific benchmarks
@@ -47,7 +47,7 @@ go install github.com/knqyf263/cob@latest
 ```
 
 ```bash
-# Run with default 20% threshold — compares HEAD vs HEAD~1
+# Run with default 20% threshold - compares HEAD vs HEAD~1
 cob
 
 # Stricter threshold for critical paths (10% regression = failure)
@@ -167,7 +167,7 @@ checks:
 ### Dashboard configuration
 
 ```yaml
-# gobenchdata-web.yml — configure the Vue.js dashboard
+# gobenchdata-web.yml - configure the Vue.js dashboard
 title: "My Project Benchmarks"
 description: "Performance tracking dashboard"
 chartGroups:
@@ -202,23 +202,23 @@ Cloud CI environments share hardware with other jobs. Expect 5-10% variance even
 
 ### Why CI benchmarks are noisy
 
-- **Shared CPU/memory** — other CI jobs compete for resources
-- **Thermal throttling** — sustained load reduces clock speed
-- **Different hardware across runs** — CI runners may have different specs
-- **Kernel scheduling** — context switches add unpredictable latency
-- **Disk I/O contention** — shared storage affects I/O-bound benchmarks
+- **Shared CPU/memory** - other CI jobs compete for resources
+- **Thermal throttling** - sustained load reduces clock speed
+- **Different hardware across runs** - CI runners may have different specs
+- **Kernel scheduling** - context switches add unpredictable latency
+- **Disk I/O contention** - shared storage affects I/O-bound benchmarks
 
 ### Strategies
 
-**Statistical rigor** — run with `-count=10` or more and compare with `benchstat`. A single run is meaningless. benchstat's p-value test filters out noise-induced false positives.
+**Statistical rigor** - run with `-count=10` or more and compare with `benchstat`. A single run is meaningless. benchstat's p-value test filters out noise-induced false positives.
 
-**Relative comparison in same job** — run both base and head benchmarks in the same CI job on the same machine, rather than comparing against historical absolute values. This cancels out machine-to-machine variation. Tools like `benchdiff` do this automatically by checking out both git refs.
+**Relative comparison in same job** - run both base and head benchmarks in the same CI job on the same machine, rather than comparing against historical absolute values. This cancels out machine-to-machine variation. Tools like `benchdiff` do this automatically by checking out both git refs.
 
-**Dedicated benchmark runners** — for critical path benchmarks, use self-hosted CI runners with no other workloads. This eliminates noisy neighbors entirely but costs more infrastructure.
+**Dedicated benchmark runners** - for critical path benchmarks, use self-hosted CI runners with no other workloads. This eliminates noisy neighbors entirely but costs more infrastructure.
 
-**Conservative thresholds** — set regression thresholds higher on shared CI (20%+) than on dedicated runners (10%). Tight thresholds on noisy environments produce false positives that erode trust. GitHub-hosted runners show ~2-3% coefficient of variation in the best case; to guarantee <1% false positive rate, you need a 7%+ performance gate.
+**Conservative thresholds** - set regression thresholds higher on shared CI (20%+) than on dedicated runners (10%). Tight thresholds on noisy environments produce false positives that erode trust. GitHub-hosted runners show ~2-3% coefficient of variation in the best case; to guarantee <1% false positive rate, you need a 7%+ performance gate.
 
-**Never "retry until pass"** — rerunning benchmarks until they pass introduces selection bias. If a benchmark is flaky, fix the noise source (more iterations, dedicated runner, wider threshold) rather than retrying.
+**Never "retry until pass"** - rerunning benchmarks until they pass introduces selection bias. If a benchmark is flaky, fix the noise source (more iterations, dedicated runner, wider threshold) rather than retrying.
 
 ## System Tuning for Self-Hosted Runners
 
@@ -228,7 +228,7 @@ When you control the CI hardware, these settings dramatically reduce benchmark v
 
 ### Disable CPU frequency scaling
 
-Variable CPU frequency makes benchmark times meaningless — the same code runs at different speeds depending on load and thermals:
+Variable CPU frequency makes benchmark times meaningless - the same code runs at different speeds depending on load and thermals:
 
 ```bash
 # Set all CPUs to "performance" governor (fixed maximum frequency)
@@ -272,7 +272,7 @@ echo 0 | sudo tee /sys/devices/system/cpu/cpu1/online  # if cpu0 and cpu1 are si
 
 ```bash
 #!/bin/bash
-# benchmark-setup.sh — run on self-hosted CI runner before benchmarks
+# benchmark-setup.sh - run on self-hosted CI runner before benchmarks
 set -euo pipefail
 
 echo "=== Configuring CPU for stable benchmarks ==="

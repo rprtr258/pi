@@ -2,11 +2,11 @@
  * GCM - Git Commit Message Generator (pi-mono agent)
  *
  * A simple single-purpose tool that takes a git diff and returns a suggested
- * commit message. No automatic hooks, no system prompt injection — just a
+ * commit message. No automatic hooks, no system prompt injection - just a
  * clean tool you invoke when you need a commit message.
  *
  * Register it as part of your active tools via the extension system, then
- * ask the agent: "generate a commit message for my changes" — the agent
+ * ask the agent: "generate a commit message for my changes" - the agent
  * will compute the diff itself and call the `commit-msg` tool.
  *
  * Alternatively, invoke it directly via the subagent tool:

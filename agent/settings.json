@@ -18,9 +18,12 @@
     "npm:pi-fff",
     "npm:pi-interactive-shell",
     "git:github.com/nicobailon/visual-explainer",
-    "https://github.com/cathrynlavery/diagram-design"
+    "git:github.com/cathrynlavery/diagram-design"
   ],
   "enableInstallTelemetry": false,
   "hideThinkingBlock": false,
-  "treeFilterMode": "no-tools"
+  "treeFilterMode": "no-tools",
+  "retry": {
+    "maxRetries": 10
+  }
 }

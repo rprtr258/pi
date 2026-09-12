@@ -14,11 +14,11 @@ NO FIXES WITHOUT ROOT CAUSE INVESTIGATION FIRST
 
 ### Phase 1: Root Cause Investigation
 
-1. **Read error messages** carefully — note line numbers, file paths, error codes.
-2. **Reproduce consistently** — exact steps. If not reproducible, gather data — do not guess.
-3. **Check recent changes** — run `git diff`, check recent commits.
-4. **Gather evidence** — in multi-component systems, add diagnostic logging at each boundary. Run once to identify the failing layer.
-5. **Trace data flow** — trace backward from the error through the call stack to find where the bad value originates.
+1. **Read error messages** carefully - note line numbers, file paths, error codes.
+2. **Reproduce consistently** - exact steps. If not reproducible, gather data - do not guess.
+3. **Check recent changes** - run `git diff`, check recent commits.
+4. **Gather evidence** - in multi-component systems, add diagnostic logging at each boundary. Run once to identify the failing layer.
+5. **Trace data flow** - trace backward from the error through the call stack to find where the bad value originates.
 
 ### Phase 2: Pattern Analysis
 
@@ -42,7 +42,7 @@ NO FIXES WITHOUT ROOT CAUSE INVESTIGATION FIRST
 
 If 3+ fixes have failed, STOP. Question the architecture, not the symptoms. Discuss with the user.
 
-## Red Flags — STOP and Return to Phase 1
+## Red Flags - STOP and Return to Phase 1
 
 - "Quick fix for now, investigate later"
 - "Just try changing X and see"

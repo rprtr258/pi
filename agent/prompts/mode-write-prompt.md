@@ -43,7 +43,7 @@ Reference files by path instead of copying. Only paste excerpts needed.
 ### Step 4: Return Package
 
 Return:
-1. Target — what the prompt is for.
+1. Target - what the prompt is for.
 2. Success criteria.
 3. External context used.
 4. Optimized prompt.

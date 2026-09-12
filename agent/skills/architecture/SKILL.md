@@ -5,7 +5,7 @@ description: Find deepening opportunities in a codebase. Use when the user wants
 
 # Architecture
 
-Surface architectural friction and propose **deepening opportunities** — refactors that turn shallow modules into deep ones. The aim is testability and AI-navigability.
+Surface architectural friction and propose **deepening opportunities** - refactors that turn shallow modules into deep ones. The aim is testability and AI-navigability.
 
 ## Core Rules
 
@@ -21,7 +21,7 @@ Surface architectural friction and propose **deepening opportunities** — refac
 Explore the codebase organically and note where you experience friction:
 
 - Where does understanding one concept require bouncing between many small modules?
-- Where are modules **shallow** — interface nearly as complex as the implementation?
+- Where are modules **shallow** - interface nearly as complex as the implementation?
 - Where have pure functions been extracted just for testability, but the real bugs hide in how they're called?
 - Where do tightly-coupled modules leak across their seams?
 - Which parts of the codebase are untested, or hard to test through their current interface?
@@ -36,16 +36,16 @@ Use [HTML report format](references/html-report.md). The report uses Tailwind vi
 
 For each candidate, render one card:
 
-- **Files** — which files/modules are involved
-- **Problem** — why the current architecture is causing friction
-- **Solution** — plain English description of what would change
-- **Benefits** — explained in terms of locality, leverage, and how tests improve
-- **Before / After diagram** — side-by-side, illustrating shallowness and deepening
-- **Recommendation strength** — `Strong`, `Worth exploring`, or `Speculative`
+- **Files** - which files/modules are involved
+- **Problem** - why the current architecture is causing friction
+- **Solution** - plain English description of what would change
+- **Benefits** - explained in terms of locality, leverage, and how tests improve
+- **Before / After diagram** - side-by-side, illustrating shallowness and deepening
+- **Recommendation strength** - `Strong`, `Worth exploring`, or `Speculative`
 
 End the report with a **Top recommendation** section: which candidate you'd tackle first and why.
 
-Use the project's domain vocabulary when it is available, and [language](references/language.md) vocabulary for architecture. If the project clearly calls a concept `Order`, talk about the `Order` intake module — not a generic pattern name unless that is truly the project term.
+Use the project's domain vocabulary when it is available, and [language](references/language.md) vocabulary for architecture. If the project clearly calls a concept `Order`, talk about the `Order` intake module - not a generic pattern name unless that is truly the project term.
 
 After the file is written, ask: **"Which of these would you like to explore?"**
 

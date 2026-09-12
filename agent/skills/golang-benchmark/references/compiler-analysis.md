@@ -1,21 +1,21 @@
 # Compiler Analysis Reference
 
-The Go compiler provides diagnostic flags that reveal optimization decisions — escape analysis, inlining, SSA intermediate representation, and generated assembly. These are essential for understanding **why** a function allocates or **why** the compiler won't inline it.
+The Go compiler provides diagnostic flags that reveal optimization decisions - escape analysis, inlining, SSA intermediate representation, and generated assembly. These are essential for understanding **why** a function allocates or **why** the compiler won't inline it.
 
-Use compiler diagnostics when pprof shows a hot function and you need to understand the compiler's decisions about that function. These tools are free (no runtime overhead) — they analyze at compile time.
+Use compiler diagnostics when pprof shows a hot function and you need to understand the compiler's decisions about that function. These tools are free (no runtime overhead) - they analyze at compile time.
 
 ## Escape Analysis
 
-Escape analysis determines whether a variable can live on the stack (cheap — freed when the function returns) or must be allocated on the heap (expensive — requires GC). "Moved to heap" means the compiler decided the variable might outlive the function.
+Escape analysis determines whether a variable can live on the stack (cheap - freed when the function returns) or must be allocated on the heap (expensive - requires GC). "Moved to heap" means the compiler decided the variable might outlive the function.
 
 ### Commands
 
 ```bash
-# Show escape decisions — one line per escaped variable
+# Show escape decisions - one line per escaped variable
 go build -gcflags="-m" ./... 2>&1 | grep "escapes to heap"
 go build -gcflags="-m" ./... 2>&1 | grep "moved to heap"
 
-# Verbose mode — shows the reason for each escape decision
+# Verbose mode - shows the reason for each escape decision
 go build -gcflags="-m -m" ./...
 
 # Filter to a specific package
@@ -44,13 +44,13 @@ go build -gcflags="-m" ./pkg/parser 2>&1 | grep "does not escape"
 ./pkg/parser/parse.go:42:13:     from return &result (return) at ./pkg/parser/parse.go:42:6
 ```
 
-The `-m -m` (verbose) output shows the **escape chain** — why the compiler decided the variable escapes. In this example: `result` has its address taken (`&result`), and that pointer is returned, so `result` must survive beyond the function — it escapes to heap.
+The `-m -m` (verbose) output shows the **escape chain** - why the compiler decided the variable escapes. In this example: `result` has its address taken (`&result`), and that pointer is returned, so `result` must survive beyond the function - it escapes to heap.
 
 ### Common escape causes
 
 | Cause | Example | Why it escapes |
 | --- | --- | --- |
-| **Returning a pointer to a local** | `return &result` | The local must outlive the function call — caller holds a reference |
+| **Returning a pointer to a local** | `return &result` | The local must outlive the function call - caller holds a reference |
 | **Interface boxing** | `var x any = myStruct` | Concrete type stored in `interface{}` allocates a copy on the heap |
 | **Closure capturing a local** | `go func() { use(localVar) }()` | The goroutine may run after the enclosing function returns |
 | **Slice append beyond capacity** | `s = append(s, item)` when len == cap | Triggers a new backing array allocation on the heap |
@@ -80,7 +80,7 @@ go build -gcflags="-m" ./pkg/handler 2>&1 | grep "inline"
 # Show where inlining was actually applied (function was inlined into caller)
 go build -gcflags="-m" ./... 2>&1 | grep "inlining call to"
 
-# Verbose mode — shows the cost budget and why inlining was blocked
+# Verbose mode - shows the cost budget and why inlining was blocked
 go build -gcflags="-m -m" ./... 2>&1 | grep "inline"
 
 # Filter to a specific function
@@ -110,20 +110,20 @@ The inline cost budget is 80 (as of Go 1.22+). Functions with higher cost (more 
 | **`go` statement** | Goroutine launch has implicit complexity | Extract goroutine body into a separate function |
 | **Type switch / interface method call** | Dynamic dispatch can't be resolved at compile time | Use concrete types in hot paths |
 | **`select` statement** | Complex runtime interaction | Simplify channel patterns in hot functions |
-| **Large function body** | Many statements add up in cost | Break into smaller functions — the hot inner function may inline |
+| **Large function body** | Many statements add up in cost | Break into smaller functions - the hot inner function may inline |
 
 **Value receivers vs pointer receivers:** Value receivers enable full inlining of method chains. Pointer receivers add indirection that can block inlining for fluent APIs. Check with `-gcflags="-m"`.
 
 ## SSA Dump
 
-The SSA (Static Single Assignment) dump shows the compiler's intermediate representation after each optimization pass — dead code elimination, bounds check removal, constant folding, register allocation. Use this when you need to understand exactly what the compiler generates.
+The SSA (Static Single Assignment) dump shows the compiler's intermediate representation after each optimization pass - dead code elimination, bounds check removal, constant folding, register allocation. Use this when you need to understand exactly what the compiler generates.
 
 ### Commands
 
 ```bash
-# Generate SSA dump for a specific function — creates ssa.html in current directory
+# Generate SSA dump for a specific function - creates ssa.html in current directory
 GOSSAFUNC=Parse go build ./pkg/parser
-# Open ssa.html in browser — shows each optimization pass side by side
+# Open ssa.html in browser - shows each optimization pass side by side
 
 # Generate for a method on a type
 GOSSAFUNC='(*Parser).Parse' go build ./pkg/parser
@@ -140,22 +140,22 @@ GOSSAFUNC=Parse GOSSADIR=/tmp/ssa go build ./pkg/parser
 
 The HTML file shows the function's code at each compiler pass:
 
-1. **Source** — original Go code
-2. **AST** — abstract syntax tree
-3. **Start** — initial SSA form
-4. **Opt** — after optimization passes (dead code, constant prop, bounds check elimination)
-5. **Lower** — architecture-specific lowering
-6. **Regalloc** — after register allocation
-7. **Genssa** — final generated code
+1. **Source** - original Go code
+2. **AST** - abstract syntax tree
+3. **Start** - initial SSA form
+4. **Opt** - after optimization passes (dead code, constant prop, bounds check elimination)
+5. **Lower** - architecture-specific lowering
+6. **Regalloc** - after register allocation
+7. **Genssa** - final generated code
 
-Click on a value in any pass to highlight it across all passes — see how the compiler transforms it. Red values were eliminated (dead code). Green values are new (introduced by a pass).
+Click on a value in any pass to highlight it across all passes - see how the compiler transforms it. Red values were eliminated (dead code). Green values are new (introduced by a pass).
 
 **What to look for:**
 
-- **Bounds checks remaining** — `IsInBounds` or `IsSliceInBounds` operations that weren't eliminated. Adding explicit bounds checks or using `_ = s[n-1]` hints can help
-- **Dead code not eliminated** — values computed but never used (should be eliminated; if not, check for side effects)
-- **Constant folding** — computations on constants should be resolved at compile time
-- **Register spills** — values moved to stack because not enough registers; indicates heavy register pressure
+- **Bounds checks remaining** - `IsInBounds` or `IsSliceInBounds` operations that weren't eliminated. Adding explicit bounds checks or using `_ = s[n-1]` hints can help
+- **Dead code not eliminated** - values computed but never used (should be eliminated; if not, check for side effects)
+- **Constant folding** - computations on constants should be resolved at compile time
+- **Register spills** - values moved to stack because not enough registers; indicates heavy register pressure
 
 ## Assembly Output
 
@@ -170,7 +170,7 @@ go build -gcflags="-S" ./pkg/parser 2>&1 | head -200
 # Assembly for a specific function (grep for the function name)
 go build -gcflags="-S" ./pkg/parser 2>&1 | grep -A 50 '"".Parse'
 
-# Assembly for all packages (including dependencies — very verbose)
+# Assembly for all packages (including dependencies - very verbose)
 go build -gcflags="all=-S" ./... 2>&1 | grep -A 50 'myapp/pkg/parser.Parse'
 
 # Disassemble a compiled binary (alternative to -gcflags="-S")
@@ -210,12 +210,12 @@ GOARCH=arm64 go build -gcflags="-S" ./pkg/parser 2>&1 | head -200
 
 **What to look for:**
 
-- `CALL runtime.makeslice` or `CALL runtime.newobject` — heap allocations in the hot path
-- `CALL runtime.growslice` — slice capacity exceeded, triggering copy
-- `PCDATA` / `FUNCDATA` — GC metadata (ignore for performance analysis)
-- Bounds check sequences: `CMPQ` + `JCC` before array/slice access — can sometimes be eliminated
-- SIMD instructions: `VMOVDQU`, `VPSHUFB`, `VPADDB`, etc. — verify auto-vectorization or manual SIMD
-- `CALL runtime.morestack_noctxt` — stack growth (normal, but frequent calls indicate deep recursion)
+- `CALL runtime.makeslice` or `CALL runtime.newobject` - heap allocations in the hot path
+- `CALL runtime.growslice` - slice capacity exceeded, triggering copy
+- `PCDATA` / `FUNCDATA` - GC metadata (ignore for performance analysis)
+- Bounds check sequences: `CMPQ` + `JCC` before array/slice access - can sometimes be eliminated
+- SIMD instructions: `VMOVDQU`, `VPSHUFB`, `VPADDB`, etc. - verify auto-vectorization or manual SIMD
+- `CALL runtime.morestack_noctxt` - stack growth (normal, but frequent calls indicate deep recursion)
 
 ### Comparing assembly before/after optimization
 

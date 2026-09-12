@@ -1,6 +1,6 @@
 /**
- * ck — Context Keeper v2
- * shared.mjs — common utilities for all command scripts
+ * ck - Context Keeper v2
+ * shared.mjs - common utilities for all command scripts
  *
  * No external dependencies. Node.js stdlib only.
  */
@@ -11,7 +11,7 @@ import { homedir } from 'os';
 import { spawnSync } from 'child_process';
 import { randomBytes } from 'crypto';
 
-// ─── Paths ────────────────────────────────────────────────────────────────────
+// === Paths ====================================================================
 
 export const CK_HOME          = resolve(homedir(), '.claude', 'ck');
 export const CONTEXTS_DIR     = resolve(CK_HOME, 'contexts');
@@ -19,7 +19,7 @@ export const PROJECTS_FILE    = resolve(CK_HOME, 'projects.json');
 export const CURRENT_SESSION  = resolve(CK_HOME, 'current-session.json');
 export const SKILL_FILE       = resolve(homedir(), '.claude', 'skills', 'ck', 'SKILL.md');
 
-// ─── JSON I/O ─────────────────────────────────────────────────────────────────
+// === JSON I/O =================================================================
 
 export function readJson(filePath) {
   try {
@@ -44,7 +44,7 @@ export function writeProjects(projects) {
   writeJson(PROJECTS_FILE, projects);
 }
 
-// ─── Context I/O ──────────────────────────────────────────────────────────────
+// === Context I/O ==============================================================
 
 export function contextPath(contextDir) {
   return resolve(CONTEXTS_DIR, contextDir, 'context.json');
@@ -112,7 +112,7 @@ export function resolveContext(arg, cwd) {
   return { name: match.name, contextDir: match.contextDir, projectPath: match.path, context };
 }
 
-// ─── Date helpers ─────────────────────────────────────────────────────────────
+// === Date helpers =============================================================
 
 export function today() {
   return new Date().toISOString().slice(0, 10);
@@ -134,13 +134,13 @@ export function stalenessIcon(dateStr) {
   return '○';
 }
 
-// ─── ID generation ────────────────────────────────────────────────────────────
+// === ID generation ============================================================
 
 export function shortId() {
   return randomBytes(4).toString('hex');
 }
 
-// ─── Git helpers ──────────────────────────────────────────────────────────────
+// === Git helpers ==============================================================
 
 function runGit(args, cwd) {
   try {
@@ -180,7 +180,7 @@ export function gitSummary(projectPath, sinceDate) {
   return `${commits} commit${commits !== 1 ? 's' : ''}`;
 }
 
-// ─── Native memory path encoding ──────────────────────────────────────────────
+// === Native memory path encoding ==============================================
 
 export function encodeProjectPath(absolutePath) {
   // "/Users/sree/dev/app" -> "-Users-sree-dev-app"
@@ -192,7 +192,7 @@ export function nativeMemoryDir(absolutePath) {
   return resolve(homedir(), '.claude', 'projects', encoded, 'memory');
 }
 
-// ─── Rendering ────────────────────────────────────────────────────────────────
+// === Rendering ================================================================
 
 /** Render the human-readable CONTEXT.md from context.json */
 export function renderContextMd(ctx) {
