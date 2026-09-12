@@ -52,7 +52,7 @@
 - C5 AGENTS.md large-output line (amended same cycle at user request): redirect full output to a tmp file first, inspect its tail; reuse the file for follow-up searches instead of re-running the command. Baseline: bash output >4KB ≈ 6.8MB/200 sessions.
 - C6 chrome-devtools SKILL.md: pageId note (most tools require pageId from list_pages; restarts invalidate ids).
 - C7 (log-only, no code) Subagent workflowScript gotchas hit this cycle: it is a statement body — no `export`/meta export (that's the `workflow` tool); don't shadow the sandbox `runs` global; no `parallel()` — use `runs.all([...])`. Cost 4 failed launches before first success.
-- C8 Confirm step now: agent writes `harness-findings-<date>.md` in this directory (findings + ranked candidates format), then calls the new `harness_annotate_findings` tool (added to this extension) which emits `plannotator:request` action `annotate` with `gate: true`, opens the browser annotation UI, blocks, and returns the user's feedback. Verified: tsc clean, module imports, event API matches plannotator's documented extension contract (README + plannotator-events.ts).
+- C8 Confirm step now: agent writes `harness-findings.md` in this directory (findings + ranked candidates format), then calls the new `harness_annotate_findings` tool (added to this extension) which emits `plannotator:request` action `annotate` with `gate: true`, opens the browser annotation UI, blocks, and returns the user's feedback. Verified: tsc clean, module imports, event API matches plannotator's documented extension contract (README + plannotator-events.ts).
 
 **Verification pending future cycles** (measure with stats.ts / re-mining): C3/C4/C5 baselines above; chrome_devtools pageId errors (15/200 sessions baseline).
 

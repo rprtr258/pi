@@ -14,11 +14,10 @@ const CYCLE_PROMPT = `Run one agent harness improvement cycle.
 Read PLAN.md first — it defines scope, evidence rules, and the cycle.
 
 1. Analyze: mine session logs for inefficiencies. Start with:
-   bun ~/.pi/agent/extensions/harness/stats.ts
+   $ ./stats.ts
    Then dig into the top findings with direct session inspection. Every finding needs evidence (file, count, or user quote).
 2. Plan: rank concrete improvement candidates (what / why / how to verify / risk).
-3. Confirm: write findings + ranked candidates to
-   ~/.pi/agent/extensions/harness/harness-findings.md (findings with evidence, then
+3. Confirm: write findings + ranked candidates to harness-findings.md (findings with evidence, then
    candidates: what / why / how to verify / risk). Then call the harness_annotate_findings tool
    with that file — it opens the browser annotation UI and returns my notes and next-step marks.
    Wait — no change without my explicit per-change approval (my annotations and my reply both count).`;

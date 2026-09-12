@@ -1,32 +1,16 @@
 # Agent Harness Improvement — Recurring Process
-
-A user-triggered cycle that improves this pi agent setup: instruction layer (AGENTS.md,
-skills, prompts), extensions and tools, and the process itself. Every cycle is:
-**analyze → plan → confirm → implement → verify**. Nothing changes without explicit
-user confirmation.
+A user-triggered cycle that improves this pi agent setup: instruction layer (AGENTS.md, skills, prompts), extensions and tools, and the process itself. Every cycle is: **analyze → plan → confirm → implement → verify**. Nothing changes without explicit user confirmation.
 
 ## Core principles
+Principles every finding and candidate is checked against. Candidates that violate them are rejected or rewritten before confirmation.
 
-Principles every finding and candidate is checked against. Candidates that violate
-them are rejected or rewritten before confirmation.
+### Fix the root issue, not symptoms.
+Follow the chain of reasoning that led agent to erroneous conclusions before diagnosing problem to solve.  Post-fixing bad tool calls or results — intercepting calls, blocking re-reads, stripping malformed arguments, patching results — is curing the symptom: it is unreliable and does not scale. Fix the source instead: agent instructions, tool signatures/schemas, agent contracts, or the tool itself, so the wrong call becomes hard to make or fails with a self-explanatory error. When an agent misuses a format, first investigate why it misuses it (unclear description? misleading example? wrong assumption?) and fix that cause.
 
-1. **Fix the root issue, not symptoms.** Post-fixing bad tool calls or results —
-   intercepting calls, blocking re-reads, stripping malformed arguments, patching
-   results — is curing the symptom: it is unreliable and does not scale. Fix the
-   source instead: agent instructions, tool signatures/schemas, agent contracts, or
-   the tool itself, so the wrong call becomes hard to make or fails with a
-   self-explanatory error. When an agent misuses a format, first investigate why it
-   misuses it (unclear description? misleading example? wrong assumption?) and fix
-   that cause.
-2. **Verify fixes right away.** Do not defer verification to "measure next cycle":
-   old-session evidence goes stale and produces fixes for problems that no longer
-   exist. Reproduce the original failure scenario now — replay it in an isolated
-   copy (bench) or probe it with a fresh subagent — and confirm the fix changes the
-   outcome before recording it. If the scenario can't be reproduced, the finding is
-   historical: log it, don't fix it.
+### Verify fixes right away.
+Do not defer verification to "measure next cycle": old-session evidence goes stale and produces fixes for problems that no longer exist. Reproduce the original failure scenario now — replay it in an isolated copy (bench) or probe it with a fresh subagent — and confirm the fix changes the outcome before recording it. If the scenario can't be reproduced, the finding is historical: log it, don't fix it.
 
 ## Scope
-
 The cycle may inspect and propose changes to:
 
 1. **Instruction layer** — AGENTS.md, skills (~/.pi/agent/skills), prompt templates
@@ -49,6 +33,15 @@ Manual only. Pi extension exposes a `/harness` command. Never auto-triggered, ne
    for: tool error/retry rates, most/least used tools and skills, user corrections and
    rejections ("no", "wrong", rephrased requests), abandoned or re-asked tasks,
    redundant multi-step patterns that suggest a missing macro-tool or skill.
+
+   **Profit/effectiveness, not just errors.** Errors are only one failure signal.
+   Also mine for whether tool/skill usage was profitable: did the invocation earn its
+   cost (result achieved at reasonable step/token/time cost), was there a more
+   effective way to reach the same result (wrong tool or skill chosen, a skill that
+   should have triggered but didn't, manual steps a skill already covers, an agent
+   faster than the tool used), and whether current usage can be improved/optimised
+   (redundant calls, wasted parameters, over- or under-reliance on a tool/skill).
+   Effectiveness findings count the same as error findings — each cites evidence.
    Mining and any session-file reading is delegated to subagents (see Analyze) —
    session bytes must not enter the main agent's context.
 
