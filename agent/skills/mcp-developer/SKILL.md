@@ -10,7 +10,7 @@ metadata:
   role: specialist
   scope: implementation
   output-format: code
-  related-skills: fastapi-expert, typescript-pro, security-reviewer, devops-engineer
+  related-skills: fastapi-expert, lang-typescript, security-reviewer, devops-engineer
 ---
 
 # MCP Developer

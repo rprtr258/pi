@@ -49,6 +49,8 @@
 - `noImplicitReturns` — all code paths must return
 - `noFallthroughCasesInSwitch` — prevent switch fallthrough
 - `noUnusedLocals` / `noUnusedParameters` — flag unused code (can be noisy)
+- `exactOptionalPropertyTypes` — `?: T` no longer permits `undefined` (prevents a common bug class)
+- `noPropertyAccessFromIndexSignature` — forces bracket access for index-signature keys
 
 ### Module System
 
@@ -108,6 +110,172 @@ For monorepo libraries, also add `"composite": true` to enable project reference
 ```json
 { "compilerOptions": { "lib": ["es2022"] } }
 ```
+
+## Path Mapping
+
+```json
+{
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./src/*"]
+    }
+  }
+}
+```
+
+Use sparingly. Prefer relative imports; deep `../../../` chains suggest the module structure needs refactoring, not
+aliases. If you do map paths in a tsc-transpiled Node project, the runtime also needs the mapping (e.g.
+`tsconfig-paths/register`).
+
+## Project References (Monorepos)
+
+Root `tsconfig.json`:
+
+```json
+{
+  "files": [],
+  "references": [
+    { "path": "./packages/core" },
+    { "path": "./packages/cli" }
+  ]
+}
+```
+
+Each package config:
+
+```json
+{
+  "compilerOptions": {
+    "composite": true,
+    "declaration": true,
+    "outDir": "./dist"
+  }
+}
+```
+
+Build the whole graph with `tsc --build` — only changed projects recompile.
+
+## Multiple Configurations
+
+```json
+// tsconfig.json — default: dev, tests, IDE
+{ "include": ["src/**/*", "tests/**/*"] }
+
+// tsconfig.build.json — production build only
+{
+  "extends": "./tsconfig.json",
+  "exclude": ["**/*.test.ts", "**/*.spec.ts", "tests/**"]
+}
+```
+
+Build with `tsc -p tsconfig.build.json`.
+
+## Framework-Specific Configs
+
+**React + Vite** — start from `module: "preserve"` / bundler resolution:
+
+```json
+{
+  "compilerOptions": {
+    "target": "es2022",
+    "lib": ["es2022", "dom", "dom.iterable"],
+    "module": "preserve",
+    "jsx": "react-jsx",
+    "strict": true,
+    "noEmit": true,
+    "types": ["vite/client"]
+  },
+  "include": ["src"]
+}
+```
+
+**Next.js** — the framework generates most of it; keep `strict: true` and don't edit generated blocks:
+
+```json
+{
+  "compilerOptions": {
+    "lib": ["dom", "dom.iterable", "esnext"],
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "jsx": "preserve",
+    "strict": true,
+    "noEmit": true,
+    "incremental": true,
+    "plugins": [{ "name": "next" }]
+  },
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
+  "exclude": ["node_modules"]
+}
+```
+
+**Node.js API (Express, Fastify):**
+
+```json
+{
+  "compilerOptions": {
+    "module": "NodeNext",
+    "target": "es2022",
+    "lib": ["es2022"],
+    "outDir": "dist",
+    "strict": true
+  },
+  "include": ["src"]
+}
+```
+
+## Custom Type Definitions
+
+Extend global types in a `.d.ts` file (included by `tsconfig`):
+
+```ts
+// types/global.d.ts
+declare global {
+  interface Window {
+    ENV: Record<string, string>;
+  }
+}
+
+export {};
+```
+
+Declare modules without types:
+
+```ts
+// types/assets.d.ts
+declare module "*.svg" {
+  const content: string;
+  export default content;
+}
+```
+
+## Build Optimization
+
+```json
+{
+  "incremental": true
+}
+```
+
+- **`incremental`** → Caches compilation in `.tsbuildinfo`; skip files already checked
+- **`composite: true`** → Required for project references; implies `incremental`
+- **`skipLibCheck: true`** → Skip type checking of declaration files
+
+## Performance Monitoring
+
+```json
+{
+  "compilerOptions": {
+    "explainFiles": true
+  }
+}
+```
+
+- **`tsc --noEmit --extendedDiagnostics`** → Prints timing and memory per compilation phase
+- **`explainFiles: true`** → Lists why each file was included in the program
+- **`listFiles: true`** → Prints all files in the program
+
+Use when compile times become slow — usually it's too many `include` paths or missing `skipLibCheck`.
 
 ## Import Conventions
 
@@ -186,3 +354,18 @@ Never use `@ts-nocheck` in production code. It disables all type checking for th
 - **Keep `tsconfig.json` minimal.** Use `extends` for shared base configs.
 - **`include` explicitly.** Don't rely on defaults — specify which directories to compile.
 - **Separate `tsconfig.build.json`** for builds (excludes tests, scripts).
+
+## Quick Reference
+
+| Option | Purpose | Recommended |
+|--------|---------|-------------|
+| `strict` | Enable all strict type checks | Always |
+| `noUncheckedIndexedAccess` | Index access returns `T \| undefined` | Always |
+| `noImplicitOverride` | Require `override` keyword | Always |
+| `exactOptionalPropertyTypes` | `?: T` doesn't allow `undefined` | Optional |
+| `verbatimModuleSyntax` | Force `import type`/`export type` | Always |
+| `isolatedModules` | Safe single-file transpilation | Always |
+| `skipLibCheck` | Skip .d.ts checking | Always |
+| `declaration` | Generate `.d.ts` files | Libraries |
+| `incremental` | Cache compilation | Large projects |
+| `composite` | Enable project references | Monorepos |

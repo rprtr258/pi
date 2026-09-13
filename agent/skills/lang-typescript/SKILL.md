@@ -1,16 +1,27 @@
 ---
-name: typescript
+name: lang-typescript
 description: >-
   TypeScript type system, strict mode, and TS-specific patterns beyond JavaScript fundamentals.
-  Invoke whenever task involves any interaction with TypeScript code — writing, reviewing,
-  refactoring, debugging .ts/.tsx files, type definitions, generics, narrowing, tsconfig, or
+  Invoke whenever a task involves any interaction with TypeScript code — writing, reviewing,
+  refactoring, or debugging .ts/.tsx files, type definitions, generics, conditional/mapped types,
+  narrowing, type guards, branded types, utility types, tsconfig, monorepo project references, or
   type-level programming.
+license: MIT
+metadata:
+  author: https://github.com/Jeffallan
+  version: "1.1.0"
+  domain: language
+  triggers: TypeScript, generics, type safety, conditional types, mapped types, tsconfig, type guards, discriminated unions, strict mode, narrowing, branded types, type-level programming
+  role: specialist
+  scope: implementation
+  output-format: code
+  related-skills: lang-javascript, fullstack-guardian, api-designer
 ---
 
 # TypeScript
 
 <prerequisite>
-This skill extends the JavaScript skill. Load `javascript` first — naming,
+This skill extends the JavaScript skill. Load `lang-javascript` first — naming,
 ternary operator rules, async patterns, and module conventions are defined there and
 not duplicated here.
 </prerequisite>
@@ -20,14 +31,21 @@ not duplicated here.
 TypeScript's value is in catching bugs at compile time. Write types that express your domain; let inference handle the
 obvious. Never fight the type system — if you need `as` or `any`, the types are wrong.
 
+## Verification
+
+- **Run `tsc --noEmit` before and after changes** — confirm zero errors before proceeding.
+- **Validate public API return types** — exported functions and methods should have explicit return types.
+
 ## References
 
-| Topic                                              | Reference                         | Contents                                                                           |
-| -------------------------------------------------- | --------------------------------- | ---------------------------------------------------------------------------------- |
-| Generics, utility types, type-level programming    | [`./references/generics.md`]      | Utility type tables, conditional/mapped type examples, infer, template literals    |
-| Narrowing, type guards, discriminated unions       | [`./references/narrowing.md`]     | typeof/instanceof/in examples, exhaustive switch, type predicates, assertion fns   |
-| tsconfig options, module resolution, project setup | [`./references/configuration.md`] | Base/strict/module configs, library setup, compiler directives, project structure  |
-| Branded types, overloads, class patterns, enums    | [`./references/patterns.md`]      | Interface vs type examples, assertion patterns, enum anti-patterns, callback types |
+| Topic                                              | Reference                             | Contents                                                                           |
+| -------------------------------------------------- | ------------------------------------- | ---------------------------------------------------------------------------------- |
+| Generics, type-level programming                   | [`./references/generics.md`]          | Constraints, conditional/mapped types, infer, template literals, variance, recursion |
+| Utility types (built-in and custom)                | [`./references/utility-types.md`]     | Partial/Pick/Omit/Record, extraction, tuple/string/function utilities               |
+| Narrowing, type guards, discriminated unions       | [`./references/narrowing.md`]         | typeof/instanceof/in examples, exhaustive switch, type predicates, assertion fns    |
+| tsconfig options, module resolution, project setup | [`./references/configuration.md`]     | Base/strict/module configs, project references, framework configs, diagnostics      |
+| Declaration patterns, branded types, enums         | [`./references/patterns.md`]          | Interface vs type examples, assertion patterns, enum anti-patterns, callback types  |
+| Builder, factory, repository, API client patterns  | [`./references/design-patterns.md`]   | Type-safe design patterns, Result/Either, state machines, decorators                |
 
 ## Type Safety
 
@@ -114,7 +132,8 @@ non-primitive".
 
 Prefer built-in utility types over hand-rolling equivalents. Key types: `Partial`, `Pick`, `Omit`, `Record`, `Exclude`,
 `Extract`, `ReturnType`, `Parameters`, `Awaited`, `NoInfer`. Use explicit interfaces when the type represents a distinct
-domain concept. See `./references/generics.md` for the full catalog and usage guidance.
+domain concept. See `./references/utility-types.md` for the full catalog and `./references/generics.md` for usage
+guidance.
 
 Conditional types (`T extends U ? X : Y`), mapped types (`{ [P in keyof T]: ... }`), and template literal types
 (`` `${T}Changed` ``) are advanced tools — use for library code and framework types. See
@@ -150,7 +169,7 @@ complex — split it, simplify it, or use explicit interfaces.
 ## Enums
 
 - **Prefer union types** over enums when values are simple string literals: `type Status = "active" | "inactive"` is
-  simpler than `enum Status`.
+  simpler than `enum Status`. A `const object` with `as const` covers the cases needing a runtime object.
 - **Prefer string enums** over numeric enums when an enum is needed. String enums have meaningful runtime values and
   readable debug output.
 - **Never use numeric enums with implicit values** — always assign explicit values.
@@ -164,6 +183,8 @@ complex — split it, simplify it, or use explicit interfaces.
 
 - **Prefer annotations over assertions.** `: Foo` catches errors; `as Foo` hides them.
 - **Always use `as` syntax**, never angle brackets (`<Foo>value`) — angle brackets conflict with JSX.
+- **Use `satisfies` to validate literals** (configs, maps, route tables) against a type — it checks the value while
+  preserving the narrower inferred type, unlike `as`.
 - **Assertions are justified when** you genuinely know more than the compiler: values from `JSON.parse`, DOM API
   returning wider types, trusted external sources.
 - **Double assertions through `unknown`:** `value as unknown as Foo`. Never use `any` as the intermediate type.
@@ -212,9 +233,11 @@ Use `T[]` for simple element types (`string[]`, `User[]`). Use `Array<T>` for co
 - **Never `@ts-ignore`.** Use `@ts-expect-error` in tests only, with a comment. Never `@ts-nocheck` in production.
 - **Keep `tsconfig.json` minimal.** Use `extends` for shared configs. Separate `tsconfig.build.json` for builds
   (excludes tests, scripts).
+- **Generate declarations for libraries** (`declaration: true`, `declarationMap: true`); add `composite: true` for
+  monorepo project references.
 
-See `./references/configuration.md` for the full options catalog, library project setup, and project
-structure guidance.
+See `./references/configuration.md` for the full options catalog, project references, framework configs, and
+performance diagnostics.
 
 ## Application
 
@@ -231,5 +254,5 @@ When **reviewing** TypeScript code:
 
 ## Integration
 
-The **javascript** skill is a prerequisite. The JavaScript skill governs code patterns; this skill governs type-level
-choices for codebases that already use TypeScript.
+The **lang-javascript** skill is a prerequisite. The JavaScript skill governs code patterns; this skill governs
+type-level choices for codebases that already use TypeScript.

@@ -33,6 +33,18 @@ logLength([1, 2, 3]);    // OK: array has length
 logLength(42);           // Error: number has no length
 ```
 
+Multiple type parameters can constrain each other:
+
+```ts
+function merge<T extends object, U extends object>(a: T, b: U): T & U {
+  return { ...a, ...b };
+}
+
+const merged = merge({ name: "Alice" }, { age: 30 });
+merged.name; // string
+merged.age;  // number
+```
+
 ### Using Type Parameters in Constraints
 
 ```ts
@@ -62,7 +74,8 @@ const c: Container<string> = {
 
 ## Utility Types
 
-TypeScript's standard library includes essential type operators:
+TypeScript's standard library includes essential type operators. See `./utility-types.md` for the full catalog with
+custom utility type implementations.
 
 ### Object Transformation
 
@@ -154,6 +167,16 @@ type B = ElementType<number>;   // number
 type UnwrapReturn<T> = T extends (...args: never[]) => infer R ? R : never;
 ```
 
+Conditional types can be nested for recursive inference:
+
+```ts
+type Flatten<T> = T extends Array<infer E>
+  ? Flatten<E>
+  : T;
+
+type A = Flatten<number[][]>; // number
+```
+
 ### Distributive Behavior
 
 Conditional types distribute over unions:
@@ -227,6 +250,95 @@ type Result = EventName<"name" | "age">;
 
 Intrinsic string types: `Uppercase`, `Lowercase`, `Capitalize`, `Uncapitalize`.
 
+Extract from patterns:
+
+```ts
+type ExtractRouteParams<T extends string> =
+  T extends `${string}:${infer Param}/${infer Rest}`
+    ? { [K in Param | keyof ExtractRouteParams<Rest>]: string }
+    : T extends `${string}:${infer Param}`
+      ? { [K in Param]: string }
+      : Record<string, never>;
+
+type Params = ExtractRouteParams<"/users/:userId/posts/:postId">;
+// { userId: string; postId: string }
+```
+
+## Recursive Types
+
+Types that reference themselves:
+
+```ts
+type JSONValue =
+  | string
+  | number
+  | boolean
+  | null
+  | JSONValue[]
+  | { [key: string]: JSONValue };
+```
+
+Infer deep paths from nested objects:
+
+```ts
+type PathsToProps<T> = T extends object
+  ? {
+      [K in keyof T]: T[K] extends object
+        ? K | `${K & string}.${PathsToProps<T[K]>}`
+        : K;
+    }[keyof T]
+  : never;
+
+type Person = {
+  name: string;
+  address: { city: string; zip: string };
+};
+
+type PersonPaths = PathsToProps<Person>;
+// "name" | "address" | "address.city" | "address.zip"
+```
+
+## Variance
+
+Structural typing makes most types covariant, but function parameters are contravariant:
+
+```ts
+class Animal { name = "Animal" }
+class Dog extends Animal { breed = "Lab" }
+
+// Covariant: Dog[] is assignable to Animal[]
+const dogs: Dog[] = [];
+const animals: Animal[] = dogs; // OK
+
+// Contravariant: parameter types invert in function types
+type Handler<T> = (item: T) => void;
+
+const animalHandler: Handler<Animal> = (animal) => { /* ... */ };
+const dogHandler: Handler<Dog> = animalHandler; // OK: Handler<Animal> accepts Dogs
+// const animalHandler2: Handler<Animal> = dogHandler; // Error under strictFunctionTypes
+```
+
+## Type-Level Programming
+
+Compute types the way you compute values:
+
+```ts
+type Equal<X, Y> =
+  (<T>() => T extends X ? 1 : 2) extends
+  (<T>() => T extends Y ? 1 : 2) ? true : false;
+
+type Concat<A extends string, B extends string> = `${A}${B}`;
+type Full = Concat<"Hello, ", "World">; // "Hello, World"
+
+type Length<T extends readonly unknown[]> = T["length"];
+type Three = Length<[string, number, boolean]>; // 3
+
+type If<C extends boolean, T, F> = C extends true ? T : F;
+type Result = If<true, string, number>; // string
+```
+
+Use for library and framework code; see the complexity budget below before reaching for these in application code.
+
 ## Complexity Budget
 
 Type-level programming is powerful but has real costs:
@@ -288,3 +400,17 @@ interface LoginInfo {
   mfaEnabled: boolean;
 }
 ```
+
+## Quick Reference
+
+| Pattern | Example | Use Case |
+|---------|---------|----------|
+| Generic function | `identity<T>(arg: T): T` | Type-safe pass-through |
+| Generic constraint | `<T extends Lengthwise>` | Access specific properties |
+| Generic default | `<T, U = T[]>` | Optional type arguments |
+| Conditional type | `T extends X ? Y : Z` | Type branching |
+| Type inference | `T extends infer U` | Extract nested types |
+| Mapped type | `{ [K in keyof T]: T[K] }` | Transform properties |
+| Template literal | `` `${T}Event` `` | String type patterns |
+| Recursive type | `T extends object ? Deep<T> : T` | Nested structures |
+| Type-level computation | `Equal`, `Concat`, `Length` | Library/framework code |

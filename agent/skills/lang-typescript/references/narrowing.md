@@ -134,6 +134,22 @@ function getArea(shape: Shape): number {
 
 If you add `Triangle` to `Shape` without a case, TypeScript errors: `Type 'Triangle' is not assignable to type 'never'`.
 
+An equivalent helper is common in larger codebases:
+
+```ts
+function assertNever(x: never): never {
+  throw new Error("Unexpected value: " + x);
+}
+
+function processShape(shape: Shape): number {
+  switch (shape.kind) {
+    case "circle": return shape.radius;
+    case "square": return shape.sideLength;
+    default: return assertNever(shape); // compile error if not exhaustive
+  }
+}
+```
+
 ## User-Defined Type Guards (Type Predicates)
 
 Define reusable guards with `param is Type` return annotation:
@@ -154,6 +170,14 @@ if (isFish(pet)) {
 const fishes: Fish[] = zoo.filter(isFish);
 ```
 
+Predicates can be generic:
+
+```ts
+function isArray<T>(value: T | T[]): value is T[] {
+  return Array.isArray(value);
+}
+```
+
 ### Assertion Functions
 
 ```ts
@@ -171,6 +195,22 @@ try {
 }
 ```
 
+Generic helpers worth keeping in shared code:
+
+```ts
+function assert(condition: unknown, message?: string): asserts condition {
+  if (!condition) {
+    throw new Error(message || "Assertion failed");
+  }
+}
+
+function assertIsDefined<T>(value: T): asserts value is NonNullable<T> {
+  if (value === null || value === undefined) {
+    throw new Error("Value is null or undefined");
+  }
+}
+```
+
 ## Control Flow Analysis
 
 TypeScript tracks types across assignments and early returns:
@@ -185,6 +225,20 @@ function padLeft(padding: number | string, input: string) {
 }
 ```
 
+The same applies to throws and inline predicates:
+
+```ts
+function processValue(value: string | null) {
+  if (!value) {
+    throw new Error("Value is required");
+  }
+  console.log(value.length); // value is string (null thrown above)
+}
+
+const mixed: (string | number)[] = ["a", 1, "b", 2];
+const strings = mixed.filter((x): x is string => typeof x === "string"); // string[]
+```
+
 ## Rules Summary
 
 - **Prefer discriminated unions** over optional properties for variant types
@@ -193,3 +247,16 @@ function padLeft(padding: number | string, input: string) {
 - **Write type predicates** for reusable, complex guards
 - **Avoid non-null assertions (`!`)** — narrow instead
 - **Use assertion functions** (`asserts x is T`) for validation at boundaries
+
+## Quick Reference
+
+| Pattern | Use Case |
+|---------|----------|
+| `value is Type` | Type predicate function |
+| `asserts condition` | Assertion function |
+| `asserts value is Type` | Type assertion function |
+| Discriminated union | Tagged union with literal type |
+| `typeof` guard | Primitive type checking |
+| `instanceof` guard | Class instance checking |
+| `in` operator | Property existence check |
+| `assertNever` / `never` default | Exhaustive switch checking |
