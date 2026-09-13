@@ -1,6 +1,6 @@
 ---
 name: agent-harness-construction
-description: Design and optimize AI agent action spaces, tool definitions, and observation formatting for higher completion rates.
+description: Design and optimize AI agent action spaces, tool definitions, and observation formatting for higher completion rates. Use when building or refactoring agent tools, improving completion rates, reducing retries, or designing eval benchmarks for agent behavior.
 ---
 
 # Agent Harness Construction
@@ -64,9 +64,17 @@ Track:
 - pass@1 and pass@3
 - cost per successful task
 
+For formal eval suites (capability/regression evals, graders, pass@k), see [eval-harness.md](eval-harness.md).
+
 ## Anti-Patterns
 
 - Too many tools with overlapping semantics.
 - Opaque tool output with no recovery hints.
 - Error-only output without next steps.
 - Context overloading with irrelevant references.
+
+## Related Guidance
+
+- [autonomous-loops.md](autonomous-loops.md) — patterns for running agents autonomously in loops, from simple pipelines to multi-agent orchestration.
+- [verification-before-completion.md](verification-before-completion.md) — evidence-first rules for verifying work before claiming it is complete.
+- [verification-loop.md](verification-loop.md) — verification system for quality gates after code changes.

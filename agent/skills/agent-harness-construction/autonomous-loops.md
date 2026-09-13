@@ -560,15 +560,11 @@ Is the task a single focused change?
 ```
 
 ### Combining Patterns
-
 These patterns compose well:
 
 1. **Sequential Pipeline + De-Sloppify** - The most common combination. Every implement step gets a cleanup pass.
-
 2. **Continuous Claude + De-Sloppify** - Add `--review-prompt` with a de-sloppify directive to each iteration.
-
 3. **Any loop + Verification** - Use ECC's `/verify` command or `verification-loop` skill as a gate before commits.
-
 4. **Ralphinho's tiered approach in simpler loops** - Even in a sequential pipeline, you can route simple tasks to Haiku and complex tasks to Opus:
    ```bash
    # Simple formatting fix
@@ -583,27 +579,9 @@ These patterns compose well:
 ## Anti-Patterns
 
 ### Common Mistakes
-
 1. **Infinite loops without exit conditions** - Always have a max-runs, max-cost, max-duration, or completion signal.
-
 2. **No context bridge between iterations** - Each `claude -p` call starts fresh. Use `SHARED_TASK_NOTES.md` or filesystem state to bridge context.
-
 3. **Retrying the same failure** - If an iteration fails, don't just retry. Capture the error context and feed it to the next attempt.
-
 4. **Negative instructions instead of cleanup passes** - Don't say "don't do X." Add a separate pass that removes X.
-
 5. **All agents in one context window** - For complex workflows, separate concerns into different agent processes. The reviewer should never be the author.
-
 6. **Ignoring file overlap in parallel work** - If two parallel agents might edit the same file, you need a merge strategy (sequential landing, rebase, or conflict resolution).
-
----
-
-## References
-
-| Project | Author | Link |
-|---------|--------|------|
-| Ralphinho | enitrat | credit: @enitrat |
-| Infinite Agentic Loop | disler | credit: @disler |
-| Continuous Claude | AnandChowdhary | credit: @AnandChowdhary |
-| NanoClaw | ECC | `/claw` command in this repo |
-| Verification Loop | ECC | `skills/verification-loop/` in this repo |
