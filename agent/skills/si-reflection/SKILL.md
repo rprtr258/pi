@@ -1,5 +1,5 @@
 ---
-name: reflection
+name: si-reflection
 description: Review the current session for durable learnings worth codifying in project instructions, README files, or reusable skills. Use when the user asks to reflect, asks what was learned, asks what to note, or asks whether docs or agent instructions should be updated.
 ---
 

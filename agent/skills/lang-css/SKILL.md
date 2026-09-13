@@ -1,5 +1,5 @@
 ---
-name: css
+name: lang-css
 description: Plain CSS patterns, properties, browser quirks, and modern CSS feature guidance. Use when writing, refactoring, debugging, or reviewing CSS, including CSS inside components or templates.
 ---
 
