@@ -123,7 +123,7 @@ from the prompt description alone and mark the estimate as uncertain.
 | LOW | Single component or module | Single command or skill |
 | MEDIUM | Multiple components, same domain | Command chain + /verify |
 | HIGH | Cross-domain, 5+ files | /plan first, then phased execution |
-| EPIC | Multi-session, multi-PR, architectural shift | Use blueprint skill for multi-session plan |
+| EPIC | Multi-session, multi-PR, architectural shift | Use plan skill (multi-session mode) for the plan |
 
 ### Phase 3: ECC Component Matching
 
@@ -161,7 +161,7 @@ Determine where this prompt sits in the development lifecycle:
 Research → Plan → Implement (TDD) → Review → Verify → Commit
 ```
 
-For MEDIUM+ tasks, always start with /plan. For EPIC tasks, use blueprint skill.
+For MEDIUM+ tasks, always start with /plan. For EPIC tasks, use the plan skill (multi-session mode).
 
 **Model recommendation** and **multi-prompt splitting** guidance for HIGH/EPIC
 tasks: load `references/mode-b.md` (§ Model Recommendation & Multi-Prompt
@@ -180,7 +180,7 @@ migration).
 | `configure-ecc` | User hasn't set up ECC yet |
 | `skill-stocktake` | Audit which components are installed (use instead of hardcoded catalog) |
 | `search-first` | Research phase in optimized prompts |
-| `blueprint` | EPIC-scope optimized prompts (invoke as skill, not command) |
+| `plan` | EPIC-scope optimized prompts (multi-session mode) |
 | `strategic-compact` | Long session context management |
 | `cost-aware-llm-pipeline` | Token optimization recommendations |
 

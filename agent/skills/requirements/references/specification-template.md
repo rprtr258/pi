@@ -55,27 +55,6 @@ Then [expected result]
 | Not found | 404 | "Resource not found" |
 | Conflict | 409 | "This already exists" |
 
-## Implementation TODO
-
-### Backend
-- [ ] Create database migration for X table
-- [ ] Implement X service with Y method
-- [ ] Add API endpoint POST /api/x
-- [ ] Add input validation schema
-- [ ] Add authorization check
-
-### Frontend
-- [ ] Create X component
-- [ ] Add form with validation
-- [ ] Implement API integration
-- [ ] Add loading/error states
-- [ ] Add success feedback
-
-### Testing
-- [ ] Unit tests for X service
-- [ ] Integration tests for API endpoint
-- [ ] E2E test for complete user flow
-
 ## Out of Scope
 - [Feature/capability explicitly not included]
 - [Future enhancement to consider later]
@@ -87,7 +66,7 @@ Then [expected result]
 
 ## Save Location
 
-Save as: `specs/{feature_name}.spec.md`
+Save as: `docs/specs/YYYY-MM-DD-{topic}.spec.md` (project conventions for location override this default)
 
 ## Required Sections Checklist
 
@@ -98,6 +77,5 @@ Save as: `specs/{feature_name}.spec.md`
 | Non-Functional Requirements | How well it does it | Yes |
 | Acceptance Criteria | How to verify | Yes |
 | Error Handling | Failure cases | Yes |
-| Implementation TODO | Action items | Yes |
 | Out of Scope | Prevent scope creep | Recommended |
 | Open Questions | Track decisions | As needed |

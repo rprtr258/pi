@@ -28,7 +28,7 @@ This skill orchestrates the full designer workflow by running each skill in sequ
 ## Rules
 
 1. **At the start**, tell the designer what the full sequence looks like (phases 1-6, with review available separately) and ask if they want to skip any phases. Common skip patterns:
-   - Already have a clear idea → skip grill-me
+   - Already have a clear idea → skip the grilling
    - Single component, not a full page → skip design-architecture
    - Existing project with tokens → skip design-tokens
 
@@ -46,7 +46,7 @@ This skill orchestrates the full designer workflow by running each skill in sequ
 
 ### Phase 1: Grill Me
 
-Read the existing `grill-me` skill at `~/.pi/agent/skills/grill-me/SKILL.md` and follow its instructions.
+Read the existing `plan-critique` skill at `~/.pi/agent/skills/plan-critique/SKILL.md` and follow its instructions.
 **Produces**: Shared understanding of the project. No file output.
 **Transition**: "We've resolved the key decisions. Ready to capture this as a design brief?"
 

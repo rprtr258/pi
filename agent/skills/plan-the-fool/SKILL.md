@@ -10,7 +10,7 @@ metadata:
   role: expert
   scope: review
   output-format: report
-  related-skills: architecture-designer, code-reviewer, feature-forge
+  related-skills: architecture-designer, code-reviewer, requirements
 ---
 
 # The Fool

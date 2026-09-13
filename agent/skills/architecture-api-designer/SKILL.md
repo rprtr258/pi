@@ -1,5 +1,5 @@
 ---
-name: plan-api-designer
+name: architecture-api-designer
 description: "Use when designing REST or GraphQL APIs, creating OpenAPI specifications, or planning API architecture. Invoke for resource modeling, versioning strategies, pagination patterns, error handling standards, rate limiting. triggers: API design, REST API, OpenAPI, API specification, API architecture, resource modeling, API versioning, GraphQL schema, API documentation"
 ---
 

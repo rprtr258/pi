@@ -10,7 +10,7 @@ metadata:
   role: expert
   scope: implementation
   output-format: code
-  related-skills: feature-forge, test-master, devops-engineer, secure-code-guardian, architecture-designer, react-expert, lang-typescript
+  related-skills: requirements, test-master, devops-engineer, secure-code-guardian, architecture-designer, react-expert, lang-typescript
 ---
 
 # Fullstack Guardian

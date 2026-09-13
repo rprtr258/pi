@@ -2,6 +2,8 @@
 
 Save plans under `./plans/` using `YY-MM-DD-<slug>.md`.
 
+> This is the single-PR plan structure. For multi-session construction plans, see [multi-session](multi-session.md).
+
 Example names:
 
 - `plans/26-03-01-refactor-map-view.md`

@@ -42,8 +42,8 @@ The prompt must be self-contained and ready to copy-paste. Include:
 - Verification steps
 - Scope boundaries (what NOT to do)
 
-For items that reference blueprint, write: "Use the blueprint skill to..."
-(not `/blueprint`, since blueprint is a skill, not a command).
+For items that reference the plan skill, write: "Use the plan skill to..."
+(the plan skill's multi-session mode covers EPIC scope).
 
 #### Section 4: Optimized Prompt — Quick Version
 
@@ -58,7 +58,7 @@ A compact version for experienced ECC users. Vary by intent type:
 | Testing | `/tdd [module]. /e2e for critical flows. /test-coverage.` |
 | Review | `/code-review. Then use security-reviewer agent.` |
 | Docs | `/update-docs. /update-codemaps.` |
-| EPIC | `Use blueprint skill for "[objective]". Execute phases with /verify gates.` |
+| EPIC | `Use plan skill (multi-session mode) for "[objective]". Execute phases with /verify gates.` |
 
 #### Section 5: Enhancement Rationale
 
@@ -88,7 +88,7 @@ Map intent + scope + tech stack (from Phase 0) to specific ECC components.
 | Documentation | /update-docs, /update-codemaps | — | doc-updater |
 | Infrastructure | /plan, /verify | docker-patterns, deployment-patterns, database-migrations | architect |
 | Design (MEDIUM-HIGH) | /plan | — | planner, architect |
-| Design (EPIC) | — | blueprint (invoke as skill) | planner, architect |
+| Design (EPIC) | — | plan (multi-session mode) | planner, architect |
 
 #### By Tech Stack
 
@@ -114,7 +114,7 @@ Map intent + scope + tech stack (from Phase 0) to specific ECC components.
 | TRIVIAL-LOW | Sonnet 4.6 | Fast, cost-efficient for simple tasks |
 | MEDIUM | Sonnet 4.6 | Best coding model for standard work |
 | HIGH | Sonnet 4.6 (main) + Opus 4.6 (planning) | Opus for architecture, Sonnet for implementation |
-| EPIC | Opus 4.6 (blueprint) + Sonnet 4.6 (execution) | Deep reasoning for multi-session planning |
+| EPIC | Opus 4.6 (plan multi-session) + Sonnet 4.6 (execution) | Deep reasoning for multi-session planning |
 
 **Multi-prompt splitting** (for HIGH/EPIC scope):
 
@@ -214,16 +214,16 @@ Migrate our monolith to microservices
 
 **Optimized Prompt (Full):**
 ```
-Use the blueprint skill to plan: "Migrate monolith to microservices architecture"
+Use the plan skill (multi-session mode) to plan: "Migrate monolith to microservices architecture"
 
-Before executing, answer these questions in the blueprint:
+Before executing, answer these questions in the plan:
 1. Which domain boundaries exist in the current monolith?
 2. Which service should be extracted first (lowest coupling)?
 3. Communication pattern: REST APIs, gRPC, or event-driven (Kafka/RabbitMQ)?
 4. Database strategy: shared DB initially or database-per-service from start?
 5. Deployment target: Kubernetes, Docker Compose, or serverless?
 
-The blueprint should produce phases like:
+The plan should produce phases like:
 - Phase 1: Identify service boundaries and create domain map
 - Phase 2: Set up infrastructure (API gateway, service mesh, CI/CD per service)
 - Phase 3: Extract first service (strangler fig pattern)
@@ -234,6 +234,6 @@ Each phase = 1 PR, with /verify gates between phases.
 Use /save-session between phases. Use /resume-session to continue.
 Use git worktrees for parallel service extraction when dependencies allow.
 
-Recommended: Opus 4.6 for blueprint planning, Sonnet 4.6 for phase execution.
+Recommended: Opus 4.6 for multi-session plan writing, Sonnet 4.6 for phase execution.
 ```
 

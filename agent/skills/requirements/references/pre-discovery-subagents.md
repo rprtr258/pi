@@ -1,10 +1,10 @@
 # Pre-Discovery with Subagents
 
-For features spanning multiple domains (auth, database, UI, etc.) that need front-loaded technical context before the Feature Forge interview.
+For features spanning multiple domains (auth, database, UI, etc.) that need front-loaded technical context before the requirements interview.
 
 ## Overview
 
-For features spanning multiple domains, you can accelerate discovery by launching Task subagents with relevant skills BEFORE starting the Feature Forge interview. This front-loads technical context so the interview focuses on decisions rather than exploration.
+For features spanning multiple domains, you can accelerate discovery by launching Task subagents with relevant skills BEFORE starting the requirements interview. This front-loads technical context so the interview focuses on decisions rather than exploration.
 
 ## When to Use
 
@@ -28,7 +28,7 @@ For features spanning multiple domains, you can accelerate discovery by launchin
    - Framework Expert → current implementation details
    - Security Reviewer → security requirements and risks
 3. Collect findings from all subagents
-4. Begin Feature Forge interview with technical context loaded
+4. Begin requirements interview with technical context loaded
 5. Focus interview on decisions, trade-offs, and requirements
 ```
 
@@ -47,7 +47,7 @@ Task subagent 3 (Framework Expert):
   "How does this project handle API endpoints and file storage?"
 ```
 
-Results feed into the Feature Forge interview, so questions like "Where should we store avatars?" come with context about existing patterns.
+Results feed into the requirements interview, so questions like "Where should we store avatars?" come with context about existing patterns.
 
 ## Integration with Interview Questions
 
