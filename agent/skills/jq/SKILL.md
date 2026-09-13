@@ -1,11 +1,7 @@
 ---
 name: jq
-description: Query, filter, validate, and transform JSON data with jq. Use when working with JSON files, API responses, CLI JSON output, or data pipelines that need precise extraction or reshaping.
+description: Use when working with JSON files, API responses, CLI JSON output, or logs, or any task that needs querying, filtering, validating, or transforming JSON with jq.
 ---
-
-# jq
-
-Use this skill when working with JSON data, API responses, CLI output, logs, or any task that needs querying, filtering, validating, or transforming JSON with `jq`.
 
 ## Core Uses
 

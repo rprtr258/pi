@@ -1,5 +1,5 @@
 ---
-name: bash
+name: lang-bash
 description: Write concise bash scripts following established conventions. Use when writing new bash scripts, shell utilities, CLI tools, or reviewing and refactoring existing shell scripts. Also use when the task involves argument parsing, subcommands, or script structure decisions in bash.
 ---
 
