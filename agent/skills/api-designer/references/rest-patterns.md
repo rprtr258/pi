@@ -302,6 +302,23 @@ GET /users?status=active&role=admin
 GET /products?category=electronics&price_min=100&price_max=500
 ```
 
+**Operator filtering (bracket notation):**
+
+```
+GET /products?price[gte]=100&price[lte]=500
+GET /users?created_at[after]=2024-01-01
+GET /users?name[like]=john
+```
+
+Common operators: `gte`, `lte`, `gt`, `lt`, `after`, `before`, `contains`, `like`, `in`, `not_in`.
+
+**Multi-value filters (comma-separated):**
+
+```
+GET /users?role=admin,editor
+GET /products?status=active,scheduled
+```
+
 **Sorting:**
 ```
 GET /users?sort=created_at

@@ -238,6 +238,14 @@ X-RateLimit-Reset: 1705320000
 }
 ```
 
+**Typical rate-limit tiers (per API key or IP):**
+
+| Tier | Requests | Window |
+|------|----------|--------|
+| Anonymous | 10 | minute |
+| Authenticated | 100 | minute |
+| Premium | 1,000 | minute |
+
 ### 7. Server Errors (500 Internal Server Error)
 
 Unexpected server error.

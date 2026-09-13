@@ -1,16 +1,6 @@
 ---
 name: api-designer
-description: Use when designing REST or GraphQL APIs, creating OpenAPI specifications, or planning API architecture. Invoke for resource modeling, versioning strategies, pagination patterns, error handling standards.
-license: MIT
-metadata:
-  author: https://github.com/Jeffallan
-  version: "1.1.0"
-  domain: api-architecture
-  triggers: API design, REST API, OpenAPI, API specification, API architecture, resource modeling, API versioning, GraphQL schema, API documentation
-  role: architect
-  scope: design
-  output-format: specification
-  related-skills: graphql-architect, fastapi-expert, nestjs-expert, spring-boot-engineer, security-reviewer
+description: "Use when designing REST or GraphQL APIs, creating OpenAPI specifications, or planning API architecture. Invoke for resource modeling, versioning strategies, pagination patterns, error handling standards, rate limiting. triggers: API design, REST API, OpenAPI, API specification, API architecture, resource modeling, API versioning, GraphQL schema, API documentation"
 ---
 
 # API Designer
@@ -37,6 +27,7 @@ Load detailed guidance based on context:
 | Pagination | `references/pagination.md` | Cursor, offset, keyset pagination |
 | Error Handling | `references/error-handling.md` | Error responses, RFC 7807, status codes |
 | OpenAPI | `references/openapi.md` | OpenAPI 3.1, documentation, code generation |
+| Implementation Patterns | `references/implementation-patterns.md` | Request handling in TypeScript, Python (DRF), Go |
 
 ## Constraints
 
