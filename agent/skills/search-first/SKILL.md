@@ -20,13 +20,13 @@ Use this skill when:
 ```
 ┌─────────────────────────────────────────────┐
 │  1. NEED ANALYSIS                           │
-│     Define what functionality is needed      │
-│     Identify language/framework constraints  │
+│     Define what functionality is needed     │
+│     Identify language/framework constraints │
 ├─────────────────────────────────────────────┤
 │  2. PARALLEL SEARCH (researcher agent)      │
 │     ┌──────────┐ ┌──────────┐ ┌──────────┐  │
-│     │  npm /   │ │  MCP /   │ │  GitHub / │  │
-│     │  PyPI    │ │  Skills  │ │  Web      │  │
+│     │  npm /   │ │  MCP /   │ │ GitHub / │  │
+│     │  PyPI    │ │  Skills  │ │ Web      │  │
 │     └──────────┘ └──────────┘ └──────────┘  │
 ├─────────────────────────────────────────────┤
 │  3. EVALUATE                                │
@@ -35,8 +35,8 @@ Use this skill when:
 ├─────────────────────────────────────────────┤
 │  4. DECIDE                                  │
 │     ┌─────────┐  ┌──────────┐  ┌─────────┐  │
-│     │  Adopt  │  │  Extend  │  │  Build   │  │
-│     │ as-is   │  │  /Wrap   │  │  Custom  │  │
+│     │  Adopt  │  │  Extend  │  │ Build   │  │
+│     │ as-is   │  │  /Wrap   │  │ Custom  │  │
 │     └─────────┘  └──────────┘  └─────────┘  │
 ├─────────────────────────────────────────────┤
 │  5. IMPLEMENT                               │

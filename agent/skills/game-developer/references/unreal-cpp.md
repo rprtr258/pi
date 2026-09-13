@@ -11,33 +11,32 @@
 #include "MyCharacter.generated.h"
 
 UCLASS()
-class MYGAME_API AMyCharacter : public ACharacter
-{
-    GENERATED_BODY()
+class MYGAME_API AMyCharacter : public ACharacter {
+  GENERATED_BODY()
 
 public:
-    AMyCharacter();
+  AMyCharacter();
 
 protected:
-    virtual void BeginPlay() override;
+  virtual void BeginPlay() override;
 
 public:
-    virtual void Tick(float DeltaTime) override;
-    virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
+  virtual void Tick(float DeltaTime) override;
+  virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 
 private:
-    // Exposed to Blueprints
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement", meta = (AllowPrivateAccess = "true"))
-    float WalkSpeed = 600.0f;
+  // Exposed to Blueprints
+  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement", meta = (AllowPrivateAccess = "true"))
+  float WalkSpeed = 600.0f;
 
-    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Camera", meta = (AllowPrivateAccess = "true"))
-    class UCameraComponent* CameraComponent;
+  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Camera", meta = (AllowPrivateAccess = "true"))
+  class UCameraComponent* CameraComponent;
 
-    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Camera", meta = (AllowPrivateAccess = "true"))
-    class USpringArmComponent* SpringArm;
+  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Camera", meta = (AllowPrivateAccess = "true"))
+  class USpringArmComponent* SpringArm;
 
-    void MoveForward(float Value);
-    void MoveRight(float Value);
+  void MoveForward(float Value);
+  void MoveRight(float Value);
 };
 ```
 
@@ -48,46 +47,41 @@ private:
 #include "GameFramework/SpringArmComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
 
-AMyCharacter::AMyCharacter()
-{
-    PrimaryActorTick.bCanEverTick = true;
+AMyCharacter::AMyCharacter() {
+  PrimaryActorTick.bCanEverTick = true;
 
-    // Create components
-    SpringArm = CreateDefaultSubobject<USpringArmComponent>(TEXT("SpringArm"));
-    SpringArm->SetupAttachment(RootComponent);
-    SpringArm->TargetArmLength = 300.0f;
-    SpringArm->bUsePawnControlRotation = true;
+  // Create components
+  SpringArm = CreateDefaultSubobject<USpringArmComponent>(TEXT("SpringArm"));
+  SpringArm->SetupAttachment(RootComponent);
+  SpringArm->TargetArmLength = 300.0f;
+  SpringArm->bUsePawnControlRotation = true;
 
-    CameraComponent = CreateDefaultSubobject<UCameraComponent>(TEXT("Camera"));
-    CameraComponent->SetupAttachment(SpringArm, USpringArmComponent::SocketName);
+  CameraComponent = CreateDefaultSubobject<UCameraComponent>(TEXT("Camera"));
+  CameraComponent->SetupAttachment(SpringArm, USpringArmComponent::SocketName);
 }
 
-void AMyCharacter::BeginPlay()
-{
-    Super::BeginPlay();
+void AMyCharacter::BeginPlay() {
+  Super::BeginPlay();
 
-    GetCharacterMovement()->MaxWalkSpeed = WalkSpeed;
+  GetCharacterMovement()->MaxWalkSpeed = WalkSpeed;
 }
 
-void AMyCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
-{
-    Super::SetupPlayerInputComponent(PlayerInputComponent);
+void AMyCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent) {
+  Super::SetupPlayerInputComponent(PlayerInputComponent);
 
-    PlayerInputComponent->BindAxis("MoveForward", this, &AMyCharacter::MoveForward);
-    PlayerInputComponent->BindAxis("MoveRight", this, &AMyCharacter::MoveRight);
-    PlayerInputComponent->BindAxis("Turn", this, &APawn::AddControllerYawInput);
-    PlayerInputComponent->BindAxis("LookUp", this, &APawn::AddControllerPitchInput);
+  PlayerInputComponent->BindAxis("MoveForward", this, &AMyCharacter::MoveForward);
+  PlayerInputComponent->BindAxis("MoveRight", this, &AMyCharacter::MoveRight);
+  PlayerInputComponent->BindAxis("Turn", this, &APawn::AddControllerYawInput);
+  PlayerInputComponent->BindAxis("LookUp", this, &APawn::AddControllerPitchInput);
 }
 
-void AMyCharacter::MoveForward(float Value)
-{
-    if (Controller && Value != 0.0f)
-    {
-        const FRotator Rotation = Controller->GetControlRotation();
-        const FRotator YawRotation(0, Rotation.Yaw, 0);
-        const FVector Direction = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::X);
-        AddMovementInput(Direction, Value);
-    }
+void AMyCharacter::MoveForward(float Value) {
+  if (Controller && Value != 0.0f) {
+    const FRotator Rotation = Controller->GetControlRotation();
+    const FRotator YawRotation(0, Rotation.Yaw, 0);
+    const FVector Direction = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::X);
+    AddMovementInput(Direction, Value);
+  }
 }
 ```
 
@@ -95,39 +89,38 @@ void AMyCharacter::MoveForward(float Value)
 
 ```cpp
 UCLASS()
-class MYGAME_API UHealthComponent : public UActorComponent
-{
-    GENERATED_BODY()
+class MYGAME_API UHealthComponent : public UActorComponent {
+  GENERATED_BODY()
 
 public:
-    UHealthComponent();
+  UHealthComponent();
 
 protected:
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Health")
-    float MaxHealth = 100.0f;
+  UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Health")
+  float MaxHealth = 100.0f;
 
-    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Health")
-    float CurrentHealth;
+  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Health")
+  float CurrentHealth;
 
-    // Event dispatcher for Blueprint
-    UPROPERTY(BlueprintAssignable, Category = "Health")
-    FOnHealthChangedSignature OnHealthChanged;
+  // Event dispatcher for Blueprint
+  UPROPERTY(BlueprintAssignable, Category = "Health")
+  FOnHealthChangedSignature OnHealthChanged;
 
 public:
-    // Callable from Blueprint
-    UFUNCTION(BlueprintCallable, Category = "Health")
-    void TakeDamage(float Damage);
+  // Callable from Blueprint
+  UFUNCTION(BlueprintCallable, Category = "Health")
+  void TakeDamage(float Damage);
 
-    UFUNCTION(BlueprintCallable, Category = "Health")
-    void Heal(float Amount);
+  UFUNCTION(BlueprintCallable, Category = "Health")
+  void Heal(float Amount);
 
-    UFUNCTION(BlueprintPure, Category = "Health")
-    float GetHealthPercent() const { return CurrentHealth / MaxHealth; }
+  UFUNCTION(BlueprintPure, Category = "Health")
+  float GetHealthPercent() const { return CurrentHealth / MaxHealth; }
 
-    // Native event that can be overridden in Blueprint
-    UFUNCTION(BlueprintNativeEvent, Category = "Health")
-    void OnDeath();
-    virtual void OnDeath_Implementation();
+  // Native event that can be overridden in Blueprint
+  UFUNCTION(BlueprintNativeEvent, Category = "Health")
+  void OnDeath();
+  virtual void OnDeath_Implementation();
 };
 
 // Event delegate
@@ -139,65 +132,60 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnHealthChangedSignature, float, H
 ```cpp
 // Custom Actor Component
 UCLASS(ClassGroup=(Custom), meta=(BlueprintSpawnableComponent))
-class MYGAME_API UInventoryComponent : public UActorComponent
-{
-    GENERATED_BODY()
+class MYGAME_API UInventoryComponent : public UActorComponent {
+  GENERATED_BODY()
 
 public:
-    UInventoryComponent();
+  UInventoryComponent();
 
 protected:
-    virtual void BeginPlay() override;
+  virtual void BeginPlay() override;
 
 private:
-    UPROPERTY(EditAnywhere, Category = "Inventory")
-    int32 MaxSlots = 20;
+  UPROPERTY(EditAnywhere, Category = "Inventory")
+  int32 MaxSlots = 20;
 
-    UPROPERTY()
-    TArray<class UItemData*> Items;
+  UPROPERTY()
+  TArray<class UItemData*> Items;
 
 public:
-    UFUNCTION(BlueprintCallable, Category = "Inventory")
-    bool AddItem(UItemData* Item);
+  UFUNCTION(BlueprintCallable, Category = "Inventory")
+  bool AddItem(UItemData* Item);
 
-    UFUNCTION(BlueprintCallable, Category = "Inventory")
-    bool RemoveItem(UItemData* Item);
+  UFUNCTION(BlueprintCallable, Category = "Inventory")
+  bool RemoveItem(UItemData* Item);
 
-    UFUNCTION(BlueprintPure, Category = "Inventory")
-    int32 GetItemCount() const { return Items.Num(); }
+  UFUNCTION(BlueprintPure, Category = "Inventory")
+  int32 GetItemCount() const { return Items.Num(); }
 };
 ```
 
 ## Timers and Async Operations
 
 ```cpp
-class AWeapon : public AActor
-{
+class AWeapon : public AActor {
 private:
-    FTimerHandle FireRateTimer;
+  FTimerHandle FireRateTimer;
 
-    UPROPERTY(EditAnywhere, Category = "Weapon")
-    float FireRate = 0.2f; // Seconds between shots
+  UPROPERTY(EditAnywhere, Category = "Weapon")
+  float FireRate = 0.2f; // Seconds between shots
 
 public:
-    void StartFiring()
-    {
-        Fire(); // Immediate first shot
-        GetWorldTimerManager().SetTimer(FireRateTimer, this, &AWeapon::Fire, FireRate, true);
-    }
+  void StartFiring() {
+    Fire(); // Immediate first shot
+    GetWorldTimerManager().SetTimer(FireRateTimer, this, &AWeapon::Fire, FireRate, true);
+  }
 
-    void StopFiring()
-    {
-        GetWorldTimerManager().ClearTimer(FireRateTimer);
-    }
+  void StopFiring() {
+    GetWorldTimerManager().ClearTimer(FireRateTimer);
+  }
 
-    void Fire()
-    {
-        // Spawn projectile
-        FVector Location = GetActorLocation();
-        FRotator Rotation = GetActorRotation();
-        GetWorld()->SpawnActor<AProjectile>(ProjectileClass, Location, Rotation);
-    }
+  void Fire() {
+    // Spawn projectile
+    FVector Location = GetActorLocation();
+    FRotator Rotation = GetActorRotation();
+    GetWorld()->SpawnActor<AProjectile>(ProjectileClass, Location, Rotation);
+  }
 };
 ```
 
@@ -205,85 +193,75 @@ public:
 
 ```cpp
 UCLASS()
-class APooledActor : public AActor
-{
-    GENERATED_BODY()
+class APooledActor : public AActor {
+  GENERATED_BODY()
 
 private:
-    bool bIsActive = false;
+  bool bIsActive = false;
 
 public:
-    void Activate()
-    {
-        bIsActive = true;
-        SetActorHiddenInGame(false);
-        SetActorEnableCollision(true);
-        SetActorTickEnabled(true);
-    }
+  void Activate() {
+    bIsActive = true;
+    SetActorHiddenInGame(false);
+    SetActorEnableCollision(true);
+    SetActorTickEnabled(true);
+  }
 
-    void Deactivate()
-    {
-        bIsActive = false;
-        SetActorHiddenInGame(true);
-        SetActorEnableCollision(false);
-        SetActorTickEnabled(false);
-    }
+  void Deactivate() {
+    bIsActive = false;
+    SetActorHiddenInGame(true);
+    SetActorEnableCollision(false);
+    SetActorTickEnabled(false);
+  }
 
-    bool IsActive() const { return bIsActive; }
+  bool IsActive() const { return bIsActive; }
 };
 
 UCLASS()
-class AObjectPool : public AActor
-{
-    GENERATED_BODY()
+class AObjectPool : public AActor {
+  GENERATED_BODY()
 
 private:
-    UPROPERTY(EditAnywhere, Category = "Pool")
-    TSubclassOf<APooledActor> PooledClass;
+  UPROPERTY(EditAnywhere, Category = "Pool")
+  TSubclassOf<APooledActor> PooledClass;
 
-    UPROPERTY(EditAnywhere, Category = "Pool")
-    int32 PoolSize = 50;
+  UPROPERTY(EditAnywhere, Category = "Pool")
+  int32 PoolSize = 50;
 
-    UPROPERTY()
-    TArray<APooledActor*> Pool;
+  UPROPERTY()
+  TArray<APooledActor*> Pool;
 
 protected:
-    virtual void BeginPlay() override
-    {
-        Super::BeginPlay();
+  virtual void BeginPlay() override {
+    Super::BeginPlay();
 
-        // Pre-spawn pool
-        for (int32 i = 0; i < PoolSize; i++)
-        {
-            APooledActor* Actor = GetWorld()->SpawnActor<APooledActor>(PooledClass);
-            Actor->Deactivate();
-            Pool.Add(Actor);
-        }
+    // Pre-spawn pool
+    for (int32 i = 0; i < PoolSize; i++) {
+      APooledActor* Actor = GetWorld()->SpawnActor<APooledActor>(PooledClass);
+      Actor->Deactivate();
+      Pool.Add(Actor);
     }
+  }
 
 public:
-    APooledActor* GetPooledActor()
-    {
-        for (APooledActor* Actor : Pool)
-        {
-            if (!Actor->IsActive())
-            {
-                Actor->Activate();
-                return Actor;
-            }
-        }
-
-        // Expand pool if needed
-        APooledActor* NewActor = GetWorld()->SpawnActor<APooledActor>(PooledClass);
-        Pool.Add(NewActor);
-        NewActor->Activate();
-        return NewActor;
+  APooledActor* GetPooledActor() {
+    for (APooledActor* Actor : Pool) {
+      if (!Actor->IsActive()) {
+        Actor->Activate();
+        return Actor;
+      }
     }
 
-    void ReturnToPool(APooledActor* Actor)
-    {
-        Actor->Deactivate();
-    }
+    // Expand pool if needed
+    APooledActor* NewActor = GetWorld()->SpawnActor<APooledActor>(PooledClass);
+    Pool.Add(NewActor);
+    NewActor->Activate();
+    return NewActor;
+  }
+
+  void ReturnToPool(APooledActor* Actor) {
+    Actor->Deactivate();
+  }
 };
 ```
 
@@ -292,38 +270,36 @@ public:
 ```cpp
 // Data structure
 USTRUCT(BlueprintType)
-struct FWeaponStats
-{
-    GENERATED_BODY()
+struct FWeaponStats {
+  GENERATED_BODY()
 
-    UPROPERTY(EditAnywhere, BlueprintReadWrite)
-    FName WeaponName;
+  UPROPERTY(EditAnywhere, BlueprintReadWrite)
+  FName WeaponName;
 
-    UPROPERTY(EditAnywhere, BlueprintReadWrite)
-    float Damage = 10.0f;
+  UPROPERTY(EditAnywhere, BlueprintReadWrite)
+  float Damage = 10.0f;
 
-    UPROPERTY(EditAnywhere, BlueprintReadWrite)
-    float FireRate = 0.5f;
+  UPROPERTY(EditAnywhere, BlueprintReadWrite)
+  float FireRate = 0.5f;
 
-    UPROPERTY(EditAnywhere, BlueprintReadWrite)
-    int32 MagazineSize = 30;
+  UPROPERTY(EditAnywhere, BlueprintReadWrite)
+  int32 MagazineSize = 30;
 };
 
 // Data asset
 UCLASS()
-class UWeaponDataAsset : public UDataAsset
-{
-    GENERATED_BODY()
+class UWeaponDataAsset : public UDataAsset {
+  GENERATED_BODY()
 
 public:
-    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon")
-    FWeaponStats Stats;
+  UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon")
+  FWeaponStats Stats;
 
-    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon")
-    TSubclassOf<class AProjectile> ProjectileClass;
+  UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon")
+  TSubclassOf<class AProjectile> ProjectileClass;
 
-    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon")
-    USoundBase* FireSound;
+  UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon")
+  USoundBase* FireSound;
 };
 ```
 

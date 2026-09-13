@@ -1,8 +1,7 @@
 ---
 name: gan-style-harness
-description: "GAN-inspired Generator-Evaluator agent harness for building high-quality applications autonomously. Based on Anthropic's March 2026 harness design paper."
-origin: ECC-community
-tools: Read, Write, Edit, Bash, Grep, Glob, Task
+description: GAN-inspired Generator-Evaluator agent harness for building high-quality applications autonomously.
+tools: read, write, edit, bash, grep, glob, task
 ---
 
 # GAN-Style Harness Skill
@@ -52,7 +51,7 @@ This is the same dynamic as GANs (Generative Adversarial Networks): the Generato
               │  │(Opus 4.6)│          │  │
               │  └────▲─────┘          │  │
               │       │                │  │ live app
-              │    feedback             │  │
+              │    feedback            │  │
               │       │                │  │
               │  ┌────┴─────┐          │  │
               │  │EVALUATOR │<-test----│──┘
