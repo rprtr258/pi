@@ -171,7 +171,7 @@ func handleRequest(data []byte) []byte {
 - Don't pool objects >32KB — large allocations bypass the pool's size classes and GC already handles them efficiently
 - Don't pool infrequently used objects — pool overhead exceeds benefit when allocations are rare
 
-→ See `samber/cc-skills-golang@golang-concurrency` skill for `sync.Pool` API reference and basic usage patterns.
+→ See [concurrency](../../references/concurrency/concurrency.md) for `sync.Pool` API reference and basic usage patterns.
 
 ## Memory Layout
 

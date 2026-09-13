@@ -78,7 +78,7 @@ func GetWeather(city string) (string, error) {
 }
 ```
 
-→ See `samber/cc-skills-golang@golang-concurrency` skill for `singleflight` API details and `sync.Map` vs `RWMutex` decision guidance. → **Generics alternative:** Use `github.com/samber/go-singleflightx` to avoid interface{} boxing overhead; expect 2-4x faster result retrieval compared to the standard library's `singleflight.Group`.
+→ See [concurrency](../../references/concurrency/concurrency.md) for `singleflight` API details and `sync.Map` vs `RWMutex` decision guidance. → **Generics alternative:** Use `github.com/samber/go-singleflightx` to avoid interface{} boxing overhead; expect 2-4x faster result retrieval compared to the standard library's `singleflight.Group`.
 
 ### LRU caches
 

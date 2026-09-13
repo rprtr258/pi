@@ -36,7 +36,7 @@ if isAdmin || isOwner || canOverride {
 
 ## Value vs Pointer Arguments
 
-This covers **function parameters**, not method receivers (see `samber/cc-skills-golang@golang-structs-interfaces` skill for receiver rules).
+This covers **function parameters**, not method receivers (see [structs-interfaces](../../interfaces/structs.md) for receiver rules).
 
 Pass small, fixed-size types by value — strings are already a (pointer, length) pair internally:
 
@@ -72,4 +72,4 @@ func Greet(name *string) string
 - **Pointers**: One extra dereference (negligible on modern CPUs), but risk cache misses if pointed-to data isn't in cache. Essential for large structs (>~128 bytes) where copy cost dominates.
 - **Rule of thumb**: For structs <~128 bytes with read-only access, values are typically faster due to cache locality. For mutation or large structs, pointers win. When in doubt, benchmark.
 
--> See the `samber/cc-skills-golang@golang-structs-interfaces` skill for pointer vs value **receiver** rules.
+-> See the [structs-interfaces](../../interfaces/structs.md) for pointer vs value **receiver** rules.

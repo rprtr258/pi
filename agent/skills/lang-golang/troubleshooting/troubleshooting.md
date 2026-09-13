@@ -1,29 +1,11 @@
 ---
 name: golang-troubleshooting
-description: "Troubleshoot Golang programs systematically - find and fix the root cause. Use when encountering bugs, crashes, deadlocks, or unexpected behavior in Go code. Covers debugging methodology, common Go pitfalls, test-driven debugging, pprof setup and capture, Delve debugger, race detection, GODEBUG tracing, and production debugging. Start here for any 'something is wrong' situation. Not for interpreting profiles or benchmarking (see golang-benchmark skill) or applying optimization patterns (see golang-performance skill)."
-user-invocable: true
-license: MIT
-compatibility: Designed for Claude Code or similar AI coding agents, and for projects using Golang.
-metadata:
-  author: samber
-  version: "1.1.2"
-  openclaw:
-    emoji: "🔍"
-    homepage: https://github.com/samber/cc-skills-golang
-    requires:
-      bins:
-        - go
-        - dlv
-    install:
-      - kind: go
-        package: github.com/go-delve/delve/cmd/dlv@latest
-        bins: [dlv]
-allowed-tools: Read Edit Write Glob Grep Bash(go:*) Bash(golangci-lint:*) Bash(git:*) Bash(dlv:*) Agent WebFetch WebSearch AskUserQuestion
+description: "Troubleshoot Golang programs systematically - find and fix the root cause. Use when encountering bugs, crashes, deadlocks, or unexpected behavior in Go code. Covers debugging methodology, common Go pitfalls, test-driven debugging, pprof setup and capture, Delve debugger, race detection, GODEBUG tracing, and production debugging. Start here for any 'something is wrong' situation. Not for interpreting profiles or benchmarking (see the dev-benchmark skill) or applying optimization patterns (see the performance topic of this skill)."
 ---
 
 **Persona:** You are a Go systems debugger. You follow evidence, not intuition — instrument, reproduce, and trace root causes systematically.
 
-**Thinking mode:** Use `ultrathink` for debugging and root cause analysis. Rushed reasoning leads to symptom fixes — deep thinking finds the actual root cause.
+**Thinking mode:** Rushed reasoning leads to symptom fixes — deep thinking finds the actual root cause.
 
 **Modes:**
 
@@ -182,7 +164,7 @@ If any of these are happening, stop and return to Step 1:
 
 ## Cross-References
 
-- → See `samber/cc-skills-golang@golang-performance` skill for optimization patterns after identifying bottlenecks
-- → See `samber/cc-skills-golang@golang-observability` skill for metrics, alerting, and Grafana dashboards for Go runtime monitoring
-- → See `samber/cc-skills@promql-cli` skill for querying Prometheus metrics during production incident investigation
-- → See `samber/cc-skills-golang@golang-concurrency`, `samber/cc-skills-golang@golang-safety`, `samber/cc-skills-golang@golang-error-handling` skills
+- → See [performance](../performance/performance.md) for optimization patterns after identifying bottlenecks
+- → See [observability](../observability/observability.md) for metrics, alerting, and Grafana dashboards for Go runtime monitoring
+- → See [cli-promql](../../cli-promql/SKILL.md) for querying Prometheus metrics during production incident investigation
+- → See [concurrency](../references/concurrency/concurrency.md), [safety](../safety/safety.md), [error-handling](../references/error-handling.md)

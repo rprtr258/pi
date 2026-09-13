@@ -1,6 +1,6 @@
 # Application Documentation
 
-→ See `samber/cc-skills-golang@golang-cli` skill for CLI application patterns and frameworks.
+→ See [cli](../../references/cli.md) for CLI application patterns and frameworks.
 
 ## CLI Help Text
 

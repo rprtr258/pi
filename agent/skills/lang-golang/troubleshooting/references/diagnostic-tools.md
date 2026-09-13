@@ -111,4 +111,4 @@ stack                # show stack trace
 
 ## Advanced Analysis
 
-→ See `samber/cc-skills-golang@golang-benchmark` skill (compiler-analysis.md) for detailed guides on escape analysis interpretation, assembly inspection, and compiler diagnostics (SSA dump, inlining decisions). See also trace.md for execution tracer analysis.
+→ See [benchmark](../../references/testing/tdd.md) (compiler-analysis.md) for detailed guides on escape analysis interpretation, assembly inspection, and compiler diagnostics (SSA dump, inlining decisions). See also trace.md for execution tracer analysis.

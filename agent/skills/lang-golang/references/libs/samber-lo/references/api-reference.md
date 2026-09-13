@@ -323,4 +323,4 @@ Most transform functions have `Err` suffixes: `MapErr`, `FlatMapErr`, `FilterErr
 | `lo.Validate(conditions...)` | Return first error from condition list |
 | `lo.ErrorsAs[T](err)` | Generic wrapper for `errors.As` |
 | `lo.Assert[T](v)` | Type assertion with panic message |
-| `lo.Assertf[T](v, format, args...)` | Type assertion with formatted panic message |
+| `lo.Assertf`T(v, format, args...)`` | Type assertion with formatted panic message |

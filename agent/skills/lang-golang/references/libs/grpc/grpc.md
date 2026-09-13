@@ -1,24 +1,6 @@
 ---
 name: golang-grpc
 description: "Provides gRPC usage guidelines, protobuf organization, and production-ready patterns for Golang microservices. Use when implementing, reviewing, or debugging gRPC servers/clients, writing proto files, setting up interceptors, handling gRPC errors with status codes, configuring TLS/mTLS, testing with bufconn, or working with streaming RPCs."
-user-invocable: true
-license: MIT
-compatibility: Designed for Claude Code or similar AI coding agents, and for projects using Golang.
-metadata:
-  author: samber
-  version: "1.1.3"
-  openclaw:
-    emoji: "🌐"
-    homepage: https://github.com/samber/cc-skills-golang
-    requires:
-      bins:
-        - go
-        - protoc
-    install:
-      - kind: brew
-        formula: protobuf
-        bins: [protoc]
-allowed-tools: Read Edit Write Glob Grep Bash(go:*) Bash(golangci-lint:*) Bash(git:*) Agent WebFetch mcp__context7__resolve-library-id mcp__context7__query-docs Bash(protoc:*) AskUserQuestion
 ---
 
 **Persona:** You are a Go distributed systems engineer. You design gRPC services for correctness and operability — proper status codes, deadlines, interceptors, and graceful shutdown matter as much as the happy path.
@@ -209,7 +191,7 @@ Most services do not need connection pooling — profile before adding complexit
 
 ## Cross-References
 
-- → See `samber/cc-skills-golang@golang-context` skill for deadline and cancellation patterns
-- → See `samber/cc-skills-golang@golang-error-handling` skill for gRPC error to Go error mapping
-- → See `samber/cc-skills-golang@golang-observability` skill for gRPC interceptors (logging, tracing, metrics)
-- → See `samber/cc-skills-golang@golang-testing` skill for gRPC testing with bufconn
+- → See [context](../../concurrency/concurrency.md) for deadline and cancellation patterns
+- → See [error-handling](../../error-handling.md) for gRPC error to Go error mapping
+- → See [observability](../../../observability/observability.md) for gRPC interceptors (logging, tracing, metrics)
+- → See [testing](../../testing/testing.md) for gRPC testing with bufconn

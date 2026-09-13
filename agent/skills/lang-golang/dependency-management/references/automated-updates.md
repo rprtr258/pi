@@ -21,7 +21,7 @@ Automate minor/patch dependency updates to reduce maintenance burden and stay cu
 - **Major updates**: Create PR for manual review (may contain breaking changes)
 - **Security updates**: Auto-merge regardless of version bump type
 
-For workflow configuration files (dependabot.yml, renovate.json, auto-merge workflows), see the `samber/cc-skills-golang@golang-continuous-integration` skill.
+For workflow configuration files (dependabot.yml, renovate.json, auto-merge workflows), see the [continuous-integration](../../continuous-integration/continuous-integration.md).
 
 ## Update Verification
 

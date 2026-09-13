@@ -1,15 +1,6 @@
 ---
 name: game-developer
-description: "Use when building game systems, implementing Unity/Unreal Engine features, or optimizing game performance. Invoke to implement ECS architecture, configure physics systems and colliders, set up multiplayer networking with lag compensation, optimize frame rates to 60+ FPS targets, develop shaders, or apply game design patterns such as object pooling and state machines. Trigger keywords: Unity, Unreal Engine, game development, ECS architecture, game physics, multiplayer networking, game optimization, shader programming, game AI."
-license: MIT
-metadata:
-  author: https://github.com/Jeffallan
-  version: "1.1.0"
-  domain: specialized
-  triggers: Unity, Unreal Engine, game development, ECS architecture, game physics, multiplayer networking, game optimization, shader programming, game AI
-  role: specialist
-  scope: implementation
-  output-format: code
+description: "Use when building game systems, implementing Unity/Unreal Engine features, or optimizing game performance. Invoke to implement ECS architecture, configure physics systems and colliders, set up multiplayer networking with lag compensation, optimize frame rates to 60+ FPS targets, develop shaders, or apply game design patterns such as object pooling and state machines. Trigger keywords: Unity, Unreal Engine, game development, ECS architecture, game physics, multiplayer networking, game optimization, shader programming, game AI. triggers: Unity, Unreal Engine, game development, ECS architecture, game physics, multiplayer networking, game optimization, shader programming, game AI"
 ---
 
 # Game Developer
@@ -69,94 +60,81 @@ When implementing game features, provide:
 
 ### Object Pooling (Unity C#)
 ```csharp
-public class ObjectPool<T> where T : Component
-{
-    private readonly Queue<T> _pool = new();
-    private readonly T _prefab;
-    private readonly Transform _parent;
+public class ObjectPool<T> where T : Component {
+  private readonly Queue<T> _pool = new();
+  private readonly T _prefab;
+  private readonly Transform _parent;
 
-    public ObjectPool(T prefab, int initialSize, Transform parent = null)
-    {
-        _prefab = prefab;
-        _parent = parent;
-        for (int i = 0; i < initialSize; i++)
-            Release(Create());
-    }
+  public ObjectPool(T prefab, int initialSize, Transform parent = null) {
+    _prefab = prefab;
+    _parent = parent;
+    for (int i = 0; i < initialSize; i++)
+      Release(Create());
+  }
 
-    public T Get()
-    {
-        T obj = _pool.Count > 0 ? _pool.Dequeue() : Create();
-        obj.gameObject.SetActive(true);
-        return obj;
-    }
+  public T Get() {
+    T obj = _pool.Count > 0 ? _pool.Dequeue() : Create();
+    obj.gameObject.SetActive(true);
+    return obj;
+  }
 
-    public void Release(T obj)
-    {
-        obj.gameObject.SetActive(false);
-        _pool.Enqueue(obj);
-    }
+  public void Release(T obj) {
+    obj.gameObject.SetActive(false);
+    _pool.Enqueue(obj);
+  }
 
-    private T Create() => Object.Instantiate(_prefab, _parent);
+  private T Create() => Object.Instantiate(_prefab, _parent);
 }
 ```
 
 ### Component Caching (Unity C#)
 ```csharp
-public class PlayerController : MonoBehaviour
-{
-    // Cache all component references in Awake — never call GetComponent in Update
-    private Rigidbody _rb;
-    private Animator _animator;
-    private PlayerInput _input;
+public class PlayerController : MonoBehaviour {
+  // Cache all component references in Awake — never call GetComponent in Update
+  private Rigidbody _rb;
+  private Animator _animator;
+  private PlayerInput _input;
 
-    private void Awake()
-    {
-        _rb = GetComponent<Rigidbody>();
-        _animator = GetComponent<Animator>();
-        _input = GetComponent<PlayerInput>();
-    }
+  private void Awake() {
+    _rb = GetComponent<Rigidbody>();
+    _animator = GetComponent<Animator>();
+    _input = GetComponent<PlayerInput>();
+  }
 
-    private void FixedUpdate()
-    {
-        // Use cached references; use deltaTime for frame-independence
-        Vector3 move = _input.MoveDirection * (speed * Time.fixedDeltaTime);
-        _rb.MovePosition(_rb.position + move);
-    }
+  private void FixedUpdate() {
+    // Use cached references; use deltaTime for frame-independence
+    Vector3 move = _input.MoveDirection * (speed * Time.fixedDeltaTime);
+    _rb.MovePosition(_rb.position + move);
+  }
 }
 ```
 
 ### State Machine (Unity C#)
 ```csharp
-public abstract class State
-{
-    public abstract void Enter();
-    public abstract void Tick(float deltaTime);
-    public abstract void Exit();
+public abstract class State {
+  public abstract void Enter();
+  public abstract void Tick(float deltaTime);
+  public abstract void Exit();
 }
 
-public class StateMachine
-{
-    private State _current;
+public class StateMachine {
+  private State _current;
 
-    public void TransitionTo(State next)
-    {
-        _current?.Exit();
-        _current = next;
-        _current.Enter();
-    }
+  public void TransitionTo(State next) {
+    _current?.Exit();
+    _current = next;
+    _current.Enter();
+  }
 
-    public void Tick(float deltaTime) => _current?.Tick(deltaTime);
+  public void Tick(float deltaTime) => _current?.Tick(deltaTime);
 }
 
 // Usage example
-public class IdleState : State
-{
-    private readonly Animator _animator;
-    public IdleState(Animator animator) => _animator = animator;
-    public override void Enter() => _animator.SetTrigger("Idle");
-    public override void Tick(float deltaTime) { /* poll transitions */ }
-    public override void Exit() { }
+public class IdleState : State {
+  private readonly Animator _animator;
+  public IdleState(Animator animator) => _animator = animator;
+  public override void Enter() => _animator.SetTrigger("Idle");
+  public override void Tick(float deltaTime) { /* poll transitions */ }
+  public override void Exit() { }
 }
 ```
-
-[Documentation](https://jeffallan.github.io/claude-skills/skills/specialized/game-developer/)

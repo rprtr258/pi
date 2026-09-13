@@ -1,6 +1,6 @@
 # Profiling and Continuous Profiling
 
-→ See `samber/cc-skills-golang@golang-troubleshooting` skill (pprof.md) for on-demand debugging.
+→ See [troubleshooting](../../troubleshooting/troubleshooting.md) (pprof.md) for on-demand debugging.
 
 ## What Profiling Is
 
@@ -10,7 +10,7 @@ Profiling analyzes the runtime behavior of your program — where CPU time is sp
 
 pprof endpoints MUST be protected with basic auth — NEVER expose them publicly. They leak sensitive runtime information and can be abused for DoS.
 
-→ See `samber/cc-skills-golang@golang-troubleshooting` pprof.md for the full pprof CLI reference (profile types, capturing, analyzing, commands).
+→ See [troubleshooting](../../troubleshooting/troubleshooting.md) pprof.md for the full pprof CLI reference (profile types, capturing, analyzing, commands).
 
 ## Continuous Profiling with Pyroscope
 

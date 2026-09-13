@@ -1,16 +1,6 @@
 ---
 name: testing-playwright
-description: "Use when writing E2E tests with Playwright, setting up test infrastructure, or debugging flaky browser tests. Invoke to write test scripts, create page objects, configure test fixtures, set up reporters, add CI integration, implement API mocking, or perform visual regression testing. Trigger terms: Playwright, E2E test, end-to-end, browser testing, automation, UI testing, visual testing, Page Object Model, test flakiness."
-license: MIT
-metadata:
-  author: https://github.com/Jeffallan
-  version: "1.1.0"
-  domain: quality
-  triggers: Playwright, E2E test, end-to-end, browser testing, automation, UI testing, visual testing
-  role: specialist
-  scope: testing
-  output-format: code
-  related-skills: test-master, react-expert, devops-engineer
+description: "Use when writing E2E tests with Playwright, setting up test infrastructure, or debugging flaky browser tests. Invoke to write test scripts, create page objects, configure test fixtures, set up reporters, add CI integration, implement API mocking, or perform visual regression testing. Trigger terms: Playwright, E2E test, end-to-end, browser testing, automation, UI testing, visual testing, Page Object Model, test flakiness. triggers: Playwright, E2E test, end-to-end, browser testing, automation, UI testing, visual testing"
 ---
 
 # Playwright Expert
@@ -163,9 +153,3 @@ When implementing Playwright tests, provide:
 2. Test files with proper assertions
 3. Fixture setup if needed
 4. Configuration recommendations
-
-## Knowledge Reference
-
-Playwright, Page Object Model, auto-waiting, locators, fixtures, API mocking, trace viewer, visual comparisons, parallel execution, CI/CD integration
-
-[Documentation](https://jeffallan.github.io/claude-skills/skills/quality/playwright-expert/)

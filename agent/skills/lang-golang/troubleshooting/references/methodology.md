@@ -34,11 +34,11 @@ go test ./... -v 2>&1
 # Static analysis
 go vet ./...
 
-# Run linters — see the golang-lint skill for configuration
+# Run linters — see ../../lint/lint.md for configuration
 golangci-lint run ./...
 ```
 
-Run `golangci-lint` early in your debugging workflow. It catches unchecked errors, suspicious constructs, and many other issues that are easy to miss by reading code. See the `samber/cc-skills-golang@golang-lint` skill for configuration and usage.
+Run `golangci-lint` early in your debugging workflow. It catches unchecked errors, suspicious constructs, and many other issues that are easy to miss by reading code. See the [lint](../../lint/lint.md) for configuration and usage.
 
 ## Step 3: Isolate the Problem
 
@@ -233,4 +233,4 @@ If your fix doesn't work:
 
 - **< 3 failed attempts:** Return to Step 1. You misidentified the root cause. Gather more evidence.
 - **>= 3 failed attempts:** Stop fixing. The problem is likely architectural, not a simple bug. Step back and question your assumptions about how the system works. Ask: "Is the design fundamentally sound, or am I patching a broken abstraction?"
-- **Each fix reveals a new problem:** You're chasing symptoms, not the root cause. See the Red Flags section in [SKILL.md](./SKILL.md).
+- **Each fix reveals a new problem:** You're chasing symptoms, not the root cause. See the Red Flags section in [troubleshooting](../troubleshooting.md).

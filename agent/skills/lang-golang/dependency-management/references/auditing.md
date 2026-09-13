@@ -45,7 +45,7 @@ govulncheck -test ./...
 
 Output shows the vulnerability ID, affected module, fixed version, and the call trace from your code to the vulnerable function. If a vulnerability exists in a dependency but your code never calls the affected function, `govulncheck` does not flag it.
 
-For CI pipeline integration, see the `samber/cc-skills-golang@golang-continuous-integration` skill.
+For CI pipeline integration, see the [continuous-integration](../../continuous-integration/continuous-integration.md).
 
 ## Tracking Outdated Dependencies with go-mod-outdated
 

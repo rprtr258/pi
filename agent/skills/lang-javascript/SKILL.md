@@ -4,16 +4,7 @@ description: >-
   Core JavaScript conventions, idioms, and modern practices. Invoke whenever a task involves
   JavaScript — writing, reviewing, refactoring, or debugging .js/.jsx/.mjs/.cjs files; building
   vanilla JS or Node.js applications; async/await, ESM modules, Node.js APIs, or browser APIs.
-license: MIT
-metadata:
-  author: https://github.com/Jeffallan
-  version: "1.1.0"
-  domain: language
   triggers: JavaScript, ES2023, async await, Node.js, vanilla JavaScript, Web Workers, Fetch API, browser API, module system
-  role: specialist
-  scope: implementation
-  output-format: code
-  related-skills: lang-typescript, fullstack-guardian
 ---
 
 # JavaScript Pro

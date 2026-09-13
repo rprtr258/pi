@@ -1,20 +1,6 @@
 ---
 name: golang-documentation
 description: "Comprehensive documentation guide for Golang projects, covering godoc comments, README, CONTRIBUTING, CHANGELOG, Go Playground, Example tests, API docs, and llms.txt. Use when writing or reviewing doc comments, documentation, adding code examples, setting up doc sites, or discussing documentation best practices. Triggers for both libraries and applications/CLIs."
-user-invocable: true
-license: MIT
-compatibility: Designed for Claude Code or similar AI coding agents, and for projects using Golang.
-metadata:
-  author: samber
-  version: "1.1.2"
-  openclaw:
-    emoji: "📝"
-    homepage: https://github.com/samber/cc-skills-golang
-    requires:
-      bins:
-        - go
-    install: []
-allowed-tools: Read Edit Write Glob Grep Bash(go:*) Bash(golangci-lint:*) Bash(git:*) Agent WebFetch
 ---
 
 **Persona:** You are a Go technical writer and API designer. You treat documentation as a first-class deliverable — accurate, example-driven, and written for the reader who has never seen this codebase before.
@@ -24,7 +10,7 @@ allowed-tools: Read Edit Write Glob Grep Bash(go:*) Bash(golangci-lint:*) Bash(g
 - **Write mode** — generating or filling in missing documentation (doc comments, README, CONTRIBUTING, CHANGELOG, llms.txt). Work sequentially through the checklist in Step 2, or parallelize across packages/files using sub-agents.
 - **Review mode** — auditing existing documentation for completeness, accuracy, and style. Use up to 5 parallel sub-agents: one per documentation layer (doc comments, README, CONTRIBUTING, CHANGELOG, library-specific extras).
 
-> **Community default.** A company skill that explicitly supersedes `samber/cc-skills-golang@golang-documentation` skill takes precedence.
+> **Community default.** A company skill that explicitly supersedes [documentation](documentation.md) takes precedence.
 
 # Go Documentation
 
@@ -32,7 +18,7 @@ Write documentation that serves both humans and AI agents. Good documentation ma
 
 ## Cross-References
 
-See `samber/cc-skills-golang@golang-naming` skill for naming conventions in doc comments. See `samber/cc-skills-golang@golang-testing` skill for Example test functions. See `samber/cc-skills-golang@golang-project-layout` skill for where documentation files belong.
+See [naming](../references/naming.md) for naming conventions in doc comments. See [testing](../references/testing/testing.md) for Example test functions. See [project-layout](../references/project-layout/project-layout.md) for where documentation files belong.
 
 ## Step 1: Detect Project Type
 

@@ -1,16 +1,6 @@
 ---
 name: lang-python
-description: Use when building Python 3.11+ applications requiring type safety, async programming, or robust error handling. Generates type-annotated Python code, configures mypy in strict mode, writes pytest test suites with fixtures and mocking, and validates code with black and ruff. Invoke for type hints, async/await patterns, dataclasses, dependency injection, logging configuration, and structured error handling.
-license: MIT
-metadata:
-  author: https://github.com/Jeffallan
-  version: "1.1.0"
-  domain: language
-  triggers: Python development, type hints, async Python, pytest, mypy, dataclasses, Python best practices, Pythonic code
-  role: specialist
-  scope: implementation
-  output-format: code
-  related-skills: fastapi-expert, devops-engineer
+description: "Use when building Python 3.11+ applications requiring type safety, async programming, or robust error handling. Generates type-annotated Python code, configures mypy in strict mode, writes pytest test suites with fixtures and mocking, and validates code with black and ruff. Invoke for type hints, async/await patterns, dataclasses, dependency injection, logging configuration, and structured error handling. triggers: Python development, type hints, async Python, pytest, mypy, dataclasses, Python best practices, Pythonic code"
 ---
 
 # Python Pro
@@ -172,9 +162,3 @@ When implementing Python features, provide:
 2. Test file with pytest fixtures
 3. Type checking confirmation (mypy --strict passes)
 4. Brief explanation of Pythonic patterns used
-
-## Knowledge Reference
-
-Python 3.11+, typing module, mypy, pytest, black, ruff, dataclasses, async/await, asyncio, pathlib, functools, itertools, Poetry, Pydantic, contextlib, collections.abc, Protocol
-
-[Documentation](https://jeffallan.github.io/claude-skills/skills/language/python-pro/)

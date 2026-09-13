@@ -1,7 +1,5 @@
 # Spec Compliance Review
 
----
-
 ## Two-Stage Review Architecture
 
 ```
@@ -252,7 +250,3 @@ All requirements verified:
 | Skipping edge cases | Bugs hide in boundaries |
 | Accepting "we can add it later" | Technical debt accumulates |
 | Missing scope creep | Unreviewed code enters codebase |
-
----
-
-*Content adapted from [obra/superpowers](https://github.com/obra/superpowers) by Jesse Vincent (@obra), MIT License.*

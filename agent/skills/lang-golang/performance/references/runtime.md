@@ -112,7 +112,7 @@ Reducing allocations helps more than tuning GOGC — it addresses the root cause
 
 - **Value types over pointer types** where possible — values stay on the stack (no GC), pointers escape to the heap
 - **Pool frequently allocated objects** with `sync.Pool` (see [memory.md](./memory.md))
-- **Preallocate slices and maps** — → See `samber/cc-skills-golang@golang-data-structures` skill
+- **Preallocate slices and maps** — → See [data-structures](../../references/generics.md)
 - **Avoid interface boxing** in hot paths — use typed parameters or generics
 
 ## GOMAXPROCS in Containers

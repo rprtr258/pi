@@ -1,16 +1,6 @@
 ---
 name: engineer-debugging
-description: Parses error messages, traces execution flow through stack traces, correlates log entries to identify failure points, and applies systematic hypothesis-driven methodology to isolate and resolve bugs. Use when investigating errors, analyzing stack traces, finding root causes of unexpected behavior, troubleshooting crashes, or performing log analysis, error investigation, or root cause analysis.
-license: MIT
-metadata:
-  author: https://github.com/Jeffallan
-  version: "1.1.0"
-  domain: quality
-  triggers: debug, error, bug, exception, traceback, stack trace, troubleshoot, not working, crash, fix issue
-  role: specialist
-  scope: analysis
-  output-format: analysis
-  related-skills: test-master, fullstack-guardian, monitoring-expert
+description: "Parses error messages, traces execution flow through stack traces, correlates log entries to identify failure points, and applies systematic hypothesis-driven methodology to isolate and resolve bugs. Use when investigating errors, analyzing stack traces, finding root causes of unexpected behavior, troubleshooting crashes, or performing log analysis, error investigation, or root cause analysis. triggers: debug, error, bug, exception, traceback, stack trace, troubleshoot, not working, crash, fix issue"
 ---
 
 # Debugging Wizard
@@ -101,5 +91,3 @@ When debugging, provide:
 2. **Evidence**: Stack trace, logs, or test that proves it
 3. **Fix**: Code change that resolves it
 4. **Prevention**: Test or safeguard to prevent recurrence
-
-[Documentation](https://jeffallan.github.io/claude-skills/skills/quality/debugging-wizard/)

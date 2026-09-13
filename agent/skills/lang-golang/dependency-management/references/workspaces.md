@@ -24,4 +24,4 @@ go work sync                    # Sync workspace with module changes
 - Workspaces eliminate the need for `replace` directives during local development — the workspace automatically resolves local modules
 - **Do not commit `go.work.sum`** to version control (add to `.gitignore`)
 - `go.work` is for development only — it does not affect how consumers of your published modules resolve dependencies
-- For workspace directory structure examples, see the `samber/cc-skills-golang@golang-project-layout` skill
+- For workspace directory structure examples, see the [project-layout](../../references/project-layout/project-layout.md)

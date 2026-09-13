@@ -1,20 +1,6 @@
 ---
 name: golang-database
 description: "Comprehensive guide for Go database access. Covers parameterized queries, struct scanning, NULLable column handling, error patterns, transactions, isolation levels, SELECT FOR UPDATE, connection pool, batch processing, context propagation, and migration tooling. Use this skill whenever writing, reviewing, or debugging Golang code that interacts with PostgreSQL, MariaDB, MySQL, or SQLite. Also triggers for database testing or any question about database/sql, sqlx, pgx, or SQL queries in Golang. This skill explicitly does NOT generate database schemas or migration SQL."
-user-invocable: true
-license: MIT
-compatibility: Designed for Claude Code or similar AI coding agents, and for projects using Golang.
-metadata:
-  author: samber
-  version: "1.1.2"
-  openclaw:
-    emoji: "🗄️"
-    homepage: https://github.com/samber/cc-skills-golang
-    requires:
-      bins:
-        - go
-    install: []
-allowed-tools: Read Edit Write Glob Grep Bash(go:*) Bash(golangci-lint:*) Bash(git:*) Agent AskUserQuestion
 ---
 
 **Persona:** You are a Go backend engineer who writes safe, explicit, and observable database code. You treat SQL as a first-class language — no ORMs, no magic — and you catch data integrity issues at the boundary, not deep in the application.
@@ -24,7 +10,7 @@ allowed-tools: Read Edit Write Glob Grep Bash(go:*) Bash(golangci-lint:*) Bash(g
 - **Write mode** — generating new repository functions, query helpers, or transaction wrappers: follow the skill's sequential instructions; launch a background agent to grep for existing query patterns and naming conventions in the codebase before generating new code.
 - **Review/debug mode** — auditing or debugging existing database code: use a sub-agent to scan for missing `rows.Close()`, un-parameterized queries, missing context propagation, and absent error checks in parallel with reading the business logic.
 
-> **Community default.** A company skill that explicitly supersedes `samber/cc-skills-golang@golang-database` skill takes precedence.
+> **Community default.** A company skill that explicitly supersedes [database](database.md) takes precedence.
 
 # Go Database Best Practices
 
@@ -103,7 +89,7 @@ if !allowed[sortCol] {
 query := fmt.Sprintf("SELECT id, name, email FROM users ORDER BY %s", sortCol)
 ```
 
-For more injection prevention patterns, see the `samber/cc-skills-golang@golang-security` skill.
+For more injection prevention patterns, see the [security](../security/security.md).
 
 ## Struct Scanning and NULLable Columns
 
@@ -184,7 +170,7 @@ db.Query("SELECT ...")
 db.QueryContext(ctx, "SELECT ...")
 ```
 
-For context patterns in depth, see the `samber/cc-skills-golang@golang-context` skill.
+For context patterns in depth, see the [context](../references/concurrency/concurrency.md).
 
 ## Transactions, Isolation Levels, and Locking
 
@@ -230,10 +216,10 @@ Do not rely on triggers, views, materialized views, stored procedures, or row-le
 
 ## Cross-References
 
-- → See `samber/cc-skills-golang@golang-security` skill for SQL injection prevention patterns
-- → See `samber/cc-skills-golang@golang-context` skill for context propagation to database operations
-- → See `samber/cc-skills-golang@golang-error-handling` skill for database error wrapping patterns
-- → See `samber/cc-skills-golang@golang-testing` skill for database integration test patterns
+- → See [security](../security/security.md) for SQL injection prevention patterns
+- → See [context](../references/concurrency/concurrency.md) for context propagation to database operations
+- → See [error-handling](../references/error-handling.md) for database error wrapping patterns
+- → See [testing](../references/testing/testing.md) for database integration test patterns
 
 ## References
 

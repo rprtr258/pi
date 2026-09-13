@@ -1,6 +1,6 @@
 # Go Code Style
 
-Style rules that require human judgment — formatters handle whitespace, this reference handles clarity. For naming see the [naming reference](../naming.md); for design patterns see the [design-patterns skill](../../design-patterns/SKILL.md); for struct/interface design see the [interfaces reference](../interfaces/interfaces.md).
+Style rules that require human judgment — formatters handle whitespace, this reference handles clarity. For naming see the [naming reference](../naming.md); for design patterns see the [design patterns](../../patterns/design-patterns.md); for struct/interface design see the [interfaces reference](../interfaces/interfaces.md).
 
 > "Clear is better than clever." — Go Proverbs
 
@@ -257,4 +257,4 @@ When reviewing code style across a large codebase, use up to 5 parallel sub-agen
 
 ## Enforce with Linters
 
-Many rules are enforced automatically: `gofmt`, `gofumpt`, `goimports`, `gocritic`, `revive`, `wsl_v5`. → See the [lint skill](../../lint/SKILL.md).
+Many rules are enforced automatically: `gofmt`, `gofumpt`, `goimports`, `gocritic`, `revive`, `wsl_v5`. → See the [lint skill](../../lint/lint.md).

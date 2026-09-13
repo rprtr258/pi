@@ -1,20 +1,6 @@
 ---
 name: golang-safety
 description: "Defensive Golang coding to prevent panics, silent data corruption, and subtle runtime bugs. Use whenever writing or reviewing Go code that involves nil-prone types (pointers, interfaces, maps, slices, channels), numeric conversions, resource lifecycle (defer in loops), or defensive copying. Also triggers on questions about nil panics, append aliasing, map concurrent access, float comparison, or zero-value design."
-user-invocable: true
-license: MIT
-compatibility: Designed for Claude Code or similar AI coding agents, and for projects using Golang.
-metadata:
-  author: samber
-  version: "1.1.1"
-  openclaw:
-    emoji: "🛡️"
-    homepage: https://github.com/samber/cc-skills-golang
-    requires:
-      bins:
-        - go
-    install: []
-allowed-tools: Read Edit Write Glob Grep Bash(go:*) Bash(golangci-lint:*) Bash(git:*) Agent
 ---
 
 **Persona:** You are a defensive Go engineer. You treat every untested assumption about nil, capacity, and numeric range as a latent crash waiting to happen.
@@ -106,7 +92,7 @@ b := append(a[:len(a):len(a)], 4)
 
 ### Map concurrent access
 
-Maps MUST NOT be accessed concurrently — → see `samber/cc-skills-golang@golang-concurrency` for sync primitives.
+Maps MUST NOT be accessed concurrently — → see [concurrency](../references/concurrency/concurrency.md) for sync primitives.
 
 See **[Slice and Map Deep Dive](./references/slice-map-safety.md)** for range pitfalls, subslice memory retention, and `slices.Clone`/`maps.Clone`.
 
@@ -150,7 +136,7 @@ func avg(total, count int) (int, error) {
 }
 ```
 
-For integer overflow as a security vulnerability, see the `samber/cc-skills-golang@golang-security` skill section.
+For integer overflow as a security vulnerability, see the [security](../security/security.md) section.
 
 ## Resource Safety
 
@@ -180,7 +166,7 @@ func processOne(path string) error {
 
 ### Goroutine leaks
 
-→ See `samber/cc-skills-golang@golang-concurrency` for goroutine lifecycle and leak prevention.
+→ See [concurrency](../references/concurrency/concurrency.md) for goroutine lifecycle and leak prevention.
 
 ## Immutability & Defensive Copying
 
@@ -236,19 +222,19 @@ func (db *DB) connection() *sql.DB {
 
 ### init() function pitfalls
 
-→ See `samber/cc-skills-golang@golang-design-patterns` for why init() should be avoided in favor of explicit constructors.
+→ See [design-patterns](../patterns/design-patterns.md) for why init() should be avoided in favor of explicit constructors.
 
 ## Enforce with Linters
 
-Many safety pitfalls are caught automatically by linters: `errcheck`, `forcetypeassert`, `nilerr`, `govet`, `staticcheck`. See the `samber/cc-skills-golang@golang-lint` skill for configuration and usage.
+Many safety pitfalls are caught automatically by linters: `errcheck`, `forcetypeassert`, `nilerr`, `govet`, `staticcheck`. See the [lint](../lint/lint.md) for configuration and usage.
 
 ## Cross-References
 
-- → See `samber/cc-skills-golang@golang-concurrency` skill for concurrent access patterns and sync primitives
-- → See `samber/cc-skills-golang@golang-data-structures` skill for slice/map internals, capacity growth, and container/ packages
-- → See `samber/cc-skills-golang@golang-error-handling` skill for nil error interface trap
-- → See `samber/cc-skills-golang@golang-security` skill for security-relevant safety issues (memory safety, integer overflow)
-- → See `samber/cc-skills-golang@golang-troubleshooting` skill for debugging panics and race conditions
+- → See [concurrency](../references/concurrency/concurrency.md) for concurrent access patterns and sync primitives
+- → See [data-structures](../references/generics.md) for slice/map internals, capacity growth, and container/ packages
+- → See [error-handling](../references/error-handling.md) for nil error interface trap
+- → See [security](../security/security.md) for security-relevant safety issues (memory safety, integer overflow)
+- → See [troubleshooting](../troubleshooting/troubleshooting.md) for debugging panics and race conditions
 
 ## Common Mistakes
 
@@ -263,5 +249,5 @@ Many safety pitfalls are caught automatically by linters: `errcheck`, `forcetype
 | Comparing floats with `==` | IEEE 754 representation is not exact (`0.1+0.2 != 0.3`). Use `math.Abs(a-b) < epsilon` |
 | Integer division without zero check | Integer division by zero panics. Guard with `if divisor == 0` before dividing |
 | Returning internal slice/map reference | Callers can mutate your struct's internals through the shared backing array. Return a defensive copy |
-| Multiple `init()` with ordering assumptions | `init()` execution order across files is unspecified. → See `samber/cc-skills-golang@golang-design-patterns` — use explicit constructors |
+| Multiple `init()` with ordering assumptions | `init()` execution order across files is unspecified. → See [design-patterns](../patterns/design-patterns.md) — use explicit constructors |
 | Blocking forever on nil channel | Nil channels block on both send and receive. Always initialize before use |

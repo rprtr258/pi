@@ -5,17 +5,7 @@ description: >-
   Invoke whenever a task involves any interaction with TypeScript code — writing, reviewing,
   refactoring, or debugging .ts/.tsx files, type definitions, generics, conditional/mapped types,
   narrowing, type guards, branded types, utility types, tsconfig, monorepo project references, or
-  type-level programming.
-license: MIT
-metadata:
-  author: https://github.com/Jeffallan
-  version: "1.1.0"
-  domain: language
-  triggers: TypeScript, generics, type safety, conditional types, mapped types, tsconfig, type guards, discriminated unions, strict mode, narrowing, branded types, type-level programming
-  role: specialist
-  scope: implementation
-  output-format: code
-  related-skills: lang-javascript, fullstack-guardian, api-designer
+  type-level programming. triggers: TypeScript, generics, type safety, conditional types, mapped types, tsconfig, type guards, discriminated unions, strict mode, narrowing, branded types, type-level programming
 ---
 
 # TypeScript

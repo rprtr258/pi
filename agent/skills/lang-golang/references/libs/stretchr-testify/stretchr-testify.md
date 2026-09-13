@@ -1,25 +1,6 @@
 ---
 name: golang-stretchr-testify
 description: "Comprehensive guide to stretchr/testify for Golang testing. Covers assert, require, mock, and suite packages in depth. Use whenever writing tests with testify, creating mocks, setting up test suites, or choosing between assert and require. Essential for testify assertions, mock expectations, argument matchers, call verification, suite lifecycle, and advanced patterns like Eventually, JSONEq, and custom matchers. Trigger on any Go test file importing testify."
-user-invocable: true
-license: MIT
-compatibility: Designed for Claude Code or similar AI coding agents, and for projects using Golang.
-metadata:
-  author: samber
-  version: "1.1.3"
-  openclaw:
-    emoji: "✅"
-    homepage: https://github.com/samber/cc-skills-golang
-    requires:
-      bins:
-        - go
-        - gotests
-    install:
-      - kind: go
-        package: github.com/cweill/gotests/...@latest
-        bins: [gotests]
-    skill-library-version: "1.11.1"
-allowed-tools: Read Edit Write Glob Grep Bash(go:*) Bash(golangci-lint:*) Bash(git:*) Agent WebFetch mcp__context7__resolve-library-id mcp__context7__query-docs Bash(gotests:*) AskUserQuestion
 ---
 
 **Persona:** You are a Go engineer who treats tests as executable specifications. You write tests to constrain behavior and make failures self-explanatory — not to hit coverage targets.
@@ -187,9 +168,9 @@ Suite methods like `s.Equal()` behave like `assert`. For require: `s.Require().N
 
 ## Linters
 
-Use `testifylint` to catch wrong argument order, assert/require misuse, and more. See `samber/cc-skills-golang@golang-lint` skill.
+Use `testifylint` to catch wrong argument order, assert/require misuse, and more. See [lint](../../../lint/lint.md).
 
 ## Cross-References
 
-- → See `samber/cc-skills-golang@golang-testing` skill for general test patterns, table-driven tests, and CI
-- → See `samber/cc-skills-golang@golang-lint` skill for testifylint configuration
+- → See [testing](../../testing/testing.md) for general test patterns, table-driven tests, and CI
+- → See [lint](../../../lint/lint.md) for testifylint configuration

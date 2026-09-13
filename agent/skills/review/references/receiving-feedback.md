@@ -1,7 +1,5 @@
 # Receiving Feedback
 
----
-
 ## Core Mindset
 
 > "Verify before implementing. Ask before assuming. Technical correctness over social comfort."
@@ -221,8 +219,6 @@ If you cannot verify a fix:
 | You learned something | "I wasn't aware of [X]. Fixed at line [N]." |
 | You can't verify | "Implemented. Unable to verify because [reason]." |
 
----
-
 ## Anti-Patterns
 
 | Pattern | Problem | Fix |
@@ -232,7 +228,3 @@ If you cannot verify a fix:
 | Delayed responses | Blocks review cycle | Respond within hours, not days |
 | Vague responses | Leaves reviewer uncertain | Be specific about changes |
 | Ignoring feedback | Disrespectful, creates friction | Address every point |
-
----
-
-*Content adapted from [obra/superpowers](https://github.com/obra/superpowers) by Jesse Vincent (@obra), MIT License.*

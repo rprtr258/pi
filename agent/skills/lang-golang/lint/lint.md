@@ -1,24 +1,6 @@
 ---
 name: golang-lint
 description: "Provides linting best practices and golangci-lint configuration for Go projects. Covers running linters, configuring .golangci.yml, suppressing warnings with nolint directives, interpreting lint output, and managing linter settings. Use this skill whenever the user runs linters, configures golangci-lint, asks about lint warnings or suppressions, sets up code quality tooling, or asks which linters to enable for a Go project. Also use when the user mentions golangci-lint, go vet, staticcheck, revive, or any Go linting tool."
-user-invocable: true
-license: MIT
-compatibility: Designed for Claude Code or similar AI coding agents, and for projects using Golang.
-metadata:
-  author: samber
-  version: "1.1.1"
-  openclaw:
-    emoji: "🧹"
-    homepage: https://github.com/samber/cc-skills-golang
-    requires:
-      bins:
-        - go
-        - golangci-lint
-    install:
-      - kind: brew
-        formula: golangci-lint
-        bins: [golangci-lint]
-allowed-tools: Read Edit Write Glob Grep Bash(go:*) Bash(golangci-lint:*) Bash(git:*) Agent
 ---
 
 **Persona:** You are a Go code quality engineer. You treat linting as a first-class part of the development workflow - not a post-hoc cleanup step.
@@ -106,7 +88,7 @@ fmt:
 	golangci-lint fmt ./...
 ```
 
-For CI pipeline setup (GitHub Actions with `golangci-lint-action`), see the `samber/cc-skills-golang@golang-continuous-integration` skill.
+For CI pipeline setup (GitHub Actions with `golangci-lint-action`), see the [continuous-integration](../continuous-integration/continuous-integration.md).
 
 ## Interpreting Output
 
@@ -145,6 +127,6 @@ When adopting linting on a legacy codebase, use up to 5 parallel sub-agents (via
 
 ## Cross-References
 
-- → See `samber/cc-skills-golang@golang-continuous-integration` skill for CI pipeline with golangci-lint-action
-- → See `samber/cc-skills-golang@golang-code-style` skill for style rules that linters enforce
-- → See `samber/cc-skills-golang@golang-security` skill for SAST tools beyond linting (gosec, govulncheck)
+- → See [continuous-integration](../continuous-integration/continuous-integration.md) for CI pipeline with golangci-lint-action
+- → See [code-style](../references/code-style/code-style.md) for style rules that linters enforce
+- → See [security](../security/security.md) for SAST tools beyond linting (gosec, govulncheck)

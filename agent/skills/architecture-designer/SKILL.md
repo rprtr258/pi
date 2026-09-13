@@ -1,16 +1,6 @@
 ---
 name: architecture-designer
-description: Use when designing new high-level system architecture, reviewing existing designs, or making architectural decisions. Invoke to create architecture diagrams, write Architecture Decision Records (ADRs), evaluate technology trade-offs, design component interactions, and plan for scalability. Use for system design, architecture review, microservices structuring, ADR authoring, scalability planning, and infrastructure pattern selection - distinct from code-level design patterns or database-only design tasks.
-license: MIT
-metadata:
-  author: https://github.com/Jeffallan
-  version: "1.1.1"
-  domain: api-architecture
-  triggers: architecture, system design, design pattern, microservices, scalability, ADR, technical design, infrastructure
-  role: expert
-  scope: design
-  output-format: document
-  related-skills: fullstack-guardian, devops-engineer, secure-code-guardian, microservices-architect, code-reviewer
+description: "Use when designing new high-level system architecture, reviewing existing designs, or making architectural decisions. Invoke to create architecture diagrams, write Architecture Decision Records (ADRs), evaluate technology trade-offs, design component interactions, and plan for scalability. Use for system design, architecture review, microservices structuring, ADR authoring, scalability planning, and infrastructure pattern selection - distinct from code-level design patterns or database-only design tasks. triggers: architecture, system design, design pattern, microservices, scalability, ADR, technical design, infrastructure"
 ---
 
 # Architecture Designer
@@ -114,5 +104,3 @@ Use PostgreSQL as the primary datastore for the Order Service.
 ## Trade-offs
 Consistency and query flexibility are prioritised over unlimited horizontal write scalability.
 ```
-
-[Documentation](https://jeffallan.github.io/claude-skills/skills/api-architecture/architecture-designer/)

@@ -6,11 +6,11 @@
 
 When starting a new project, **ask the developer** what software architecture they prefer (clean architecture, hexagonal, DDD, flat structure, etc.). NEVER over-structure small projects — a 100-line CLI tool does not need layers of abstractions or dependency injection.
 
-→ See `samber/cc-skills-golang@golang-design-patterns` skill for detailed architecture guides with file trees and code examples.
+→ See [design-patterns](../../patterns/design-patterns.md) for detailed architecture guides with file trees and code examples.
 
 ## Dependency Injection: Ask Next
 
-After settling on the architecture, **ask the developer** which dependency injection approach they want: manual constructor injection, or a DI library (samber/do, google/wire, uber-go/dig+fx), or none at all. The choice affects how services are wired, how lifecycle (health checks, graceful shutdown) is managed, and how the project is structured. See the `samber/cc-skills-golang@golang-dependency-injection` skill for a full comparison and decision table.
+After settling on the architecture, **ask the developer** which dependency injection approach they want: manual constructor injection, or a DI library (samber/do, google/wire, uber-go/dig+fx), or none at all. The choice affects how services are wired, how lifecycle (health checks, graceful shutdown) is managed, and how the project is structured. See the [dependency-injection](../../patterns/references/clean-architecture.md) for a full comparison and decision table.
 
 ## 12-Factor App
 
@@ -88,7 +88,7 @@ module utils
 
 ### Package Naming
 
-Packages MUST be lowercase, singular, and match their directory name. → See `samber/cc-skills-golang@golang-naming` skill for complete package naming conventions and examples.
+Packages MUST be lowercase, singular, and match their directory name. → See [naming](../naming.md) for complete package naming conventions and examples.
 
 ## go.mod Basics
 
@@ -304,7 +304,7 @@ Every Go project should include at the root:
 
 - **Makefile** — build automation. See [Makefile template](assets/Makefile)
 - **.gitignore** — git ignore patterns. See [.gitignore template](assets/.gitignore)
-- **.golangci.yml** — linter config. See the `samber/cc-skills-golang@golang-lint` skill for the recommended configuration
+- **.golangci.yml** — linter config. See the [lint](../../lint/lint.md) for the recommended configuration
 
 For application configuration with Cobra + Viper, see [config reference](references/config.md).
 
@@ -542,7 +542,7 @@ func Load() (*Config, error) {
 When starting a new Go project:
 
 - [ ] **Ask the developer** their preferred software architecture (clean, hexagonal, DDD, flat, etc.)
-- [ ] **Ask the developer** their preferred DI approach — see `samber/cc-skills-golang@golang-dependency-injection` skill
+- [ ] **Ask the developer** their preferred DI approach — see [dependency-injection](../../patterns/references/clean-architecture.md)
 - [ ] Decide project type (CLI, library, service, monorepo)
 - [ ] Right-size the structure to the project scope
 - [ ] Choose module name (matches repo URL, lowercase, hyphens)
@@ -557,7 +557,7 @@ When starting a new Go project:
 
 ## Related Skills
 
-→ See `samber/cc-skills-golang@golang-cli` skill for CLI tool structure and Cobra/Viper patterns. → See `samber/cc-skills-golang@golang-dependency-injection` skill for DI approach comparison and wiring. → See `samber/cc-skills-golang@golang-lint` skill for golangci-lint configuration. → See `samber/cc-skills-golang@golang-continuous-integration` skill for CI/CD pipeline setup. → See `samber/cc-skills-golang@golang-design-patterns` skill for architectural patterns.
+→ See [cli](../cli.md) for CLI tool structure and Cobra/Viper patterns. → See [dependency-injection](../../patterns/references/clean-architecture.md) for DI approach comparison and wiring. → See [lint](../../lint/lint.md) for golangci-lint configuration. → See [continuous-integration](../../continuous-integration/continuous-integration.md) for CI/CD pipeline setup. → See [design-patterns](../../patterns/design-patterns.md) for architectural patterns.
 
 ## Quick Reference
 

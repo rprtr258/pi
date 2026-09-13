@@ -1,142 +1,44 @@
 ---
 name: dev-using-git-worktrees
-description: Use when starting feature work that needs isolation from current workspace, before executing implementation plans, or when asked to open a new worktree, work in a separate tree, compare a worktree to main, create a PR from a worktree, merge changes back, or delete a worktree - creates isolated git worktrees (via ~/.scripts/worktree when available) with smart directory selection and safety verification
+description: Use when starting feature work that needs isolation from the current workspace, before executing implementation plans, or when asked to open a new worktree/workspace, work in a separate tree, compare a worktree to main, create a PR from a worktree, or delete a worktree - creates isolated jj workspaces in mktemp directories with baseline verification
 ---
 
-# Using Git Worktrees
+# Using jj Workspaces
 
 ## Overview
 
-Git worktrees create isolated workspaces sharing the same repository, allowing work on multiple branches simultaneously without switching.
+jj workspaces create isolated working copies under the same repo, each with its own `@` commit — the jj equivalent of git worktrees. Creating them in `mktemp -d` directories means: no directory-selection questions, no .gitignore verification, zero risk of polluting the repo.
 
-**Core principle:** Systematic directory selection + safety verification = reliable isolation.
+**Core principle:** mktemp location + auto-detected setup + verified baseline.
 
 **Announce at start:** "I'm using the using-git-worktrees skill to set up an isolated workspace."
 
-## Script Workflow (preferred when available)
-
-If `~/.scripts/worktree` exists, use it for the standard worktree workflow instead of manual commands.
-
-Create a new worktree folder:
+## Create a Workspace
 
 ```bash
-~/.scripts/worktree new "feature description"
+ws_name="<short-kebab-name>"          # e.g. auth-refactor
+ws_dir="$(mktemp -d)/$ws_name"
+jj workspace add "$ws_dir"
+cd "$ws_dir"
 ```
 
-Set up a worktree after creation:
+Options:
 
-```bash
-~/.scripts/worktree setup <worktree-directory>
-```
+- `-r <revset>` — base the new working-copy commit on another revision (e.g. `-r main`). Default: a fresh commit on the parent(s) of the current workspace's `@`, leaving your in-progress work untouched.
+- `-m "description"` — set the initial change description.
+- The workspace name defaults to the basename of the destination (so `.../auth-refactor` → `auth-refactor`). Name→path mappings: `jj workspace list`.
 
-Open a worktree in tmuxinator:
+Pure git repo (no `.jj/`)? Either run `jj git init --colocate` first, or fall back to `git worktree add "$(mktemp -d)/$ws_name" -b <branch>`.
 
-```bash
-~/.scripts/worktree open <worktree-directory>
-```
+## Where Things Live
 
-Delete a worktree:
+- Workspaces are under `/tmp` (mktemp). They survive reboots on most Linux systems, but systemd-tmpfiles may purge `/tmp` — describe and push changes regularly; never leave unpushed work only in a /tmp workspace.
+- If a directory gets purged while still tracked, `jj workspace forget <name>` cleans up the stale entry.
+- If the repo warns about a stale workspace, `jj workspace update-stale`.
 
-```bash
-~/.scripts/worktree destroy <worktree-directory>
-```
+## After Creation
 
-Typical agent flow:
-
-```bash
-~/.scripts/worktree new "improve login flow"
-~/.scripts/worktree setup 26-03-improve-login-flow
-cd worktrees/26-03-improve-login-flow
-```
-
-If the script does not exist, use the manual workflow below.
-
-## Directory Selection Process
-
-Follow this priority order:
-
-### 1. Check Existing Directories
-
-```bash
-# Check in priority order
-ls -d .worktrees 2>/dev/null     # Preferred (hidden)
-ls -d worktrees 2>/dev/null      # Alternative
-```
-
-**If found:** Use that directory. If both exist, `.worktrees` wins.
-
-### 2. Check CLAUDE.md
-
-```bash
-grep -i "worktree.*director" CLAUDE.md 2>/dev/null
-```
-
-**If preference specified:** Use it without asking.
-
-### 3. Ask User
-
-If no directory exists and no CLAUDE.md preference:
-
-```
-No worktree directory found. Where should I create worktrees?
-
-1. .worktrees/ (project-local, hidden)
-2. ~/.config/superpowers/worktrees/<project-name>/ (global location)
-
-Which would you prefer?
-```
-
-## Safety Verification
-
-### For Project-Local Directories (.worktrees or worktrees)
-
-**MUST verify directory is ignored before creating worktree:**
-
-```bash
-# Check if directory is ignored (respects local, global, and system gitignore)
-git check-ignore -q .worktrees 2>/dev/null || git check-ignore -q worktrees 2>/dev/null
-```
-
-**If NOT ignored:**
-
-Per Jesse's rule "Fix broken things immediately":
-1. Add appropriate line to .gitignore
-2. Commit the change
-3. Proceed with worktree creation
-
-**Why critical:** Prevents accidentally committing worktree contents to repository.
-
-### For Global Directory (~/.config/superpowers/worktrees)
-
-No .gitignore verification needed - outside project entirely.
-
-## Creation Steps
-
-### 1. Detect Project Name
-
-```bash
-project=$(basename "$(git rev-parse --show-toplevel)")
-```
-
-### 2. Create Worktree
-
-```bash
-# Determine full path
-case $LOCATION in
-  .worktrees|worktrees)
-    path="$LOCATION/$BRANCH_NAME"
-    ;;
-  ~/.config/superpowers/worktrees/*)
-    path="~/.config/superpowers/worktrees/$project/$BRANCH_NAME"
-    ;;
-esac
-
-# Create worktree with new branch
-git worktree add "$path" -b "$BRANCH_NAME"
-cd "$path"
-```
-
-### 3. Run Project Setup
+### 1. Run Project Setup
 
 Auto-detect and run appropriate setup:
 
@@ -155,9 +57,9 @@ if [ -f pyproject.toml ]; then poetry install; fi
 if [ -f go.mod ]; then go mod download; fi
 ```
 
-### 4. Verify Clean Baseline
+### 2. Verify Clean Baseline
 
-Run tests to ensure worktree starts clean:
+Run tests to ensure the workspace starts clean:
 
 ```bash
 # Examples - use project-appropriate command
@@ -171,10 +73,10 @@ go test ./...
 
 **If tests pass:** Report ready.
 
-### 5. Report Location
+### 3. Report Location
 
 ```
-Worktree ready at <full-path>
+Workspace ready at <full-path>
 Tests passing (<N> tests, 0 failures)
 Ready to implement <feature-name>
 ```
@@ -183,25 +85,31 @@ Ready to implement <feature-name>
 
 | Situation | Action |
 |-----------|--------|
-| `.worktrees/` exists | Use it (verify ignored) |
-| `worktrees/` exists | Use it (verify ignored) |
-| Both exist | Use `.worktrees/` |
-| Neither exists | Check CLAUDE.md → Ask user |
-| Directory not ignored | Add to .gitignore + commit |
+| Create isolated workspace | `jj workspace add "$(mktemp -d)/<name>"` |
+| Base on main instead of current @ | add `-r main` |
+| Find a workspace's path | `jj workspace list` |
+| Repo warns workspace is stale | `jj workspace update-stale` |
+| Directory purged by tmp cleanup | `jj workspace forget <name>` |
 | Tests fail during baseline | Report failures + ask |
+| Pure git repo (no .jj/) | `jj git init --colocate` or git worktree fallback |
 | No package.json/Cargo.toml | Skip dependency install |
 
 ## Common Mistakes
 
-### Skipping ignore verification
+### Assuming @ is shared
 
-- **Problem:** Worktree contents get tracked, pollute git status
-- **Fix:** Always use `git check-ignore` before creating project-local worktree
+- **Problem:** Expecting work in one workspace to appear in the other
+- **Fix:** Each workspace has its own working-copy commit; `jj log` shows them as `<workspace-name>@`
 
-### Assuming directory location
+### Leaving work only in /tmp
 
-- **Problem:** Creates inconsistency, violates project conventions
-- **Fix:** Follow priority: existing > CLAUDE.md > ask
+- **Problem:** tmpfiles cleanup can purge the directory
+- **Fix:** `jj describe` + `jj git push` (or `jj abandon` for throwaways) before walking away
+
+### Destroying with live work
+
+- **Problem:** `jj workspace forget` abandons that workspace's working-copy commit
+- **Fix:** Describe + `jj new` any work worth keeping before forgetting
 
 ### Proceeding with failing tests
 
@@ -218,13 +126,12 @@ Ready to implement <feature-name>
 ```
 You: I'm using the using-git-worktrees skill to set up an isolated workspace.
 
-[Check .worktrees/ - exists]
-[Verify ignored - git check-ignore confirms .worktrees/ is ignored]
-[Create worktree: git worktree add .worktrees/auth -b feature/auth]
+[Create: jj workspace add "$(mktemp -d)/auth-refactor"]
+[cd into the new workspace; jj log confirms a fresh commit on the same parent]
 [Run npm install]
 [Run npm test - 47 passing]
 
-Worktree ready at /Users/jesse/myproject/.worktrees/auth
+Workspace ready at /tmp/tmp.Xk3f2/auth-refactor
 Tests passing (47 tests, 0 failures)
 Ready to implement auth feature
 ```
@@ -232,36 +139,25 @@ Ready to implement auth feature
 ## Red Flags
 
 **Never:**
-- Create worktree without verifying it's ignored (project-local)
+- Work only inside /tmp without describing/pushing regularly
+- Destroy a workspace with undescribed work on @
 - Skip baseline test verification
 - Proceed with failing tests without asking
-- Assume directory location when ambiguous
-- Skip CLAUDE.md check
 
 **Always:**
-- Follow directory priority: existing > CLAUDE.md > ask
-- Verify directory is ignored for project-local
+- Create in a mktemp directory (never inside the repo — no .gitignore juggling needed)
 - Auto-detect and run project setup
 - Verify clean test baseline
 
 ## Notes for Agents
 
-- `worktree new` only creates the git worktree and branch. It does not start tmux or another agent.
-- Run `worktree setup` explicitly after creating the worktree.
-- In this project, `bin/worktree-setup` copies `config/master.key` and the SQLite development database from the main checkout before running `bin/rails db:prepare`.
-- When asked to create a PR, commit in the worktree, push the branch, then use the `gh` skill.
-- When asked to integrate directly into main, use a deliberate git workflow (usually a squash merge).
-- When asked to clean up, ensure no uncommitted work is being lost before destroying the worktree.
+- When asked to create a PR: describe the change, push, then use the `gh` skill. Colocated repos push with `jj git push`.
+- When asked to integrate directly into main, rebase onto main (squash if desired) — a deliberate workflow, not an accidental fast-forward.
 - **`FIX:` comments**: Hans may leave `# FIX: ...` comments directly in source files while reviewing a diff. Always grep for these before starting work: `grep -r "FIX:" .` — address each one, then remove the comment.
-- **`worktree diff`** opens an interactive visual diff in the terminal (DiffView). Do **not** run it — it is a manual user command only.
 
 ## Integration
 
 **Called by:**
 - **requirements** (Phase 4) - REQUIRED when design is approved and implementation follows
 - **subagent-driven-development** - REQUIRED before executing any tasks
-- **executing-plans** - REQUIRED before executing any tasks
 - Any skill needing isolated workspace
-
-**Pairs with:**
-- **finishing-a-development-branch** - REQUIRED for cleanup after work complete

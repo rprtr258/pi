@@ -1,16 +1,6 @@
 ---
 name: dev-code-documenter
-description: Generates, formats, and validates technical documentation - including docstrings, OpenAPI/Swagger specs, JSDoc annotations, doc portals, and user guides. Use when adding docstrings to functions or classes, creating API documentation, building documentation sites, or writing tutorials and user guides. Invoke for OpenAPI/Swagger specs, JSDoc, doc portals, getting started guides.
-license: MIT
-metadata:
-  author: https://github.com/Jeffallan
-  version: "1.1.0"
-  domain: quality
-  triggers: documentation, docstrings, OpenAPI, Swagger, JSDoc, comments, API docs, tutorials, user guides, doc site
-  role: specialist
-  scope: implementation
-  output-format: code
-  related-skills: spec-miner, fullstack-guardian, code-reviewer
+description: "Generates, formats, and validates technical documentation - including docstrings, OpenAPI/Swagger specs, JSDoc annotations, doc portals, and user guides. Use when adding docstrings to functions or classes, creating API documentation, building documentation sites, or writing tutorials and user guides. Invoke for OpenAPI/Swagger specs, JSDoc, doc portals, getting started guides. triggers: documentation, docstrings, OpenAPI, Swagger, JSDoc, comments, API docs, tutorials, user guides, doc site"
 ---
 
 # Code Documenter
@@ -141,9 +131,3 @@ Depending on the task, provide:
 2. **API Docs:** OpenAPI specs + portal configuration
 3. **Doc Sites:** Site configuration + content structure + build instructions
 4. **Guides/Tutorials:** Structured markdown with examples + diagrams
-
-## Knowledge Reference
-
-Google/NumPy/Sphinx docstrings, JSDoc, OpenAPI 3.0/3.1, AsyncAPI, gRPC/protobuf, FastAPI, Django, NestJS, Express, GraphQL, Docusaurus, MkDocs, VitePress, Swagger UI, Redoc, Stoplight
-
-[Documentation](https://jeffallan.github.io/claude-skills/skills/quality/code-documenter/)

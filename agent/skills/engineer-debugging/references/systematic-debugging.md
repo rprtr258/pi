@@ -267,8 +267,6 @@ npm run test:integration
 # 4. Error case: error message shows
 ```
 
----
-
 ## The Three-Fix Threshold
 
 > **After 3 failed fix attempts → STOP.**
@@ -293,8 +291,6 @@ Fix Attempt 3: Fixed parent → Original error returns
 4. **Propose structural change** rather than patch
 5. **Discuss with team** before proceeding
 
----
-
 ## Red Flags Requiring Process Reset
 
 When you notice these, stop and restart from Phase 1:
@@ -307,61 +303,55 @@ When you notice these, stop and restart from Phase 1:
 | "Let's try this and see if it works" | Shotgun debugging |
 | Fixing without understanding the cause | Band-aid, not cure |
 
----
-
 ## Decision Flowchart
 
 ```
-                    ┌──────────────────┐
-                    │   Bug Reported   │
-                    └────────┬─────────┘
-                             │
-              ┌──────────────▼──────────────┐
-              │   Can you reproduce it?      │
-              └──────────────┬──────────────┘
-                    No       │       Yes
-            ┌────────────────┴────────────────┐
-            ▼                                  ▼
-    ┌───────────────┐               ┌─────────────────┐
-    │ Get more info │               │ Trace data flow │
-    └───────────────┘               └────────┬────────┘
-                                             │
-                              ┌──────────────▼──────────────┐
-                              │ Do you understand the cause? │
-                              └──────────────┬──────────────┘
-                                    No       │       Yes
-                    ┌────────────────────────┴─────────┐
-                    ▼                                   ▼
-            ┌───────────────┐               ┌─────────────────┐
-            │ Study working │               │ Write hypothesis│
-            │   examples    │               └────────┬────────┘
-            └───────────────┘                        │
-                                             ┌───────▼───────┐
-                                             │  Write test   │
-                                             └───────┬───────┘
-                                                     │
-                                             ┌───────▼───────┐
-                                             │  Implement    │
-                                             └───────┬───────┘
-                                                     │
-                                  ┌──────────────────▼──────────────────┐
-                                  │          Does test pass?            │
-                                  └──────────────────┬──────────────────┘
-                                            No       │       Yes
-                            ┌────────────────────────┴──────────┐
-                            ▼                                    ▼
-                    ┌───────────────┐                  ┌─────────────────┐
-                    │ Attempt < 3?  │                  │      Done       │
-                    └───────┬───────┘                  └─────────────────┘
-                    No      │      Yes
-            ┌───────────────┴─────────────────┐
-            ▼                                  ▼
-    ┌───────────────────┐          ┌─────────────────────┐
-    │ Question          │          │ Return to Phase 1   │
-    │ architecture      │          └─────────────────────┘
-    └───────────────────┘
+                ┌──────────────────┐
+                │   Bug Reported   │
+                └────────┬─────────┘
+                         │
+          ┌──────────────▼──────────────┐
+          │   Can you reproduce it?     │
+          └──────────────┬──────────────┘
+                No       │       Yes
+        ┌────────────────┴────────────────┐
+        ▼                                 ▼
+┌───────────────┐               ┌─────────────────┐
+│ Get more info │               │ Trace data flow │
+└───────────────┘               └────────┬────────┘
+                                         │
+                          ┌──────────────▼───────────────┐
+                          │ Do you understand the cause? │
+                          └──────────────┬───────────────┘
+                                No       │       Yes
+                ┌────────────────────────┴─────────┐
+                ▼                                  ▼
+        ┌───────────────┐               ┌─────────────────┐
+        │ Study working │               │ Write hypothesis│
+        │   examples    │               └────────┬────────┘
+        └───────────────┘                        │
+                                         ┌───────▼───────┐
+                                         │  Write test   │
+                                         └───────┬───────┘
+                                                 │
+                                         ┌───────▼───────┐
+                                         │  Implement    │
+                                         └───────┬───────┘
+                                                 │
+                              ┌──────────────────▼──────────────────┐
+                              │          Does test pass?            │
+                              └──────────────────┬──────────────────┘
+                                        No       │       Yes
+                        ┌────────────────────────┴──────────┐
+                        │                                   │
+                ┌───────▼───────┐                  ┌────────▼────────┐
+                │ Attempt < 3?  │                  │      Done       │
+                └───────┬───────┘                  └─────────────────┘
+                No      │      Yes
+        ┌───────────────┴─────────────────┐
+        ▼                                 ▼
+┌───────────────────┐          ┌─────────────────────┐
+│ Question          │          │ Return to Phase 1   │
+│ architecture      │          └─────────────────────┘
+└───────────────────┘
 ```
-
----
-
-*Content adapted from [obra/superpowers](https://github.com/obra/superpowers) by Jesse Vincent (@obra), MIT License.*

@@ -1,24 +1,6 @@
 ---
 name: golang-dependency-management
 description: "Provides dependency management strategies for Golang projects including go.mod management, installing/upgrading packages, semantic versioning, Minimal Version Selection, vulnerability scanning, outdated dependency tracking, dependency size analysis, automated updates with Dependabot/Renovate, conflict resolution, and dependency graph visualization. Use this skill whenever adding, removing, updating, or auditing Go dependencies, resolving version conflicts, setting up automated dependency updates, analyzing binary size, or working with go.work workspaces."
-user-invocable: true
-license: MIT
-compatibility: Designed for Claude Code or similar AI coding agents, and for projects using Golang.
-metadata:
-  author: samber
-  version: "1.1.3"
-  openclaw:
-    emoji: "📦"
-    homepage: https://github.com/samber/cc-skills-golang
-    requires:
-      bins:
-        - go
-        - govulncheck
-    install:
-      - kind: go
-        package: golang.org/x/vuln/cmd/govulncheck@latest
-        bins: [govulncheck]
-allowed-tools: Read Edit Write Glob Grep Bash(go:*) Bash(golangci-lint:*) Bash(git:*) Agent Bash(govulncheck:*) AskUserQuestion
 ---
 
 **Persona:** You are a Go dependency steward. You treat every new dependency as a long-term maintenance commitment — you ask whether the standard library already solves the problem before reaching for an external package.
@@ -36,7 +18,7 @@ Before proposing a dependency, evaluate:
 - Are there well-known alternatives?
 - What it does and why it's needed?
 
-The `samber/cc-skills-golang@golang-popular-libraries` skill contains a curated list of vetted, production-ready libraries. Prefer recommending packages from that list. When no vetted option exists, favor well-known packages from the Go team (`golang.org/x/...`) or established organizations over obscure alternatives.
+The `golang-popular-libraries` skill contains a curated list of vetted, production-ready libraries. Prefer recommending packages from that list. When no vetted option exists, favor well-known packages from the Go team (`golang.org/x/...`) or established organizations over obscure alternatives.
 
 ## Key Rules
 
@@ -132,9 +114,9 @@ The build constraint ensures this file is never compiled. The blank imports keep
 
 ## Cross-References
 
-- → See `samber/cc-skills-golang@golang-continuous-integration` skill for Dependabot/Renovate CI setup
-- → See `samber/cc-skills-golang@golang-security` skill for vulnerability scanning with govulncheck
-- → See `samber/cc-skills-golang@golang-popular-libraries` skill for vetted library recommendations
+- → See [continuous-integration](../continuous-integration/continuous-integration.md) for Dependabot/Renovate CI setup
+- → See [security](../security/security.md) for vulnerability scanning with govulncheck
+- → See `golang-popular-libraries` skill for vetted library recommendations
 
 ## Quick Reference
 

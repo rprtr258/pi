@@ -6,8 +6,11 @@ description: >-
   services, model/provider SDKs, fast-moving product behavior, user requests for
   latest/current/official behavior, unfamiliar repo docs/specs, errors that may
   indicate API drift, or high-stakes auth, security, billing, data, migration,
-  deployment, compliance, or privacy behavior. Forces Codex to web-search for
-  current official docs and read primary docs before assuming from memory.
+  deployment, compliance, or privacy behavior. Also for setup/configuration
+  questions, API references, code examples, or any request naming a specific
+  library or framework (e.g. React, Next.js, Prisma). Read current official
+  docs (Context7 MCP when registered, otherwise web search) before assuming
+  from memory.
 ---
 
 # Read The Damn Docs
@@ -64,13 +67,29 @@ Avoid Stack Overflow, old blog posts, random snippets, and memory as the primary
 source when official docs exist. Use community sources only to debug symptoms
 after the authoritative contract is known.
 
+## Context7 MCP (Preferred When Registered)
+
+If the Context7 MCP is registered (`resolve-library-id` and `query-docs`
+tools), use it before web search for library/framework/API questions:
+
+1. `resolve-library-id` with the library name and the user's full question.
+2. Pick the best result: exact name match, higher benchmark score, official
+   source over forks, version-specific ID if the user named a version.
+3. `query-docs` with the chosen library ID and the specific question.
+4. Answer from the returned docs; cite the library/version when it matters.
+
+Never call `query-docs` without a valid library ID. Limit to 3 calls per
+question — if still unclear, say so rather than guessing. Redact secrets
+(API keys, passwords, tokens) from anything sent to Context7.
+
 ## Required Workflow
 
 1. Identify the exact surface: package name, installed version, target version,
    provider endpoint, CLI command, config file, local helper, schema, or product
    feature.
-2. Search the web for the current official docs unless the relevant docs are
-   already local or the user supplied a URL. Use targeted searches such as
+2. Fetch current official docs unless the relevant docs are already local or
+   the user supplied a URL. Prefer the Context7 MCP when registered (see
+   above); otherwise search the web with targeted queries such as
    `<product> <feature> official docs`, `<package> migration guide`, or
    `<provider> API reference`.
 3. Open and read the docs closest to that surface. Prefer local docs first for

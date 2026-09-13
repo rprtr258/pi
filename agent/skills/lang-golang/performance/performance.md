@@ -1,29 +1,11 @@
 ---
 name: golang-performance
-description: "Golang performance optimization patterns and methodology - if X bottleneck, then apply Y. Covers allocation reduction, CPU efficiency, memory layout, GC tuning, pooling, caching, and hot-path optimization. Use when profiling or benchmarks have identified a bottleneck and you need the right optimization pattern to fix it. Also use when performing performance code review to suggest improvements or benchmarks that could help identify quick performance gains. Not for measurement methodology (see golang-benchmark skill) or debugging workflow (see golang-troubleshooting skill)."
-user-invocable: true
-license: MIT
-compatibility: Designed for Claude Code or similar AI coding agents, and for projects using Golang.
-metadata:
-  author: samber
-  version: "1.1.2"
-  openclaw:
-    emoji: "🏎️"
-    homepage: https://github.com/samber/cc-skills-golang
-    requires:
-      bins:
-        - go
-        - benchstat
-    install:
-      - kind: go
-        package: golang.org/x/perf/cmd/benchstat@latest
-        bins: [benchstat]
-allowed-tools: Read Edit Write Glob Grep Bash(go:*) Bash(golangci-lint:*) Bash(git:*) Agent WebFetch Bash(benchstat:*) Bash(fieldalignment:*) Bash(staticcheck:*) Bash(curl:*) Bash(fgprof:*) Bash(perf:*) WebSearch AskUserQuestion
+description: "Golang performance optimization patterns and methodology - if X bottleneck, then apply Y. Covers allocation reduction, CPU efficiency, memory layout, GC tuning, pooling, caching, and hot-path optimization. Use when profiling or benchmarks have identified a bottleneck and you need the right optimization pattern to fix it. Also use when performing performance code review to suggest improvements or benchmarks that could help identify quick performance gains. Not for measurement methodology (see the dev-benchmark skill) or debugging workflow (see the troubleshooting topic of this skill)."
 ---
 
 **Persona:** You are a Go performance engineer. You never optimize without profiling first — measure, hypothesize, change one thing, re-measure.
 
-**Thinking mode:** Use `ultrathink` for performance optimization. Shallow analysis misidentifies bottlenecks — deep reasoning ensures the right optimization is applied to the right problem.
+**Thinking mode:** Shallow analysis misidentifies bottlenecks — deep reasoning ensures the right optimization is applied to the right problem.
 
 **Modes:**
 
@@ -35,7 +17,7 @@ allowed-tools: Read Edit Write Glob Grep Bash(go:*) Bash(golangci-lint:*) Bash(g
 
 ## Core Philosophy
 
-1. **Profile before optimizing** — intuition about bottlenecks is wrong ~80% of the time. Use pprof to find actual hot spots (→ See `samber/cc-skills-golang@golang-troubleshooting` skill)
+1. **Profile before optimizing** — intuition about bottlenecks is wrong ~80% of the time. Use pprof to find actual hot spots (→ See [troubleshooting](../troubleshooting/troubleshooting.md))
 2. **Allocation reduction yields the biggest ROI** — Go's GC is fast but not free. Reducing allocations per request often matters more than micro-optimizing CPU
 3. **Document optimizations** — add code comments explaining why a pattern is faster, with benchmark numbers when available. Future readers need context to avoid reverting an "unnecessary" optimization
 
@@ -45,14 +27,14 @@ Before optimizing Go code, verify the bottleneck is in your process — if 90% o
 
 **Diagnose:** 1- `fgprof` — captures on-CPU and off-CPU (I/O wait) time; if off-CPU dominates, the bottleneck is external 2- `go tool pprof` (goroutine profile) — many goroutines blocked in `net.(*conn).Read` or `database/sql` = external wait 3- Distributed tracing (OpenTelemetry) — span breakdown shows which upstream is slow
 
-**When external:** optimize that component instead — query tuning, caching, connection pools, circuit breakers (→ See `samber/cc-skills-golang@golang-database` skill, [Caching Patterns](references/caching.md)).
+**When external:** optimize that component instead — query tuning, caching, connection pools, circuit breakers (→ See [database](../database/database.md), [Caching Patterns](references/caching.md)).
 
 ## Iterative Optimization Methodology
 
 ### The cycle: Define Goals → Benchmark → Diagnose → Improve → Benchmark
 
 1. **Define your metric** — latency, throughput, memory, or CPU? Without a target, optimizations are random
-2. **Write an atomic benchmark** — isolate one function per benchmark to avoid result contamination (→ See `samber/cc-skills-golang@golang-benchmark` skill)
+2. **Write an atomic benchmark** — isolate one function per benchmark to avoid result contamination (→ See [benchmark](../references/testing/tdd.md))
 3. **Measure baseline** — `go test -bench=BenchmarkMyFunc -benchmem -count=6 ./pkg/... | tee /tmp/report-1.txt`
 4. **Diagnose** — use the **Diagnose** lines in each deep-dive section to pick the right tool
 5. **Improve** — apply ONE optimization at a time with an explanatory comment
@@ -72,8 +54,8 @@ Refer to library documentation for known patterns before inventing custom soluti
 | Network / I/O latency | goroutines blocked on I/O | [I/O & networking](references/io-networking.md) |
 | Repeated expensive work | same computation/fetch multiple times | [Caching patterns](references/caching.md) |
 | Wrong algorithm | O(n²) where O(n) exists | [Algorithmic complexity](references/caching.md#algorithmic-complexity) |
-| Lock contention | mutex/block profile hot | → See `samber/cc-skills-golang@golang-concurrency` skill |
-| Slow queries | DB time dominates traces | → See `samber/cc-skills-golang@golang-database` skill |
+| Lock contention | mutex/block profile hot | → See [concurrency](../references/concurrency/concurrency.md) |
+| Slow queries | DB time dominates traces | → See [database](../database/database.md) |
 
 ## Common Mistakes
 
@@ -98,14 +80,14 @@ Refer to library documentation for known patterns before inventing custom soluti
 
 ## CI Regression Detection
 
-Automate benchmark comparison in CI to catch regressions before they reach production. → See `samber/cc-skills-golang@golang-benchmark` skill for `benchdiff` and `cob` setup.
+Automate benchmark comparison in CI to catch regressions before they reach production. → See [benchmark](../references/testing/tdd.md) for `benchdiff` and `cob` setup.
 
 ## Cross-References
 
-- → See `samber/cc-skills-golang@golang-benchmark` skill for benchmarking methodology, `benchstat`, and `b.Loop()` (Go 1.24+)
-- → See `samber/cc-skills-golang@golang-troubleshooting` skill for pprof workflow, escape analysis diagnostics, and performance debugging
-- → See `samber/cc-skills-golang@golang-data-structures` skill for slice/map preallocation and `strings.Builder`
-- → See `samber/cc-skills-golang@golang-concurrency` skill for worker pools, `sync.Pool` API, goroutine lifecycle, and lock contention
-- → See `samber/cc-skills-golang@golang-safety` skill for defer in loops, slice backing array aliasing
-- → See `samber/cc-skills-golang@golang-database` skill for connection pool tuning and batch processing
-- → See `samber/cc-skills-golang@golang-observability` skill for continuous profiling in production
+- → See [benchmark](../references/testing/tdd.md) for benchmarking methodology, `benchstat`, and `b.Loop()` (Go 1.24+)
+- → See [troubleshooting](../troubleshooting/troubleshooting.md) for pprof workflow, escape analysis diagnostics, and performance debugging
+- → See [data-structures](../references/generics.md) for slice/map preallocation and `strings.Builder`
+- → See [concurrency](../references/concurrency/concurrency.md) for worker pools, `sync.Pool` API, goroutine lifecycle, and lock contention
+- → See [safety](../safety/safety.md) for defer in loops, slice backing array aliasing
+- → See [database](../database/database.md) for connection pool tuning and batch processing
+- → See [observability](../observability/observability.md) for continuous profiling in production

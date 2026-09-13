@@ -1,8 +1,3 @@
----
-name: golang-tdd
-description: Go testing patterns including table-driven tests, subtests, benchmarks, fuzzing, and test coverage. Follows TDD methodology with idiomatic Go practices.
----
-
 # Go Testing Patterns
 
 Comprehensive Go testing patterns for writing reliable, maintainable tests following TDD methodology.
@@ -640,6 +635,8 @@ func TestAPIHandler(t *testing.T) {
 }
 ```
 
+> **Deep dive:** [HTTP Handler Testing](./references/http-testing.md) — server tests, middleware, streaming, gRPC.
+
 ## Testing Commands
 
 ```bash
@@ -694,6 +691,214 @@ go test -count=10 ./...
 - Ignore flaky tests (fix or remove them)
 - Mock everything (prefer integration tests when possible)
 - Skip error path testing
+
+## Race Detector
+
+
+
+```go
+// Run with: go test -race
+
+func TestConcurrentAccess(t *testing.T) {
+    var counter int
+    var wg sync.WaitGroup
+
+    // This will fail with -race if not synchronized
+    for i := 0; i < 10; i++ {
+        wg.Add(1)
+        go func() {
+            defer wg.Done()
+            counter++ // Data race!
+        }()
+    }
+
+    wg.Wait()
+}
+
+// Fixed version with mutex
+func TestConcurrentAccessSafe(t *testing.T) {
+    var counter int
+    var mu sync.Mutex
+    var wg sync.WaitGroup
+
+    for i := 0; i < 10; i++ {
+        wg.Add(1)
+        go func() {
+            defer wg.Done()
+            mu.Lock()
+            counter++
+            mu.Unlock()
+        }()
+    }
+
+    wg.Wait()
+
+    if counter != 10 {
+        t.Errorf("expected 10, got %d", counter)
+    }
+}
+```
+## Goroutine Leak Detection with goleak
+
+
+
+Use `go.uber.org/goleak` to detect leaking goroutines, especially for concurrent code:
+
+```go
+import (
+    "testing"
+    "go.uber.org/goleak"
+)
+
+func TestMain(m *testing.M) {
+    goleak.VerifyTestMain(m)
+}
+```
+
+To exclude specific goroutine stacks (for known leaks or library goroutines):
+
+```go
+func TestMain(m *testing.M) {
+    goleak.VerifyTestMain(m,
+        goleak.IgnoreCurrent(),
+    )
+}
+```
+
+Or per-test:
+
+```go
+func TestWorkerPool(t *testing.T) {
+    defer goleak.VerifyNone(t)
+    // ... test code ...
+}
+```
+## testing/synctest for Deterministic Goroutine Testing
+
+
+
+> **Experimental:** `testing/synctest` is not yet covered by Go's compatibility guarantee. Its API may change in future releases. For stable alternatives, use `clockwork` (see [Mocking](./references/mocking.md)).
+
+`testing/synctest` (Go 1.24+) provides deterministic time for concurrent code testing. Time advances only when all goroutines are blocked, making ordering predictable.
+
+When to use `synctest` instead of real time:
+
+- Testing concurrent code with time-based operations (time.Sleep, time.After, time.Ticker)
+- When race conditions need to be reproducible
+- When tests are flaky due to timing issues
+
+```go
+import (
+    "testing"
+    "time"
+    "testing/synctest"
+    "github.com/stretchr/testify/assert"
+)
+
+func TestChannelTimeout(t *testing.T) {
+    synctest.Run(func(t *testing.T) {
+        is := assert.New(t)
+
+        ch := make(chan int, 1)
+        go func() {
+            time.Sleep(50 * time.Millisecond)
+            ch <- 42
+        }()
+
+        select {
+        case v := <-ch:
+            is.Equal(42, v)
+        case <-time.After(100 * time.Millisecond):
+            t.Fatal("timeout occurred")
+        }
+    })
+}
+```
+
+Key differences in `synctest`:
+
+- `time.Sleep` advances synthetic time instantly when the goroutine blocks
+- `time.After` fires when synthetic time reaches the duration
+- All goroutines run to blocking points before time advances
+- Test execution is deterministic and repeatable
+## Test Timeouts
+
+
+
+For tests that may hang, use a timeout helper that panics with caller location. See [Helpers](./references/helpers.md).
+> **Deep dive:** [Integration Testing](./references/integration-testing.md) — Docker Compose fixtures, testcontainers, database tests.
+
+## Testable Examples
+
+
+
+```go
+// Example tests that appear in godoc
+func ExampleAdd() {
+    result := Add(2, 3)
+    fmt.Println(result)
+    // Output: 5
+}
+
+func ExampleAdd_negative() {
+    result := Add(-2, -3)
+    fmt.Println(result)
+    // Output: -5
+}
+
+// Unordered output
+func ExampleKeys() {
+    m := map[string]int{"a": 1, "b": 2, "c": 3}
+    keys := Keys(m)
+    for _, k := range keys {
+        fmt.Println(k)
+    }
+    // Unordered output:
+    // a
+    // b
+    // c
+}
+```
+## Integration Tests
+
+
+
+```go
+// integration_test.go
+// +build integration
+
+package myapp
+
+import (
+    "testing"
+    "time"
+)
+
+func TestIntegration(t *testing.T) {
+    if testing.Short() {
+        t.Skip("skipping integration test in short mode")
+    }
+
+    // Long-running integration test
+    server := startTestServer(t)
+    defer server.Stop()
+
+    time.Sleep(100 * time.Millisecond) // Wait for server
+
+    client := NewClient(server.URL)
+    resp, err := client.Get("/health")
+    if err != nil {
+        t.Fatalf("health check failed: %v", err)
+    }
+
+    if resp.Status != "ok" {
+        t.Errorf("expected status ok, got %s", resp.Status)
+    }
+}
+
+// Run: go test -tags=integration
+// Run short tests only: go test -short
+```
 
 ## Integration with CI/CD
 

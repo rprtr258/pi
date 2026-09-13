@@ -5,8 +5,9 @@ Quick validation script for skills - minimal version
 
 import sys
 import re
-import yaml
 from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from scripts.utils import parse_skill_md
 
 def validate_skill(skill_path):
   """Basic validation of a skill"""
@@ -22,20 +23,12 @@ def validate_skill(skill_path):
   if not content.startswith('---'):
     return False, "No YAML frontmatter found"
 
-  # Extract frontmatter
-  match = re.match(r'^---\n(.*?)\n---', content, re.DOTALL)
-  if not match:
-    return False, "Invalid frontmatter format"
-
-  frontmatter_text = match.group(1)
-
-  # Parse YAML frontmatter
+  # Validate frontmatter (hand-parser from utils.py — no PyYAML dep)
   try:
-    frontmatter = yaml.safe_load(frontmatter_text)
-    if not isinstance(frontmatter, dict):
-      return False, "Frontmatter must be a YAML dictionary"
-  except yaml.YAMLError as e:
-    return False, f"Invalid YAML in frontmatter: {e}"
+    name, description, _ = parse_skill_md(skill_path)
+  except ValueError as e:
+    return False, f"Invalid frontmatter: {e}"
+  frontmatter = {'name': name, 'description': description}
 
   # Define allowed properties
   ALLOWED_PROPERTIES = {'name', 'description', 'license', 'allowed-tools', 'metadata', 'compatibility'}

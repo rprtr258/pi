@@ -1,7 +1,5 @@
 # TDD Iron Laws
 
----
-
 ## The Fundamental Principle
 
 > **NO PRODUCTION CODE WITHOUT A FAILING TEST FIRST.**
@@ -168,7 +166,3 @@ Before claiming any code is complete:
 - [ ] Tests verify behavior, not implementation
 - [ ] Refactoring kept all tests green
 - [ ] No production code exists without a test
-
----
-
-*Content adapted from [obra/superpowers](https://github.com/obra/superpowers) by Jesse Vincent (@obra), MIT License.*

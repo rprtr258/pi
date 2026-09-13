@@ -1,6 +1,6 @@
 ---
 name: dev-benchmark
-description: Use this skill to measure performance baselines, detect regressions before/after PRs, and compare stack alternatives.
+description: Use this skill to measure performance baselines, detect regressions before/after PRs, compare stack alternatives, profile to find root causes, and investigate production performance. Includes general benchmark methodology; Go-specific benchmarking lives in golang.md.
 ---
 
 # Benchmark - Performance Baseline & Regression Detection
@@ -12,6 +12,12 @@ description: Use this skill to measure performance baselines, detect regressions
 - When users report "it feels slow"
 - Before a launch - ensure you meet performance targets
 - Comparing your stack against alternatives
+
+## Core Principles
+
+- **Measure before optimizing.** Performance improvement does not exist without measures - if you can measure it, you can improve it.
+- **Never conclude from a single run.** A single benchmark run cannot distinguish a real change from noise. Use statistical comparisons with enough samples - see [methodology.md](./references/methodology.md).
+- **Validate the root cause with profiling data before applying any optimization.** Match the data type to the symptom, interpret the data yourself, and apply targeted changes - no auto-fixes. See [profiling.md](./references/profiling.md).
 
 ## How It Works
 
@@ -67,9 +73,9 @@ Measures development feedback loop:
 Run before and after a change to measure impact:
 
 ```
-/benchmark baseline    # saves current metrics
-# ... make changes ...
-/benchmark compare     # compares against baseline
+1. Save current metrics as the baseline
+2. Make changes
+3. Run the same measurements and compare against the baseline
 ```
 
 Output:
@@ -83,10 +89,21 @@ Output:
 
 ## Output
 
-Stores baselines in `.ecc/benchmarks/` as JSON. Git-tracked so the team shares baselines.
+Stores baselines as JSON in a git-tracked directory so the team shares baselines.
 
 ## Integration
 
-- CI: run `/benchmark compare` on every PR
-- Pair with `/canary-watch` for post-deploy monitoring
-- Pair with `/browser-qa` for full pre-ship checklist
+- CI: run the before/after comparison on every PR - see [ci-regression.md](./references/ci-regression.md) for the gating strategy and [golang.md](./golang.md) for Go tooling
+
+## References
+
+General (language-agnostic):
+
+- **[methodology.md](./references/methodology.md)** - statistical benchmark methodology: A/B workflow, sample counts, confidence intervals, p-values, pitfalls
+- **[profiling.md](./references/profiling.md)** - profiling and tracing concepts: matching data types to symptoms, sampling vs tracing, reading profiles, recurring patterns
+- **[ci-regression.md](./references/ci-regression.md)** - CI regression detection strategy: gating, noisy-neighbor mitigation, self-hosted runner tuning
+- **[investigation-session.md](./references/investigation-session.md)** - temporary deep-dive production investigation setup: high-resolution data collection, host correlation, cost warnings
+
+Go-specific:
+
+- **[golang.md](./golang.md)** - Go benchmarking, profiling, and measurement, with its own references: pprof, benchstat, execution tracer, diagnostic tools, compiler analysis, CI benchmark tools, and Prometheus Go runtime metrics

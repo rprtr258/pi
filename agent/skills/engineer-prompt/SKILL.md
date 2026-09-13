@@ -8,18 +8,7 @@ description: >-
   or few-shot learning, personas and guardrails, function-calling schemas, or prompt
   evaluation; or when the user asks to optimize, improve, or rewrite a prompt.
   Not when the user wants the task executed directly ("just do it") or code/performance
-  optimized — those are refactoring tasks.
-license: MIT
-metadata:
-  author: https://github.com/Jeffallan
-  merged-from: prompt-optimizer v1.0.0 (YannJY02)
-  version: "1.3.0"
-  domain: data-ml
-  triggers: prompt engineering, prompt optimization, rewrite this prompt, improve my prompt, chain-of-thought, few-shot learning, prompt testing, LLM prompts, prompt evaluation, system prompts, structured outputs, prompt design, context management, lost-in-the-middle, context degradation, token optimization, attention budget, ECC components
-  role: expert
-  scope: design
-  output-format: document
-  related-skills: test-master, rag-architect, debugging-wizard, skill-stocktake
+  optimized — those are refactoring tasks. triggers: prompt engineering, prompt optimization, rewrite this prompt, improve my prompt, chain-of-thought, few-shot learning, prompt testing, LLM prompts, prompt evaluation, system prompts, structured outputs, prompt design, context management, lost-in-the-middle, context degradation, token optimization, attention budget, ECC components
 ---
 
 # Prompt Engineer

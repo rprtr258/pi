@@ -1,6 +1,6 @@
 # Common Go Bugs
 
-→ See `samber/cc-skills-golang@golang-safety` skill for in-depth nil, slice, and map safety patterns.
+→ See [safety](../../safety/safety.md) for in-depth nil, slice, and map safety patterns.
 
 ## Nil Pointer Dereference
 

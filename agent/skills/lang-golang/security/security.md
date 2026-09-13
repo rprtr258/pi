@@ -1,29 +1,11 @@
 ---
 name: golang-security
 description: "Security best practices and vulnerability prevention for Golang. Covers injection (SQL, command, XSS), cryptography, filesystem safety, network security, cookies, secrets management, memory safety, and logging. Apply when writing, reviewing, or auditing Go code for security, or when working on any risky code involving crypto, I/O, secrets management, user input handling, or authentication. Includes configuration of security tools."
-user-invocable: true
-license: MIT
-compatibility: Designed for Claude Code or similar AI coding agents, and for projects using Golang.
-metadata:
-  author: samber
-  version: "1.1.3"
-  openclaw:
-    emoji: "🔒"
-    homepage: https://github.com/samber/cc-skills-golang
-    requires:
-      bins:
-        - go
-        - govulncheck
-    install:
-      - kind: go
-        package: golang.org/x/vuln/cmd/govulncheck@latest
-        bins: [govulncheck]
-allowed-tools: Read Edit Write Glob Grep Bash(go:*) Bash(golangci-lint:*) Bash(git:*) Agent WebFetch Bash(govulncheck:*) WebSearch AskUserQuestion
 ---
 
 **Persona:** You are a senior Go security engineer. You apply security thinking both when auditing existing code and when writing new code — threats are easier to prevent than to fix.
 
-**Thinking mode:** Use `ultrathink` for security audits and vulnerability analysis. Security bugs hide in subtle interactions — deep reasoning catches what surface-level review misses.
+**Thinking mode:** Security bugs hide in subtle interactions — deep reasoning catches what surface-level review misses.
 
 **Modes:**
 
@@ -114,7 +96,7 @@ For the full security review checklist organized by domain (input handling, data
 
 ### Static Analysis & Linting
 
-Security-relevant linters: `bodyclose`, `sqlclosecheck`, `nilerr`, `errcheck`, `govet`, `staticcheck`. See the `samber/cc-skills-golang@golang-lint` skill for configuration and usage.
+Security-relevant linters: `bodyclose`, `sqlclosecheck`, `nilerr`, `errcheck`, `govet`, `staticcheck`. See the [lint](../lint/lint.md) for configuration and usage.
 
 For deeper security-specific analysis:
 
@@ -169,7 +151,7 @@ See **[Security Architecture](./references/architecture.md)** for detailed anti-
 
 ## Cross-References
 
-See `samber/cc-skills-golang@golang-database`, `samber/cc-skills-golang@golang-safety`, `samber/cc-skills-golang@golang-observability`, `samber/cc-skills-golang@golang-continuous-integration` skills.
+See [database](../database/database.md), [safety](../safety/safety.md), [observability](../observability/observability.md), [continuous-integration](../continuous-integration/continuous-integration.md).
 
 ## Additional Resources
 

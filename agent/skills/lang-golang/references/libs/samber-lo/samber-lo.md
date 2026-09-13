@@ -1,21 +1,6 @@
 ---
 name: golang-samber-lo
-description: "Functional programming helpers for Golang using samber/lo — 500+ type-safe generic functions for slices, maps, channels, strings, math, tuples, and concurrency (Map, Filter, Reduce, GroupBy, Chunk, Flatten, Find, Uniq, etc.). Core immutable package (lo), concurrent variants (lo/parallel aka lop), in-place mutations (lo/mutable aka lom), lazy iterators (lo/it aka loi for Go 1.23+), and experimental SIMD (lo/exp/simd). Apply when using or adopting samber/lo, when the codebase imports github.com/samber/lo, or when implementing functional-style data transformations in Go. Not for streaming pipelines (→ See golang-samber-ro skill)."
-user-invocable: true
-license: MIT
-compatibility: Designed for Claude Code or similar AI coding agents, and for projects using Golang.
-metadata:
-  author: samber
-  version: "1.0.3"
-  openclaw:
-    emoji: "🧰"
-    homepage: https://github.com/samber/cc-skills-golang
-    requires:
-      bins:
-        - go
-    install: []
-    skill-library-version: "1.53.0"
-allowed-tools: Read Edit Write Glob Grep Bash(go:*) Bash(golangci-lint:*) Bash(git:*) mcp__context7__resolve-library-id mcp__context7__query-docs AskUserQuestion
+description: "Functional programming helpers for Golang using samber/lo — 500+ type-safe generic functions for slices, maps, channels, strings, math, tuples, and concurrency (Map, Filter, Reduce, GroupBy, Chunk, Flatten, Find, Uniq, etc.). Core immutable package (lo), concurrent variants (lo/parallel aka lop), in-place mutations (lo/mutable aka lom), lazy iterators (lo/it aka loi for Go 1.23+), and experimental SIMD (lo/exp/simd). Apply when using or adopting samber/lo, when the codebase imports github.com/samber/lo, or when implementing functional-style data transformations in Go. Not for streaming pipelines (→ See the samber/ro package)."
 ---
 
 **Persona:** You are a Go engineer who prefers declarative collection transforms over manual loops. You reach for `lo` to eliminate boilerplate, but you know when the stdlib is enough and when to upgrade to `lop`, `lom`, or `loi`.
@@ -74,7 +59,7 @@ Start with `lo`. Move to other packages only when profiling shows a bottleneck o
 - `lop` is for CPU parallelism, not I/O concurrency — for I/O fan-out, use `errgroup` instead
 - `lom` breaks immutability — only use when allocation pressure is measured, never assumed
 - `loi` eliminates intermediate allocations in chains like `Map → Filter → Take` by evaluating lazily
-- For reactive/streaming pipelines over infinite event streams, → see `samber/cc-skills-golang@golang-samber-ro` skill + `samber/ro` package
+- For reactive/streaming pipelines over infinite event streams, → see `golang-samber-ro` skill + `samber/ro` package
 
 For detailed package comparison and decision flowchart, see [Package Guide](./references/package-guide.md).
 
@@ -177,7 +162,7 @@ If you encounter a bug or unexpected behavior in samber/lo, open an issue at [gi
 
 ## Cross-References
 
-- → See `samber/cc-skills-golang@golang-samber-ro` skill for reactive/streaming pipelines over infinite event streams (`samber/ro` package)
-- → See `samber/cc-skills-golang@golang-samber-mo` skill for monadic types (Option, Result, Either) that compose with lo transforms
-- → See `samber/cc-skills-golang@golang-data-structures` skill for choosing the right underlying data structure
-- → See `samber/cc-skills-golang@golang-performance` skill for profiling methodology before switching to `lom`/`lop`
+- → See `golang-samber-ro` skill for reactive/streaming pipelines over infinite event streams (`samber/ro` package)
+- → See `golang-samber-mo` skill for monadic types (Option, Result, Either) that compose with lo transforms
+- → See [data-structures](../../generics.md) for choosing the right underlying data structure
+- → See [performance](../../../performance/performance.md) for profiling methodology before switching to `lom`/`lop`

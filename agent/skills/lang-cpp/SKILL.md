@@ -1,16 +1,6 @@
 ---
 name: lang-cpp
-description: Writes, optimizes, and debugs C++ applications using modern C++20/23 features, template metaprogramming, and high-performance systems techniques. Use when building or refactoring C++ code requiring concepts, ranges, coroutines, SIMD optimization, or careful memory management — or when addressing performance bottlenecks, concurrency issues, and build system configuration with CMake.
-license: MIT
-metadata:
-  author: https://github.com/Jeffallan
-  version: "1.1.0"
-  domain: language
-  triggers: C++, C++20, C++23, modern C++, template metaprogramming, systems programming, performance optimization, SIMD, memory management, CMake
-  role: specialist
-  scope: implementation
-  output-format: code
-  related-skills: rust-engineer, embedded-systems
+description: "Writes, optimizes, and debugs C++ applications using modern C++20/23 features, template metaprogramming, and high-performance systems techniques. Use when building or refactoring C++ code requiring concepts, ranges, coroutines, SIMD optimization, or careful memory management — or when addressing performance bottlenecks, concurrency issues, and build system configuration with CMake. triggers: C++, C++20, C++23, modern C++, template metaprogramming, systems programming, performance optimization, SIMD, memory management, CMake"
 ---
 
 # C++ Pro
@@ -113,5 +103,3 @@ When implementing C++ features, provide:
 3. CMakeLists.txt updates (if applicable)
 4. Test file demonstrating usage
 5. Brief explanation of design decisions and performance characteristics
-
-[Documentation](https://jeffallan.github.io/claude-skills/skills/language/cpp-pro/)

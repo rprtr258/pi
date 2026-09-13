@@ -1,16 +1,6 @@
 ---
 name: mcp-developer
-description: Use when building, debugging, or extending MCP servers or clients that connect AI systems with external tools and data sources. Invoke to implement tool handlers, configure resource providers, set up stdio/HTTP/SSE transport layers, validate schemas with Zod or Pydantic, debug protocol compliance issues, or scaffold complete MCP server/client projects using TypeScript or Python SDKs.
-license: MIT
-metadata:
-  author: https://github.com/Jeffallan
-  version: "1.2.0"
-  domain: api-architecture
-  triggers: MCP, Model Context Protocol, MCP server, MCP client, Claude integration, AI tools, context protocol, JSON-RPC
-  role: specialist
-  scope: implementation
-  output-format: code
-  related-skills: fastapi-expert, lang-typescript, security-reviewer, devops-engineer
+description: "Use when building, debugging, or extending MCP servers or clients that connect AI systems with external tools and data sources. Invoke to implement tool handlers, configure resource providers, set up stdio/HTTP/SSE transport layers, validate schemas with Zod or Pydantic, debug protocol compliance issues, or scaffold complete MCP server/client projects using TypeScript or Python SDKs. triggers: MCP, Model Context Protocol, MCP server, MCP client, Claude integration, AI tools, context protocol, JSON-RPC"
 ---
 
 # MCP Developer
@@ -145,7 +135,5 @@ When implementing MCP features, provide:
 2. Schema definitions (tools, resources, prompts)
 3. Configuration file (transport, auth, etc.)
 4. Brief explanation of design decisions
-
-[Documentation](https://jeffallan.github.io/claude-skills/skills/api-architecture/mcp-developer/)
 
 Other official SDKs: [Go](https://github.com/modelcontextprotocol/go-sdk). Always verify current signatures against [modelcontextprotocol.io](https://modelcontextprotocol.io) — the SDK API evolves.

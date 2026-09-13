@@ -1,6 +1,6 @@
 # Application Configuration with Cobra + Viper
 
-→ See `samber/cc-skills-golang@golang-cli` skill for complete Cobra+Viper setup, flag binding, precedence rules, and configuration layering.
+→ See [cli](../../cli.md) for complete Cobra+Viper setup, flag binding, precedence rules, and configuration layering.
 
 ## Where Config Lives
 

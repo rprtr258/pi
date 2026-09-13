@@ -252,4 +252,4 @@ func TestMain(m *testing.M) {
 | Sending mutable data through channel | Send copies or immutable values |
 | Blocking send without select | Wrap channel sends in select with `ctx.Done()` |
 
-→ See `samber/cc-skills-golang@golang-concurrency` skill for sync primitives and channel patterns.
+→ See [concurrency](../concurrency.md) for sync primitives and channel patterns.

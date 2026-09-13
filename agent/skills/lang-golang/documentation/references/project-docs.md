@@ -1,10 +1,10 @@
 # Project Documentation
 
-→ See `samber/cc-skills-golang@golang-continuous-integration` skill for automating changelog generation and release workflows.
+→ See [continuous-integration](../../continuous-integration/continuous-integration.md) for automating changelog generation and release workflows.
 
 ## README.md
 
-A LICENSE file MUST exist in every project. A README is the front page of your project. Make it simple, clear, and scannable. A copy-paste template with empty sections is available at [templates/README.md](./templates/README.md).
+A LICENSE file MUST exist in every project. A README is the front page of your project. Make it simple, clear, and scannable. A copy-paste template with empty sections is available at [templates/README.md](../assets/templates/README.md).
 
 ### Section Order
 
@@ -27,7 +27,7 @@ The template includes commented-out sections for applications (binary download t
 
 The goal: a new contributor should be able to clone the repo, make a change, and run the tests **in under 10 minutes**. If your project takes longer, add tooling to fix that.
 
-Copy the template from [templates/CONTRIBUTING.md](./templates/CONTRIBUTING.md).
+Copy the template from [templates/CONTRIBUTING.md](../assets/templates/CONTRIBUTING.md).
 
 ### The 10-Minute Rule
 
@@ -45,7 +45,7 @@ If setup takes more than 10 minutes, add these improvements:
 
 ## Changelog
 
-CHANGELOG MUST be updated for every release. Track notable changes for each release. Use [Keep a Changelog](https://keepachangelog.com/) format. Copy the template from [templates/CHANGELOG.md](./templates/CHANGELOG.md).
+CHANGELOG MUST be updated for every release. Track notable changes for each release. Use [Keep a Changelog](https://keepachangelog.com/) format. Copy the template from [templates/CHANGELOG.md](../assets/templates/CHANGELOG.md).
 
 ### Format
 

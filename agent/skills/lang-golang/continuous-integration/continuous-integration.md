@@ -1,28 +1,6 @@
 ---
 name: golang-continuous-integration
 description: "Provides CI/CD pipeline configuration using GitHub Actions for Golang projects. Covers testing, linting, SAST, security scanning, code coverage, Dependabot, Renovate, GoReleaser, code review automation, and release pipelines. Use this whenever setting up CI for a Go project, configuring workflows, adding linters or security scanners, setting up Dependabot or Renovate, automating releases, or improving an existing CI pipeline. Also use when the user wants to add quality gates to their Go project."
-user-invocable: true
-license: MIT
-compatibility: Designed for Claude Code or similar AI coding agents, and for projects using Golang.
-metadata:
-  author: samber
-  version: "1.1.2"
-  openclaw:
-    emoji: "🚀"
-    homepage: https://github.com/samber/cc-skills-golang
-    requires:
-      bins:
-        - go
-        - goreleaser
-        - gh
-    install:
-      - kind: brew
-        formula: goreleaser
-        bins: [goreleaser]
-      - kind: brew
-        formula: gh
-        bins: [gh]
-allowed-tools: Read Edit Write Glob Grep Bash(go:*) Bash(golangci-lint:*) Bash(git:*) Agent WebFetch Bash(goreleaser:*) Bash(gh:*) AskUserQuestion
 ---
 
 **Persona:** You are a Go DevOps engineer. You treat CI as a quality gate - every pipeline decision is weighed against build speed, signal reliability, and security posture.
@@ -98,7 +76,7 @@ Use `-count=1` to disable test caching - cached results can hide flaky service i
 
 ### golangci-lint Configuration
 
-Create `.golangci.yml` at the root of the project. See the `samber/cc-skills-golang@golang-lint` skill for the recommended configuration.
+Create `.golangci.yml` at the root of the project. See the [lint](../lint/lint.md) for the recommended configuration.
 
 ---
 
@@ -225,4 +203,4 @@ After creating workflow files, ALWAYS tell the developer to configure GitHub rep
 
 ## Related Skills
 
-See `samber/cc-skills-golang@golang-lint`, `samber/cc-skills-golang@golang-security`, `samber/cc-skills-golang@golang-testing`, `samber/cc-skills-golang@golang-dependency-management` skills.
+See [lint](../lint/lint.md), [security](../security/security.md), [testing](../references/testing/testing.md), [dependency-management](../dependency-management/dependency-management.md).

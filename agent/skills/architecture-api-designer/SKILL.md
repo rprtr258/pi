@@ -202,9 +202,3 @@ When delivering an API design, provide:
 6. Pagination and filtering patterns
 7. Versioning and deprecation strategy
 8. Validation result: `npx @redocly/cli lint openapi.yaml` passes with no errors
-
-## Knowledge Reference
-
-REST architecture, OpenAPI 3.1, GraphQL, HTTP semantics, JSON:API, HATEOAS, OAuth 2.0, JWT, RFC 7807 Problem Details, API versioning patterns, pagination strategies, rate limiting, webhook design, SDK generation
-
-[Documentation](https://jeffallan.github.io/claude-skills/skills/api-architecture/api-designer/)

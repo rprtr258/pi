@@ -1,10 +1,5 @@
 # Context Management
 
-<!-- Content adapted from PR #168 (context-engineer skill) by Genius-apple (https://github.com/Genius-apple). -->
-<!-- Original submission: https://github.com/Jeffallan/claude-skills/pull/168 -->
-
----
-
 ## When to Use This Reference
 
 - Designing system prompts for complex agents with large context windows
@@ -12,8 +7,6 @@
 - Optimizing token usage for cost or latency in long-running sessions
 - Structuring conversation history and RAG retrieval for maximum signal
 - Evaluating retrieval quality impact on reasoning
-
----
 
 ## The Context Budget
 
@@ -96,8 +89,6 @@ prompt = system_prompt + long_history + instruction_reminder + user_query
 - Summarize verbose tool outputs before injecting into context
 - Remove redundant or low-information turns from history
 
----
-
 ## The Four-Bucket Approach
 
 A tiered strategy for managing context across long sessions:
@@ -110,8 +101,6 @@ A tiered strategy for managing context across long sessions:
 | **4. Archived History** | Everything else | Summarized or discarded |
 
 This prevents unbounded context growth while preserving the most important information. As conversation length increases, content migrates from Bucket 2 to Bucket 3 or 4.
-
----
 
 ## Optimization Strategies
 
@@ -146,8 +135,6 @@ Tool outputs can be disproportionately large relative to their information conte
 | Reading entire files | Use targeted tools (grep, symbol lookup) instead of cat |
 | Raw API responses | Extract only the fields needed for the current task |
 
----
-
 ## Periodic Refocusing
 
 In long conversations (10+ turns), instruction adherence naturally degrades. Counter this with periodic refocusing:
@@ -155,8 +142,6 @@ In long conversations (10+ turns), instruction adherence naturally degrades. Cou
 - Every 5-10 turns, restate the current goal or constraints
 - Use explicit checkpoints: *"To confirm, we are currently working on [Goal]. Is this correct?"*
 - After major context shifts, insert a summary of the new direction
-
----
 
 ## Degradation Metrics
 
@@ -168,8 +153,6 @@ Measure context management effectiveness with:
 | **Instruction Adherence** | Does the agent follow constraints after many turns? | Test negative constraints (e.g., "no code") at turn 5, 10, 20 |
 | **SNR Impact** | Does adding context improve or degrade output quality? | Compare accuracy with/without additional context |
 
----
-
 ## Optimization Checklist
 
 - [ ] Are JSON keys descriptive but short?
@@ -180,19 +163,9 @@ Measure context management effectiveness with:
 - [ ] Are RAG results filtered for relevance before injection?
 - [ ] Is the prompt prefix stable to enable KV-cache reuse?
 
----
-
 ## When Not to Use This Reference
 
 - For prompt pattern selection (zero-shot, few-shot, CoT) — see `prompt-patterns.md`
 - For token counting and A/B testing mechanics — see `prompt-optimization.md`
 - For system prompt structure and persona design — see `system-prompts.md`
 - For structured output schemas — see `structured-outputs.md`
-
----
-
-## Related Skills
-
-- **RAG Architect** — Vector search, chunking, and retrieval pipeline design
-- **Architecture Designer** — System-level context flow in multi-agent architectures
-- **Debugging Wizard** — Diagnosing agent behavior failures that may be context-related
