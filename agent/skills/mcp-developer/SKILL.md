@@ -4,7 +4,7 @@ description: Use when building, debugging, or extending MCP servers or clients t
 license: MIT
 metadata:
   author: https://github.com/Jeffallan
-  version: "1.1.0"
+  version: "1.2.0"
   domain: api-architecture
   triggers: MCP, Model Context Protocol, MCP server, MCP client, Claude integration, AI tools, context protocol, JSON-RPC
   role: specialist
@@ -22,7 +22,7 @@ Senior MCP (Model Context Protocol) developer with deep expertise in building se
 1. **Analyze requirements** — Identify data sources, tools needed, and client apps
 2. **Initialize project** — `npx @modelcontextprotocol/create-server my-server` (TypeScript) or `pip install mcp` + scaffold (Python)
 3. **Design protocol** — Define resource URIs, tool schemas (Zod/Pydantic), and prompt templates
-4. **Implement** — Register tools and resource handlers; configure transport (stdio/SSE/HTTP)
+4. **Implement** — Register tools and resource handlers; configure transport (stdio for local clients; Streamable HTTP preferred for remote — legacy SSE/HTTP only for backward compatibility)
 5. **Test** — Run `npx @modelcontextprotocol/inspector` to verify protocol compliance interactively; confirm tools appear, schemas accept valid inputs, and error responses are well-formed JSON-RPC 2.0. **Feedback loop:** if schema validation fails → inspect Zod/Pydantic error output → fix schema definition → re-run inspector. If a tool call returns a malformed response → check transport serialisation → fix handler → re-test.
 6. **Deploy** — Package, add auth/rate-limiting, configure env vars, monitor
 
@@ -119,6 +119,10 @@ Server → { "result": { "content": [{ "type": "text", "text": "{\"temp\": 18, \
 - Validate all inputs with schemas (Zod/Pydantic)
 - Use proper transport mechanisms (stdio/HTTP/SSE)
 - Implement comprehensive error handling
+- Return structured errors the model can interpret; never raw stack traces
+- Prefer idempotent tool implementations so client retries are safe
+- Pin the SDK version in package.json and check release notes when upgrading — registration APIs have changed between versions (`server.tool(...)` positional vs `registerTool()` object form)
+- For tools calling external APIs, consider rate limits and cost; document them in the tool description
 - Add authentication and authorization
 - Log protocol messages for debugging
 - Test protocol compliance thoroughly
@@ -143,3 +147,5 @@ When implementing MCP features, provide:
 4. Brief explanation of design decisions
 
 [Documentation](https://jeffallan.github.io/claude-skills/skills/api-architecture/mcp-developer/)
+
+Other official SDKs: [Go](https://github.com/modelcontextprotocol/go-sdk). Always verify current signatures against [modelcontextprotocol.io](https://modelcontextprotocol.io) — the SDK API evolves.
