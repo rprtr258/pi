@@ -169,7 +169,6 @@ def evaluate_extraction(
 
 ### Basic Judge Prompt
 
-```
 You are an expert evaluator assessing the quality of AI-generated responses.
 
 Evaluate the following response on a scale of 1-5 for each criterion:
@@ -218,11 +217,10 @@ Provide your evaluation in the following JSON format:
   "summary": "<one sentence summary>"
 }
 ```
-```
 
 ### Pairwise Comparison Judge
 
-```
+````markdown
 You are an expert evaluator comparing two AI responses.
 
 ## Task
@@ -255,7 +253,7 @@ Respond with JSON:
   "reasoning": "<why the winner is better>"
 }
 ```
-```
+````
 
 ### Judge Implementation
 

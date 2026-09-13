@@ -456,17 +456,17 @@ user = client.users.create(
 )
 puts user.id
 ```
-```
 
 ### SDK Reference Template
 
-```markdown
+````markdown
 # Users SDK
 
 ## Installation
 ```bash
 npm install @myapi/sdk
 ```
+````
 
 ## Configuration
 ```typescript
@@ -517,7 +517,6 @@ try {
   }
 }
 ```
-```
 
 ## Quick Reference
 
@@ -529,3 +528,4 @@ try {
 | GraphQL Playground | GraphQL | Explorer, history |
 | AsyncAPI Studio | WebSocket | Visual editor |
 | grpcui | gRPC | Interactive console |
+

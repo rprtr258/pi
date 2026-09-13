@@ -229,37 +229,10 @@ These illustrate the invariants above and hold in every voice.
 > ✅ "Before you try the exercises: in two sentences, why does the ring buffer beat a `sync.Mutex`-guarded slice here? Write the answer that would satisfy a sceptical colleague."
 > *(Forces construction, not recognition. Surfaces gaps before the reader walks away.)*
 
-## Asides and design notes
+## Asides and design notes — read `references/asides.md`
 
-Two distinct sidebar types, two different jobs. Lathe renders both as styled callouts.
-
-**Aside** — short, inline, one or two sentences. Etymology, war story, a "by the way", a one-line joke that earns its keep. Lives next to the prose that triggered it.
-
-````markdown
-> [!ASIDE]
-> "Lex" is from the Greek *lexis*, meaning "word." Stash that for the next time someone smugly explains "lexical scope."
-````
-
-**Design note** — multi-paragraph digression on *why this is the way it is*: cross-language survey, a tradeoff explored honestly, "how the grown-ups do it." Lives at the **end** of a section, never mid-step.
-
-````markdown
-> [!DESIGN-NOTE]
-> **Why ring buffers and not channels?**
->
-> A few words on the alternative …
-````
-
-Other callout types:
-
-- `> [!HEADS-UP]` — trapdoors. Things that will break in 20 minutes if the reader isn't warned now.
-- `> [!NOTE]` — neutral side info.
-- `> [!TIP]` — handy shortcut, not load-bearing.
-- `> [!PREDICT]` — prediction prompt before a Checkpoint or surprising output. One line only.
-- `> [!RECALL]` — spaced-retrieval prompt at the top of Part N≥2. One question, load-bearing concept only.
-- `> [!UNVERIFIED]` — a **genuinely load-bearing** claim you could not ground in a source you read: one the reader will *act on* and that would cost them real time if it's wrong (a default they'll rely on, a flag they'll type, a signature they'll call). State what you believe and, in the same breath, what to check. *"The default ring-buffer size is 4096 frames — I'm working from memory here and couldn't find this in the docs; confirm it with `default_config()` before you rely on it."* Reserve it for those; not for ordinary hedging or background colour you're merely unsure about. If a claim isn't load-bearing, either confirm it or cut it — don't flag it.
-
-Use them sparingly — `[!UNVERIFIED]` included. Reach for it only when a load-bearing unknown genuinely warrants it (a little more often when you had no web access, but still only for the load-bearing ones). One or two of the others per part, max; a page peppered with caveats reads as low-confidence and is its own kind of clutter. `[!PREDICT]` and `[!RECALL]` are pedagogical, and `[!UNVERIFIED]` is a provenance signal — the verifier skips all three.
-
+How to open and place asides/design notes in tutorials: read
+[references/asides.md](references/asides.md).
 ## Visual artifacts
 
 Diagrams earn their keep when they show something prose can't:
@@ -322,87 +295,11 @@ Write to `/tmp/lathe-<slug>/`. Slug is the topic in kebab-case.
 
 Decide the slug before writing. Never write `index.md` or multiple parts.
 
-## After writing
+## After writing — read `references/after-writing.md` (mandatory before `lathe store`)
 
-> [!HEADS-UP]
-> **STOP — pre-store gate. Fill this in before you run `lathe store`.** Repo and
-> versions get silently dropped when the store call is reached without them, so
-> every store *must* state a concrete value or an explicit, justified opt-out for
-> all five flag groups. Omission without a stated reason is not allowed:
->
-> - **Repo (`--repo` / `--repo-branch`)** → the repo + branch you pinned in
->   "Pin the repo and versions" above, e.g. `--repo <origin-url> --repo-branch <branch>`.
->   Opt-out only with a reason: *"standalone tutorial, no repo"*.
-> - **Versions (`--tool name:version`)** → one `--tool` per toolchain version you
->   pinned in that same step, e.g. `--tool zig:0.13.0 --tool llvm:18`.
->   Opt-out only with a reason: *"no specific toolchain applies"*.
-> - **Tags (`--tag`)** → 2–5 lowercase tags (see below).
-> - **Sources (`--source`)** → one per authoritative source you read, or the
->   stated reason *"no web access this session"*.
-> - **Voice (`--voice`)** → the voice you wrote in (see "Voice — selected, not
->   fixed"): the name the reader chose, or the default from `lathe voice show`.
->   Always pass it so the choice is explicit and `/lathe-extend` can continue it.
-> - **Model (`--model`)** → the model *you* are running as, as a display label
->   (e.g. `--model "Claude Opus 4.8"`). Always pass it so the reading-page byline
->   names the author.
->
-> Carry the repo/version values straight over from the upfront pinning step — if
-> you find you never pinned them, go back and do it now rather than storing blank.
-
-Run:
-
-```bash
-lathe store /tmp/lathe-<slug> \
-  --tag <a> --tag <b> --tag <c> \
-  --repo <origin-url> --repo-branch <branch> \
-  --tool <name>:<version> --tool <name>:<version> \
-  --source <url> --source <url> \
-  --voice <name> \
-  --model "<model you are running as>"
-```
-
-Choose **2–5** lowercase tags so the tutorial is findable in `lathe serve`'s
-search and tag filters. Cover, where they apply: the language/runtime (`zig`,
-`rust`, `go`), the domain (`audio`, `compilers`, `databases`), and the core
-technique (`parsing`, `dsp`, `concurrency`). Prefer short, reusable tags that
-will group naturally with other tutorials over hyper-specific one-offs.
-
-Pass `--repo` and `--repo-branch` with the repo you pinned (see "Pin the repo
-and versions"). Give `--repo` the raw `origin` URL — `lathe store` canonicalizes
-it to `host/org/repo` for grouping. A standalone tutorial with no repo is a
-legitimate case, but dropping these flags is a *deliberate, stated* choice
-surfaced by the pre-store gate above (*"standalone tutorial, no repo"*) — never a
-quiet default. **Don't put versions in tags**: pass each tool you pinned in that
-same step as `--tool name:version` (repeatable, e.g. `--tool zig:0.13.0 --tool
-llvm:18`) — these come from the pinned toolchain and must be passed, not folded
-into tags. Lathe stores them as structured versions, shows them as chips on the
-card, and gives them their own filter — keeping the tag vocabulary clean.
-
-Pass `--source <url>` once for each authoritative source you consulted during
-the **Research first** step — the research trail, not just the ones you cited
-inline. Lathe records them as provenance: the reading page shows "Researched
-against N sources" with the list, and the list page marks how many sources back
-each tutorial. If you genuinely had no web access, omit `--source`.
-
-Pass `--voice <name>` with the voice you wrote in — the one the reader named, or
-the default you fetched with `lathe voice show`. Lathe records it on the tutorial
-so the reading page can disclose it and `/lathe-extend` continues in the same
-voice. Use the exact voice *name* (e.g. `plainspoken`, `companion`), not a
-description.
-
-Pass `--model` with the model *you* are running as, as a human-facing display
-label (e.g. `--model "Claude Opus 4.8"`). Lathe records it on the tutorial and
-shows it in the reading-page byline ("Generated by `<model>`"); a tutorial stored
-without it falls back to a generic "Claude". State your own identity — don't
-guess a different model.
-
-Then tell the user:
-
-- "**Tutorial saved.** Run `lathe serve` to open it at http://localhost:4242."
-- "This is Part 1. To add more parts, run `/lathe-extend <slug>` in your Claude Code session (the **'Add a new part'** button in `lathe serve` hands you that command) — give guidance or let it continue naturally."
-- "Verification is opt-in: run `/lathe-verify <slug>` in your Claude Code session (the **Verify this tutorial** button in the web UI hands you that command). It needs the tutorial's toolchain installed locally; if a required tool is missing it shows a ⚠️ Skipped badge (not a failure)."
-- "Reading in `lathe serve`? The **Ask** button hands you `/lathe-ask <slug> <part>` to ask questions about a part right here in this session."
-
+Before running `lathe store` — and after finishing a tutorial — read and follow
+[references/after-writing.md](references/after-writing.md). It contains the pre-store gate
+that must be filled in, source provenance checks, and post-writing verification steps.
 ## Stay in session
 
 Don't end the session. Stay available for:

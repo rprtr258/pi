@@ -181,7 +181,6 @@ SELECT * FROM sys.statements_with_full_table_scans
 ORDER BY exec_count DESC
 LIMIT 10;
 ```
-```
 
 ## Index Optimization
 

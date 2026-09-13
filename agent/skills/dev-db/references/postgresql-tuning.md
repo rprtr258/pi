@@ -313,7 +313,6 @@ FROM pg_statio_user_tables
 WHERE heap_blks_hit + heap_blks_read > 0
 ORDER BY heap_blks_read DESC;
 ```
-```
 
 ## Configuration File Example
 
