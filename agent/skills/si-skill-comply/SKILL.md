@@ -1,15 +1,15 @@
 ---
-name: skill-comply
+name: si-skill-comply
 description: Visualize whether skills, rules, and agent definitions are actually followed — auto-generates scenarios at 3 prompt strictness levels, runs agents, classifies behavioral sequences, and reports compliance rates with full tool call timelines
 tools: Read, Bash
 ---
 
-# skill-comply: Automated Compliance Measurement
+# Automated Compliance Measurement
 
 Measures whether coding agents actually follow skills, rules, or agent definitions by:
 1. Auto-generating expected behavioral sequences (specs) from any .md file
 2. Auto-generating scenarios with decreasing prompt strictness (supportive → neutral → competing)
-3. Running `claude -p` and capturing tool call traces via stream-json
+3. Running `pi -p` and capturing tool call traces via `--mode json`
 4. Classifying tool calls against spec steps using LLM (not regex)
 5. Checking temporal ordering deterministically
 6. Generating self-contained reports with spec, prompts, and timelines
@@ -31,12 +31,12 @@ Measures whether coding agents actually follow skills, rules, or agent definitio
 
 ```bash
 # Full run
-uv run python -m scripts.run ~/.claude/rules/common/testing.md
+uv run python -m scripts.run <skill-or-rule-path>
 
 # Dry run (no cost, spec + scenarios only)
-uv run python -m scripts.run --dry-run ~/.claude/skills/search-first/SKILL.md
+uv run python -m scripts.run --dry-run <skill-path>
 
-# Custom models
+# Custom models (pi model ids)
 uv run python -m scripts.run --gen-model haiku --model sonnet <path>
 ```
 
