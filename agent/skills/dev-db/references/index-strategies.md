@@ -253,7 +253,6 @@ SELECT
 FROM pg_stat_user_indexes
 ORDER BY pg_relation_size(indexrelid) DESC;
 ```
-```
 
 ### MySQL Maintenance
 
@@ -276,7 +275,6 @@ FROM performance_schema.table_io_waits_summary_by_index_usage
 WHERE object_schema = 'your_database'
 ORDER BY count_star DESC;
 ```
-```
 
 ## Index Anti-Patterns
 
@@ -298,3 +296,4 @@ ORDER BY count_star DESC;
 5. **Validate improvement**: Compare before/after EXPLAIN
 6. **Monitor usage**: Remove unused indexes after 30 days
 7. **Maintain regularly**: VACUUM, ANALYZE, REINDEX as needed
+

@@ -312,7 +312,7 @@ const client = new Client({ jwt });
 
 ### Diagram Integration
 
-```markdown
+````markdown
 # System Architecture
 
 ## Request Flow
@@ -355,7 +355,7 @@ erDiagram
         text content
     }
 ```
-```
+````
 
 ### Screenshot Annotations
 

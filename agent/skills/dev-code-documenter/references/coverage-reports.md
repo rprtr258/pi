@@ -60,7 +60,6 @@
 - name: Generate API docs
   run: npm run docs:generate
 ```
-```
 
 ## Checklist During Documentation
 
