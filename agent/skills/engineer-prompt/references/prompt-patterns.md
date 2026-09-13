@@ -166,17 +166,17 @@ Comment:
 
 ```python
 def select_examples(query: str, example_pool: list, k: int = 3) -> list:
-    """Select most relevant examples using embedding similarity."""
-    query_embedding = embed(query)
+  """Select most relevant examples using embedding similarity."""
+  query_embedding = embed(query)
 
-    scored = []
-    for example in example_pool:
-        score = cosine_similarity(query_embedding, example.embedding)
-        scored.append((score, example))
+  scored = []
+  for example in example_pool:
+    score = cosine_similarity(query_embedding, example.embedding)
+    scored.append((score, example))
 
-    # Return top-k most similar examples
-    scored.sort(reverse=True)
-    return [ex for _, ex in scored[:k]]
+  # Return top-k most similar examples
+  scored.sort(reverse=True)
+  return [ex for _, ex in scored[:k]]
 ```
 
 ---
@@ -232,10 +232,10 @@ Debug the following code by analyzing it step by step.
 Code:
 ```python
 def calculate_average(numbers):
-    total = 0
-    for num in numbers:
-        total += num
-    return total / len(numbers)
+  total = 0
+  for num in numbers:
+    total += num
+  return total / len(numbers)
 ```
 
 Error: ZeroDivisionError when called with empty list
@@ -258,10 +258,10 @@ Add a check for empty input before division.
 ### Fixed Code:
 ```python
 def calculate_average(numbers):
-    if not numbers:
-        return 0  # or raise ValueError("Cannot average empty list")
-    total = sum(numbers)
-    return total / len(numbers)
+  if not numbers:
+    return 0  # or raise ValueError("Cannot average empty list")
+  total = sum(numbers)
+  return total / len(numbers)
 ```
 ````
 
@@ -324,28 +324,28 @@ Answer: ChatGPT was created by OpenAI, which has a valuation of approximately $1
 
 ```python
 def react_loop(question: str, tools: dict, max_iterations: int = 10) -> str:
-    """Execute a ReAct reasoning loop."""
-    context = f"Question: {question}\n\n"
+  """Execute a ReAct reasoning loop."""
+  context = f"Question: {question}\n\n"
 
-    for i in range(max_iterations):
-        # Get next thought and action from LLM
-        response = llm.complete(REACT_PROMPT + context)
+  for i in range(max_iterations):
+    # Get next thought and action from LLM
+    response = llm.complete(REACT_PROMPT + context)
 
-        # Parse thought and action
-        thought, action = parse_react_response(response)
-        context += f"Thought: {thought}\n"
+    # Parse thought and action
+    thought, action = parse_react_response(response)
+    context += f"Thought: {thought}\n"
 
-        if action.startswith("Answer:"):
-            return action.replace("Answer:", "").strip()
+    if action.startswith("Answer:"):
+      return action.replace("Answer:", "").strip()
 
-        # Execute action and get observation
-        tool_name, params = parse_action(action)
-        observation = tools[tool_name](*params)
+    # Execute action and get observation
+    tool_name, params = parse_action(action)
+    observation = tools[tool_name](*params)
 
-        context += f"Action: {action}\n"
-        context += f"Observation: {observation}\n\n"
+    context += f"Action: {action}\n"
+    context += f"Observation: {observation}\n\n"
 
-    return "Max iterations reached without answer."
+  return "Max iterations reached without answer."
 ```
 
 ---
@@ -440,19 +440,19 @@ Option A (Redis) selected for initial implementation:
 ## Pattern Comparison Quick Reference
 
 ```
-┌────────────────┬──────────────┬──────────────┬──────────────┬──────────────┐
-│    Pattern     │   Tokens     │  Complexity  │  Reliability │   Best For   │
-├────────────────┼──────────────┼──────────────┼──────────────┼──────────────┤
-│   Zero-shot    │     Low      │     Low      │    Medium    │ Simple tasks │
-├────────────────┼──────────────┼──────────────┼──────────────┼──────────────┤
-│   Few-shot     │    Medium    │    Medium    │     High     │Format/style  │
-├────────────────┼──────────────┼──────────────┼──────────────┼──────────────┤
-│      CoT       │    Medium    │    Medium    │     High     │  Reasoning   │
-├────────────────┼──────────────┼──────────────┼──────────────┼──────────────┤
-│     ReAct      │     High     │     High     │  Very High   │ Tool usage   │
-├────────────────┼──────────────┼──────────────┼──────────────┼──────────────┤
-│      ToT       │  Very High   │  Very High   │  Very High   │Complex solve │
-└────────────────┴──────────────┴──────────────┴──────────────┴──────────────┘
+┌────────────────┬──────────────┬──────────────┬──────────────┬───────────────┐
+│    Pattern     │   Tokens     │  Complexity  │  Reliability │    Best For   │
+├────────────────┼──────────────┼──────────────┼──────────────┼───────────────┤
+│   Zero-shot    │     Low      │     Low      │    Medium    │  Simple tasks │
+├────────────────┼──────────────┼──────────────┼──────────────┼───────────────┤
+│   Few-shot     │    Medium    │    Medium    │     High     │  Format/style │
+├────────────────┼──────────────┼──────────────┼──────────────┼───────────────┤
+│      CoT       │    Medium    │    Medium    │     High     │   Reasoning   │
+├────────────────┼──────────────┼──────────────┼──────────────┼───────────────┤
+│     ReAct      │     High     │     High     │  Very High   │   Tool usage  │
+├────────────────┼──────────────┼──────────────┼──────────────┼───────────────┤
+│      ToT       │  Very High   │  Very High   │  Very High   │ Complex solve │
+└────────────────┴──────────────┴──────────────┴──────────────┴───────────────┘
 ```
 
 ---
@@ -504,3 +504,53 @@ Action: search("specific query based on reasoning")
 - **RAG Architect** - Retrieval patterns for grounding prompts
 - **Fine-Tuning Expert** - When prompting isn't enough
 - **LLM Architect** - System-level prompt orchestration
+
+---
+
+## Prompt Examples
+
+### Zero-shot vs. Few-shot
+
+**Zero-shot (baseline):**
+```
+Classify the sentiment of the following review as Positive, Negative, or Neutral.
+
+Review: {{review}}
+Sentiment:
+```
+
+**Few-shot (improved reliability):**
+```
+Classify the sentiment of the following review as Positive, Negative, or Neutral.
+
+Review: "The battery life is incredible, lasts all day."
+Sentiment: Positive
+
+Review: "Stopped working after two weeks. Very disappointed."
+Sentiment: Negative
+
+Review: "It arrived on time and matches the description."
+Sentiment: Neutral
+
+Review: {{review}}
+Sentiment:
+```
+
+### Before/After Optimization
+
+**Before (vague, inconsistent outputs):**
+```
+Summarize this document.
+
+{{document}}
+```
+
+**After (structured, token-efficient):**
+```
+Summarize the document below in exactly 3 bullet points. Each bullet must be one sentence and start with an action verb. Do not include opinions or information not present in the document.
+
+Document:
+{{document}}
+
+Summary:
+```
