@@ -71,13 +71,13 @@ A minimal authenticated endpoint illustrating all three layers:
 ```python
 @router.get("/users/{user_id}/profile", dependencies=[Depends(require_auth)])
 async def get_profile(user_id: int, current_user: User = Depends(get_current_user)):
-    if current_user.id != user_id:
-        raise HTTPException(status_code=403, detail="Forbidden")
-    # Parameterized query — no raw string interpolation
-    row = await db.fetchone("SELECT id, name, email FROM users WHERE id = ?", (user_id,))
-    if not row:
-        raise HTTPException(status_code=404, detail="Not found")
-    return ProfileResponse(**row)   # explicit schema — no password/token leakage
+  if current_user.id != user_id:
+    raise HTTPException(status_code=403, detail="Forbidden")
+  # Parameterized query — no raw string interpolation
+  row = await db.fetchone("SELECT id, name, email FROM users WHERE id = ?", (user_id,))
+  if not row:
+    raise HTTPException(status_code=404, detail="Not found")
+  return ProfileResponse(**row)   # explicit schema — no password/token leakage
 ```
 
 **[Frontend]** — Component calls the endpoint and handles errors gracefully:

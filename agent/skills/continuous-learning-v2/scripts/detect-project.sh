@@ -187,23 +187,23 @@ project_file = os.path.join(project_dir, "project.json")
 os.makedirs(project_dir, exist_ok=True)
 
 def atomic_write_json(path, payload):
-    fd, tmp_path = tempfile.mkstemp(
-        prefix=f".{os.path.basename(path)}.tmp.",
-        dir=os.path.dirname(path),
-        text=True,
-    )
-    try:
-        with os.fdopen(fd, "w") as f:
-            json.dump(payload, f, indent=2)
-            f.write("\n")
-        os.replace(tmp_path, path)
-    finally:
-        if os.path.exists(tmp_path):
-            os.unlink(tmp_path)
+  fd, tmp_path = tempfile.mkstemp(
+    prefix=f".{os.path.basename(path)}.tmp.",
+    dir=os.path.dirname(path),
+    text=True,
+  )
+  try:
+    with os.fdopen(fd, "w") as f:
+      json.dump(payload, f, indent=2)
+      f.write("\n")
+    os.replace(tmp_path, path)
+  finally:
+    if os.path.exists(tmp_path):
+      os.unlink(tmp_path)
 
 try:
-    with open(registry_path) as f:
-        registry = json.load(f)
+  with open(registry_path) as f:
+    registry = json.load(f)
 except (FileNotFoundError, json.JSONDecodeError):
     registry = {}
 
@@ -211,12 +211,12 @@ now = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 entry = registry.get(os.environ["_CLV2_REG_PID"], {})
 
 metadata = {
-    "id": os.environ["_CLV2_REG_PID"],
-    "name": os.environ["_CLV2_REG_PNAME"],
-    "root": os.environ["_CLV2_REG_PROOT"],
-    "remote": os.environ["_CLV2_REG_PREMOTE"],
-    "created_at": entry.get("created_at", now),
-    "last_seen": now,
+  "id": os.environ["_CLV2_REG_PID"],
+  "name": os.environ["_CLV2_REG_PNAME"],
+  "root": os.environ["_CLV2_REG_PROOT"],
+  "remote": os.environ["_CLV2_REG_PREMOTE"],
+  "created_at": entry.get("created_at", now),
+  "last_seen": now,
 }
 
 registry[os.environ["_CLV2_REG_PID"]] = metadata

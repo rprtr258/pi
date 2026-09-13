@@ -63,22 +63,22 @@ Before optimizing, establish clear metrics and baseline performance.
 
 ```python
 def create_test_set(task_type: str, size: int = 100) -> list:
-    """Create a diverse test set for prompt evaluation."""
-    test_cases = []
+  """Create a diverse test set for prompt evaluation."""
+  test_cases = []
 
-    # Include different categories
-    categories = {
-        "typical": 0.60,      # Common cases (60%)
-        "edge_case": 0.20,    # Boundary conditions (20%)
-        "adversarial": 0.10,  # Tricky inputs (10%)
-        "malformed": 0.10,    # Invalid/unusual inputs (10%)
-    }
+  # Include different categories
+  categories = {
+    "typical": 0.60,    # Common cases (60%)
+    "edge_case": 0.20,  # Boundary conditions (20%)
+    "adversarial": 0.10,  # Tricky inputs (10%)
+    "malformed": 0.10,  # Invalid/unusual inputs (10%)
+  }
 
-    for category, proportion in categories.items():
-        count = int(size * proportion)
-        test_cases.extend(generate_cases(task_type, category, count))
+  for category, proportion in categories.items():
+    count = int(size * proportion)
+    test_cases.extend(generate_cases(task_type, category, count))
 
-    return test_cases
+  return test_cases
 ```
 
 ---
@@ -129,35 +129,35 @@ When prompts underperform, diagnose the root cause before changing anything.
 
 ```python
 def analyze_failures(results: list) -> dict:
-    """Categorize and analyze prompt failures."""
-    analysis = {
-        "total": len(results),
-        "passed": 0,
-        "failed": 0,
-        "failure_categories": {},
-        "examples": []
-    }
+  """Categorize and analyze prompt failures."""
+  analysis = {
+    "total": len(results),
+    "passed": 0,
+    "failed": 0,
+    "failure_categories": {},
+    "examples": []
+  }
 
-    for result in results:
-        if result["passed"]:
-            analysis["passed"] += 1
-        else:
-            analysis["failed"] += 1
-            category = categorize_failure(result)
-            analysis["failure_categories"][category] = \
-                analysis["failure_categories"].get(category, 0) + 1
+  for result in results:
+    if result["passed"]:
+      analysis["passed"] += 1
+    else:
+      analysis["failed"] += 1
+      category = categorize_failure(result)
+      analysis["failure_categories"][category] = \
+        analysis["failure_categories"].get(category, 0) + 1
 
-            # Keep first 3 examples per category
-            if len([e for e in analysis["examples"] if e["category"] == category]) < 3:
-                analysis["examples"].append({
-                    "category": category,
-                    "input": result["input"],
-                    "expected": result["expected"],
-                    "actual": result["actual"],
-                    "hypothesis": generate_hypothesis(result)
-                })
+      # Keep first 3 examples per category
+      if len([e for e in analysis["examples"] if e["category"] == category]) < 3:
+        analysis["examples"].append({
+          "category": category,
+          "input": result["input"],
+          "expected": result["expected"],
+          "actual": result["actual"],
+          "hypothesis": generate_hypothesis(result)
+        })
 
-    return analysis
+  return analysis
 ```
 
 ---
@@ -222,20 +222,20 @@ Emails:
 
 ```python
 def calibrate_examples(example_pool: list, real_inputs: list, k: int = 5) -> list:
-    """Select examples that match the distribution of real inputs."""
-    # Cluster real inputs
-    real_clusters = cluster_by_embedding(real_inputs, n_clusters=k)
+  """Select examples that match the distribution of real inputs."""
+  # Cluster real inputs
+  real_clusters = cluster_by_embedding(real_inputs, n_clusters=k)
 
-    # For each cluster, find best matching example
-    calibrated = []
-    for cluster_center in real_clusters:
-        best_match = max(
-            example_pool,
-            key=lambda ex: cosine_similarity(embed(ex["input"]), cluster_center)
-        )
-        calibrated.append(best_match)
+  # For each cluster, find best matching example
+  calibrated = []
+  for cluster_center in real_clusters:
+    best_match = max(
+      example_pool,
+      key=lambda ex: cosine_similarity(embed(ex["input"]), cluster_center)
+    )
+    calibrated.append(best_match)
 
-    return calibrated
+  return calibrated
 ```
 
 ### Technique 4: Output Scaffolding
@@ -315,45 +315,45 @@ Sentiment:
 import tiktoken
 
 def compare_token_usage(prompt_v1: str, prompt_v2: str, model: str = "gpt-4") -> dict:
-    """Compare token usage between two prompt versions."""
-    enc = tiktoken.encoding_for_model(model)
+  """Compare token usage between two prompt versions."""
+  enc = tiktoken.encoding_for_model(model)
 
-    v1_tokens = len(enc.encode(prompt_v1))
-    v2_tokens = len(enc.encode(prompt_v2))
+  v1_tokens = len(enc.encode(prompt_v1))
+  v2_tokens = len(enc.encode(prompt_v2))
 
-    return {
-        "v1_tokens": v1_tokens,
-        "v2_tokens": v2_tokens,
-        "difference": v1_tokens - v2_tokens,
-        "reduction_pct": ((v1_tokens - v2_tokens) / v1_tokens) * 100,
-        "cost_impact": estimate_cost_savings(v1_tokens, v2_tokens, model)
-    }
+  return {
+    "v1_tokens": v1_tokens,
+    "v2_tokens": v2_tokens,
+    "difference": v1_tokens - v2_tokens,
+    "reduction_pct": ((v1_tokens - v2_tokens) / v1_tokens) * 100,
+    "cost_impact": estimate_cost_savings(v1_tokens, v2_tokens, model)
+  }
 ```
 
 ### Context Compression Techniques
 
 ```python
 def compress_context(text: str, target_ratio: float = 0.5) -> str:
-    """Compress context while preserving key information."""
+  """Compress context while preserving key information."""
 
-    # Strategy 1: Extractive summarization
-    key_sentences = extract_key_sentences(text, ratio=target_ratio)
+  # Strategy 1: Extractive summarization
+  key_sentences = extract_key_sentences(text, ratio=target_ratio)
 
-    # Strategy 2: Remove redundancy
-    deduplicated = remove_redundant_info(key_sentences)
+  # Strategy 2: Remove redundancy
+  deduplicated = remove_redundant_info(key_sentences)
 
-    # Strategy 3: Use LLM for compression
-    compressed = llm.complete(f"""
-    Compress the following text to {int(target_ratio * 100)}% of its length.
-    Preserve all facts, numbers, and key details.
-    Remove only redundant or low-information content.
+  # Strategy 3: Use LLM for compression
+  compressed = llm.complete(f"""
+  Compress the following text to {int(target_ratio * 100)}% of its length.
+  Preserve all facts, numbers, and key details.
+  Remove only redundant or low-information content.
 
-    Text: {deduplicated}
+  Text: {deduplicated}
 
-    Compressed:
-    """)
+  Compressed:
+  """)
 
-    return compressed
+  return compressed
 ```
 
 ---
@@ -364,75 +364,75 @@ def compress_context(text: str, target_ratio: float = 0.5) -> str:
 
 ```python
 class PromptABTest:
-    """Framework for A/B testing prompt variants."""
+  """Framework for A/B testing prompt variants."""
 
-    def __init__(self, prompt_a: str, prompt_b: str, test_cases: list):
-        self.prompt_a = prompt_a
-        self.prompt_b = prompt_b
-        self.test_cases = test_cases
-        self.results = {"a": [], "b": []}
+  def __init__(self, prompt_a: str, prompt_b: str, test_cases: list):
+    self.prompt_a = prompt_a
+    self.prompt_b = prompt_b
+    self.test_cases = test_cases
+    self.results = {"a": [], "b": []}
 
-    def run(self, sample_size: int = 100) -> dict:
-        """Run A/B test with randomized assignment."""
-        import random
+  def run(self, sample_size: int = 100) -> dict:
+    """Run A/B test with randomized assignment."""
+    import random
 
-        for test_case in random.sample(self.test_cases, sample_size):
-            # Randomize order to avoid position bias
-            if random.random() < 0.5:
-                result_a = self.evaluate(self.prompt_a, test_case)
-                result_b = self.evaluate(self.prompt_b, test_case)
-            else:
-                result_b = self.evaluate(self.prompt_b, test_case)
-                result_a = self.evaluate(self.prompt_a, test_case)
+    for test_case in random.sample(self.test_cases, sample_size):
+      # Randomize order to avoid position bias
+      if random.random() < 0.5:
+        result_a = self.evaluate(self.prompt_a, test_case)
+        result_b = self.evaluate(self.prompt_b, test_case)
+      else:
+        result_b = self.evaluate(self.prompt_b, test_case)
+        result_a = self.evaluate(self.prompt_a, test_case)
 
-            self.results["a"].append(result_a)
-            self.results["b"].append(result_b)
+      self.results["a"].append(result_a)
+      self.results["b"].append(result_b)
 
-        return self.analyze_results()
+    return self.analyze_results()
 
-    def analyze_results(self) -> dict:
-        """Statistical analysis of A/B test results."""
-        from scipy import stats
+  def analyze_results(self) -> dict:
+    """Statistical analysis of A/B test results."""
+    from scipy import stats
 
-        scores_a = [r["score"] for r in self.results["a"]]
-        scores_b = [r["score"] for r in self.results["b"]]
+    scores_a = [r["score"] for r in self.results["a"]]
+    scores_b = [r["score"] for r in self.results["b"]]
 
-        t_stat, p_value = stats.ttest_ind(scores_a, scores_b)
+    t_stat, p_value = stats.ttest_ind(scores_a, scores_b)
 
-        return {
-            "prompt_a_mean": sum(scores_a) / len(scores_a),
-            "prompt_b_mean": sum(scores_b) / len(scores_b),
-            "p_value": p_value,
-            "significant": p_value < 0.05,
-            "winner": "a" if sum(scores_a) > sum(scores_b) else "b",
-            "confidence": 1 - p_value
-        }
+    return {
+      "prompt_a_mean": sum(scores_a) / len(scores_a),
+      "prompt_b_mean": sum(scores_b) / len(scores_b),
+      "p_value": p_value,
+      "significant": p_value < 0.05,
+      "winner": "a" if sum(scores_a) > sum(scores_b) else "b",
+      "confidence": 1 - p_value
+    }
 ```
 
 ### Minimum Sample Size Calculation
 
 ```python
 def calculate_sample_size(
-    baseline_rate: float,
-    minimum_detectable_effect: float,
-    significance_level: float = 0.05,
-    power: float = 0.80
+  baseline_rate: float,
+  minimum_detectable_effect: float,
+  significance_level: float = 0.05,
+  power: float = 0.80
 ) -> int:
-    """Calculate required sample size for detecting a given effect."""
-    from scipy import stats
+  """Calculate required sample size for detecting a given effect."""
+  from scipy import stats
 
-    # Effect size (Cohen's h for proportions)
-    p1 = baseline_rate
-    p2 = baseline_rate + minimum_detectable_effect
-    h = 2 * (math.asin(math.sqrt(p1)) - math.asin(math.sqrt(p2)))
+  # Effect size (Cohen's h for proportions)
+  p1 = baseline_rate
+  p2 = baseline_rate + minimum_detectable_effect
+  h = 2 * (math.asin(math.sqrt(p1)) - math.asin(math.sqrt(p2)))
 
-    # Required sample size per group
-    z_alpha = stats.norm.ppf(1 - significance_level / 2)
-    z_beta = stats.norm.ppf(power)
+  # Required sample size per group
+  z_alpha = stats.norm.ppf(1 - significance_level / 2)
+  z_beta = stats.norm.ppf(power)
 
-    n = 2 * ((z_alpha + z_beta) / h) ** 2
+  n = 2 * ((z_alpha + z_beta) / h) ** 2
 
-    return math.ceil(n)
+  return math.ceil(n)
 
 # Example: Detect 5% improvement from 80% baseline
 # sample_size = calculate_sample_size(0.80, 0.05)  # ~783 per group
@@ -543,11 +543,11 @@ Revert to v2.0.0 if accuracy drops below 90% in production.
   Format Issues            Wrong Content           Inconsistent
         │                        │                        │
         ▼                        ▼                        ▼
-┌───────────────┐      ┌───────────────┐      ┌───────────────┐
-│ Add output    │      │ Improve       │      │ Add examples  │
-│ scaffolding   │      │ instructions  │      │ Lower temp    │
+┌───────────────┐      ┌───────────────┐      ┌────────────────┐
+│ Add output    │      │ Improve       │      │ Add examples   │
+│ scaffolding   │      │ instructions  │      │ Lower temp     │
 │ Add examples  │      │ Add context   │      │ Add constraints│
-└───────────────┘      │ Use CoT       │      └───────────────┘
+└───────────────┘      │ Use CoT       │      └────────────────┘
                        └───────────────┘
 ```
 

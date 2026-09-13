@@ -237,18 +237,18 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 # Python
 @app.call_tool()
 async def call_tool(name: str, arguments: dict) -> list[TextContent]:
-    if name == "query_database":
-        args = QueryArgs(**arguments)  # Pydantic validation
+  if name == "query_database":
+    args = QueryArgs(**arguments)  # Pydantic validation
 
-        # Validate table name
-        if not re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', args.table):
-            raise ValueError("Invalid table name")
+    # Validate table name
+    if not re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', args.table):
+      raise ValueError("Invalid table name")
 
-        results = await db.query(args.table, args.filter, args.limit)
+    results = await db.query(args.table, args.filter, args.limit)
 
-        return [
-            TextContent(type="text", text=json.dumps(results, indent=2))
-        ]
+    return [
+      TextContent(type="text", text=json.dumps(results, indent=2))
+    ]
 ```
 
 ### File System Tool
@@ -278,26 +278,26 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 ```python
 @app.call_tool()
 async def call_tool(name: str, arguments: dict) -> list[TextContent]:
-    if name == "fetch_api":
-        args = FetchArgs(**arguments)
+  if name == "fetch_api":
+    args = FetchArgs(**arguments)
 
-        async with httpx.AsyncClient() as client:
-            try:
-                response = await client.get(
-                    args.url,
-                    timeout=30.0,
-                    headers={"User-Agent": "MCP Server"}
-                )
-                response.raise_for_status()
+    async with httpx.AsyncClient() as client:
+      try:
+        response = await client.get(
+          args.url,
+          timeout=30.0,
+          headers={"User-Agent": "MCP Server"}
+        )
+        response.raise_for_status()
 
-                return [
-                    TextContent(
-                        type="text",
-                        text=response.text
-                    )
-                ]
-            except httpx.HTTPError as e:
-                raise McpError(INTERNAL_ERROR, f"HTTP request failed: {e}")
+        return [
+          TextContent(
+            type="text",
+            text=response.text
+          )
+        ]
+      except httpx.HTTPError as e:
+        raise McpError(INTERNAL_ERROR, f"HTTP request failed: {e}")
 ```
 
 ### Async Background Task
@@ -364,15 +364,15 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
 ```python
 class SearchArgs(BaseModel):
-    query: str = Field(..., min_length=1, max_length=500)
-    max_results: int = Field(default=5, ge=1, le=50)
-    filters: dict[str, str] = Field(default_factory=dict)
+  query: str = Field(..., min_length=1, max_length=500)
+  max_results: int = Field(default=5, ge=1, le=50)
+  filters: dict[str, str] = Field(default_factory=dict)
 
-    @field_validator("query")
-    @classmethod
-    def validate_query(cls, v: str) -> str:
-        # Sanitize query
-        return v.strip()
+  @field_validator("query")
+  @classmethod
+  def validate_query(cls, v: str) -> str:
+    # Sanitize query
+    return v.strip()
 ```
 
 ### 3. Error Handling
@@ -405,21 +405,21 @@ rate_limiter = {}
 rate_limit_lock = Lock()
 
 async def check_rate_limit(tool_name: str, limit: int = 10) -> None:
-    async with rate_limit_lock:
-        now = datetime.now()
-        if tool_name not in rate_limiter:
-            rate_limiter[tool_name] = []
+  async with rate_limit_lock:
+    now = datetime.now()
+    if tool_name not in rate_limiter:
+      rate_limiter[tool_name] = []
 
-        # Remove old entries
-        rate_limiter[tool_name] = [
-            t for t in rate_limiter[tool_name]
-            if now - t < timedelta(minutes=1)
-        ]
+    # Remove old entries
+    rate_limiter[tool_name] = [
+      t for t in rate_limiter[tool_name]
+      if now - t < timedelta(minutes=1)
+    ]
 
-        if len(rate_limiter[tool_name]) >= limit:
-            raise McpError(-32004, "Rate limit exceeded")
+    if len(rate_limiter[tool_name]) >= limit:
+      raise McpError(-32004, "Rate limit exceeded")
 
-        rate_limiter[tool_name].append(now)
+    rate_limiter[tool_name].append(now)
 ```
 
 ### 5. Idempotency
@@ -449,15 +449,15 @@ import asyncio
 
 @app.call_tool()
 async def call_tool(name: str, arguments: dict) -> list[TextContent]:
-    if name == "long_operation":
-        try:
-            result = await asyncio.wait_for(
-                execute_operation(arguments),
-                timeout=30.0  # 30 second timeout
-            )
-            return [TextContent(type="text", text=str(result))]
-        except asyncio.TimeoutError:
-            raise McpError(INTERNAL_ERROR, "Operation timed out")
+  if name == "long_operation":
+    try:
+      result = await asyncio.wait_for(
+        execute_operation(arguments),
+        timeout=30.0  # 30 second timeout
+      )
+      return [TextContent(type="text", text=str(result))]
+    except asyncio.TimeoutError:
+      raise McpError(INTERNAL_ERROR, "Operation timed out")
 ```
 
 ### 7. Logging

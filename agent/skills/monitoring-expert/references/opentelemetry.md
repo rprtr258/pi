@@ -100,9 +100,9 @@ trace.set_tracer_provider(provider)
 tracer = trace.get_tracer(__name__)
 
 def process_order(order_id: str):
-    with tracer.start_as_current_span("process_order") as span:
-        span.set_attribute("order.id", order_id)
-        # ... process order
+  with tracer.start_as_current_span("process_order") as span:
+    span.set_attribute("order.id", order_id)
+    # ... process order
 ```
 
 ## Quick Reference

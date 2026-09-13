@@ -88,22 +88,22 @@ from pydantic import BaseModel, Field
 mcp = FastMCP("my-server")
 
 class WeatherInput(BaseModel):
-    location: str = Field(..., min_length=1, description="City name or coordinates")
-    units: str = Field("celsius", pattern="^(celsius|fahrenheit)$")
+  location: str = Field(..., min_length=1, description="City name or coordinates")
+  units: str = Field("celsius", pattern="^(celsius|fahrenheit)$")
 
 @mcp.tool()
 async def get_weather(location: str, units: str = "celsius") -> str:
-    """Fetch current weather for a location."""
-    data = await fetch_weather(location, units)  # your fetch logic
-    return str(data)
+  """Fetch current weather for a location."""
+  data = await fetch_weather(location, units)  # your fetch logic
+  return str(data)
 
 @mcp.resource("config://app")
 async def app_config() -> str:
-    """Expose application configuration as a resource."""
-    return json.dumps(get_config())
+  """Expose application configuration as a resource."""
+  return json.dumps(get_config())
 
 if __name__ == "__main__":
-    mcp.run()  # defaults to stdio transport
+  mcp.run()  # defaults to stdio transport
 ```
 
 **Expected tool call flow:**

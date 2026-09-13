@@ -5,28 +5,28 @@
 ## Evaluation Hierarchy
 
 ```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                          EVALUATION PYRAMID                                 │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                             │
-│                           ┌─────────────┐                                   │
-│                           │ Production  │  ← Real user feedback             │
-│                           │  Metrics    │    Business outcomes              │
-│                         ┌─┴─────────────┴─┐                                 │
-│                         │   LLM-as-Judge  │  ← Automated quality scoring    │
-│                         │   Evaluation    │    Nuanced assessment           │
-│                       ┌─┴─────────────────┴─┐                               │
-│                       │    Human Evaluation  │  ← Expert assessment          │
-│                       │    (Gold Standard)   │    Ground truth creation      │
-│                     ┌─┴─────────────────────┴─┐                             │
-│                     │   Automated Test Suites  │  ← Fast, repeatable         │
-│                     │   (Regression/Smoke)     │    CI/CD integration        │
-│                   ┌─┴─────────────────────────┴─┐                           │
-│                   │      Exact Match / Metrics   │  ← Quick sanity checks    │
-│                   │      (Accuracy, F1, BLEU)    │    Baseline comparison    │
-│                   └─────────────────────────────┘                           │
-│                                                                             │
-└─────────────────────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────┐
+│         EVALUATION PYRAMID                               │
+├──────────────────────────────────────────────────────────┤
+│                                                          │
+│          ┌─────────────┐                                 │
+│          │ Production  │  ← Real user feedback           │
+│          │  Metrics    │    Business outcomes            │
+│        ┌─┴─────────────┴─┐                               │
+│        │   LLM-as-Judge  │  ← Automated quality scoring  │
+│        │   Evaluation    │    Nuanced assessment         │
+│      ┌─┴─────────────────┴─┐                             │
+│      │   Human Evaluation  │  ← Expert assessment        │
+│      │   (Gold Standard)   │    Ground truth creation    │
+│    ┌─┴─────────────────────┴─┐                           │
+│    │  Automated Test Suites  │  ← Fast, repeatable       │
+│    │  (Regression/Smoke)     │    CI/CD integration      │
+│  ┌─┴─────────────────────────┴─┐                         │
+│  │     Exact Match / Metrics   │  ← Quick sanity checks  │
+│  │     (Accuracy, F1, BLEU)    │    Baseline comparison  │
+│  └─────────────────────────────┘                         │
+│                                                          │
+└──────────────────────────────────────────────────────────┘
 ```
 
 ---
@@ -47,25 +47,25 @@
 from sklearn.metrics import classification_report, confusion_matrix
 
 def evaluate_classification(predictions: list, labels: list) -> dict:
-    """Comprehensive classification evaluation."""
-    report = classification_report(labels, predictions, output_dict=True)
-    cm = confusion_matrix(labels, predictions)
+  """Comprehensive classification evaluation."""
+  report = classification_report(labels, predictions, output_dict=True)
+  cm = confusion_matrix(labels, predictions)
 
-    return {
-        "accuracy": report["accuracy"],
-        "macro_f1": report["macro avg"]["f1-score"],
-        "weighted_f1": report["weighted avg"]["f1-score"],
-        "per_class": {
-            label: {
-                "precision": report[label]["precision"],
-                "recall": report[label]["recall"],
-                "f1": report[label]["f1-score"],
-                "support": report[label]["support"]
-            }
-            for label in report if label not in ["accuracy", "macro avg", "weighted avg"]
-        },
-        "confusion_matrix": cm.tolist()
-    }
+  return {
+    "accuracy": report["accuracy"],
+    "macro_f1": report["macro avg"]["f1-score"],
+    "weighted_f1": report["weighted avg"]["f1-score"],
+    "per_class": {
+      label: {
+        "precision": report[label]["precision"],
+        "recall": report[label]["recall"],
+        "f1": report[label]["f1-score"],
+        "support": report[label]["support"]
+      }
+      for label in report if label not in ["accuracy", "macro avg", "weighted avg"]
+    },
+    "confusion_matrix": cm.tolist()
+  }
 ```
 
 ### Generation Tasks
@@ -81,79 +81,79 @@ def evaluate_classification(predictions: list, labels: list) -> dict:
 from evaluate import load
 
 def evaluate_generation(predictions: list, references: list) -> dict:
-    """Evaluate generated text against references."""
+  """Evaluate generated text against references."""
 
-    # BLEU score
-    bleu = load("bleu")
-    bleu_result = bleu.compute(predictions=predictions, references=references)
+  # BLEU score
+  bleu = load("bleu")
+  bleu_result = bleu.compute(predictions=predictions, references=references)
 
-    # ROUGE scores
-    rouge = load("rouge")
-    rouge_result = rouge.compute(predictions=predictions, references=references)
+  # ROUGE scores
+  rouge = load("rouge")
+  rouge_result = rouge.compute(predictions=predictions, references=references)
 
-    # BERTScore
-    bertscore = load("bertscore")
-    bert_result = bertscore.compute(
-        predictions=predictions,
-        references=references,
-        lang="en"
-    )
+  # BERTScore
+  bertscore = load("bertscore")
+  bert_result = bertscore.compute(
+    predictions=predictions,
+    references=references,
+    lang="en"
+  )
 
-    return {
-        "bleu": bleu_result["bleu"],
-        "rouge1": rouge_result["rouge1"],
-        "rouge2": rouge_result["rouge2"],
-        "rougeL": rouge_result["rougeL"],
-        "bertscore_precision": sum(bert_result["precision"]) / len(bert_result["precision"]),
-        "bertscore_recall": sum(bert_result["recall"]) / len(bert_result["recall"]),
-        "bertscore_f1": sum(bert_result["f1"]) / len(bert_result["f1"])
-    }
+  return {
+    "bleu": bleu_result["bleu"],
+    "rouge1": rouge_result["rouge1"],
+    "rouge2": rouge_result["rouge2"],
+    "rougeL": rouge_result["rougeL"],
+    "bertscore_precision": sum(bert_result["precision"]) / len(bert_result["precision"]),
+    "bertscore_recall": sum(bert_result["recall"]) / len(bert_result["recall"]),
+    "bertscore_f1": sum(bert_result["f1"]) / len(bert_result["f1"])
+  }
 ```
 
 ### Extraction Tasks
 
 ```python
 def evaluate_extraction(
-    predictions: list[set],
-    references: list[set]
+  predictions: list[set],
+  references: list[set]
 ) -> dict:
-    """Evaluate entity/information extraction."""
-    total_precision = 0
-    total_recall = 0
-    total_f1 = 0
-    exact_matches = 0
+  """Evaluate entity/information extraction."""
+  total_precision = 0
+  total_recall = 0
+  total_f1 = 0
+  exact_matches = 0
 
-    for pred, ref in zip(predictions, references):
-        if pred == ref:
-            exact_matches += 1
+  for pred, ref in zip(predictions, references):
+    if pred == ref:
+      exact_matches += 1
 
-        if len(pred) == 0 and len(ref) == 0:
-            precision = recall = f1 = 1.0
-        elif len(pred) == 0:
-            precision = 1.0
-            recall = 0.0
-            f1 = 0.0
-        elif len(ref) == 0:
-            precision = 0.0
-            recall = 1.0
-            f1 = 0.0
-        else:
-            true_positives = len(pred & ref)
-            precision = true_positives / len(pred)
-            recall = true_positives / len(ref)
-            f1 = 2 * precision * recall / (precision + recall) if (precision + recall) > 0 else 0
+    if len(pred) == 0 and len(ref) == 0:
+      precision = recall = f1 = 1.0
+    elif len(pred) == 0:
+      precision = 1.0
+      recall = 0.0
+      f1 = 0.0
+    elif len(ref) == 0:
+      precision = 0.0
+      recall = 1.0
+      f1 = 0.0
+    else:
+      true_positives = len(pred & ref)
+      precision = true_positives / len(pred)
+      recall = true_positives / len(ref)
+      f1 = 2 * precision * recall / (precision + recall) if (precision + recall) > 0 else 0
 
-        total_precision += precision
-        total_recall += recall
-        total_f1 += f1
+    total_precision += precision
+    total_recall += recall
+    total_f1 += f1
 
-    n = len(predictions)
-    return {
-        "exact_match": exact_matches / n,
-        "precision": total_precision / n,
-        "recall": total_recall / n,
-        "f1": total_f1 / n
-    }
+  n = len(predictions)
+  return {
+    "exact_match": exact_matches / n,
+    "precision": total_precision / n,
+    "recall": total_recall / n,
+    "f1": total_f1 / n
+  }
 ```
 
 ---
@@ -261,60 +261,60 @@ Respond with JSON:
 
 ```python
 class LLMJudge:
-    """Automated evaluation using LLM-as-judge."""
+  """Automated evaluation using LLM-as-judge."""
 
-    def __init__(self, judge_model: str = "claude-opus-4-5-20251101"):
-        self.judge_model = judge_model
-        self.judge_prompt = self._load_judge_prompt()
+  def __init__(self, judge_model: str = "claude-opus-4-5-20251101"):
+    self.judge_model = judge_model
+    self.judge_prompt = self._load_judge_prompt()
 
-    def evaluate_single(
-        self,
-        question: str,
-        response: str,
-        reference: str = None
-    ) -> dict:
-        """Evaluate a single response."""
-        prompt = self.judge_prompt.format(
-            question=question,
-            response=response,
-            reference=reference or "Not provided"
-        )
+  def evaluate_single(
+    self,
+    question: str,
+    response: str,
+    reference: str = None
+  ) -> dict:
+    """Evaluate a single response."""
+    prompt = self.judge_prompt.format(
+      question=question,
+      response=response,
+      reference=reference or "Not provided"
+    )
 
-        result = llm.complete(prompt, model=self.judge_model)
-        return json.loads(result)
+    result = llm.complete(prompt, model=self.judge_model)
+    return json.loads(result)
 
-    def evaluate_batch(
-        self,
-        test_cases: list,
-        responses: list
-    ) -> dict:
-        """Evaluate a batch of responses with aggregation."""
-        scores = []
+  def evaluate_batch(
+    self,
+    test_cases: list,
+    responses: list
+  ) -> dict:
+    """Evaluate a batch of responses with aggregation."""
+    scores = []
 
-        for case, response in zip(test_cases, responses):
-            score = self.evaluate_single(case["question"], response, case.get("reference"))
-            scores.append(score)
+    for case, response in zip(test_cases, responses):
+      score = self.evaluate_single(case["question"], response, case.get("reference"))
+      scores.append(score)
 
-        return self._aggregate_scores(scores)
+    return self._aggregate_scores(scores)
 
-    def pairwise_compare(
-        self,
-        question: str,
-        response_a: str,
-        response_b: str
-    ) -> dict:
-        """Compare two responses head-to-head."""
-        # Run comparison in both orders to reduce position bias
-        result_ab = self._compare(question, response_a, response_b)
-        result_ba = self._compare(question, response_b, response_a)
+  def pairwise_compare(
+    self,
+    question: str,
+    response_a: str,
+    response_b: str
+  ) -> dict:
+    """Compare two responses head-to-head."""
+    # Run comparison in both orders to reduce position bias
+    result_ab = self._compare(question, response_a, response_b)
+    result_ba = self._compare(question, response_b, response_a)
 
-        # Reconcile results
-        if result_ab["winner"] == "A" and result_ba["winner"] == "B":
-            return {"winner": "A", "confidence": "high"}
-        elif result_ab["winner"] == "B" and result_ba["winner"] == "A":
-            return {"winner": "B", "confidence": "high"}
-        else:
-            return {"winner": "tie", "confidence": "low"}
+    # Reconcile results
+    if result_ab["winner"] == "A" and result_ba["winner"] == "B":
+      return {"winner": "A", "confidence": "high"}
+    elif result_ab["winner"] == "B" and result_ba["winner"] == "A":
+      return {"winner": "B", "confidence": "high"}
+    else:
+      return {"winner": "tie", "confidence": "low"}
 ```
 
 ### Reducing Judge Bias
@@ -399,106 +399,106 @@ from datetime import datetime
 from pathlib import Path
 
 class EvaluationRunner:
-    """Run comprehensive prompt evaluation."""
+  """Run comprehensive prompt evaluation."""
 
-    def __init__(self, prompt_path: str, test_suites: list[str]):
-        self.prompt = Path(prompt_path).read_text()
-        self.test_suites = self._load_test_suites(test_suites)
-        self.results_dir = Path(f"results/{datetime.now().isoformat()}_{Path(prompt_path).stem}")
-        self.results_dir.mkdir(parents=True, exist_ok=True)
+  def __init__(self, prompt_path: str, test_suites: list[str]):
+    self.prompt = Path(prompt_path).read_text()
+    self.test_suites = self._load_test_suites(test_suites)
+    self.results_dir = Path(f"results/{datetime.now().isoformat()}_{Path(prompt_path).stem}")
+    self.results_dir.mkdir(parents=True, exist_ok=True)
 
-    def run_all(self) -> dict:
-        """Run all test suites and generate report."""
-        all_results = {}
+  def run_all(self) -> dict:
+    """Run all test suites and generate report."""
+    all_results = {}
 
-        for suite_name, suite in self.test_suites.items():
-            print(f"Running {suite_name}...")
-            results = self._run_suite(suite)
-            all_results[suite_name] = results
-            self._save_suite_results(suite_name, results)
+    for suite_name, suite in self.test_suites.items():
+      print(f"Running {suite_name}...")
+      results = self._run_suite(suite)
+      all_results[suite_name] = results
+      self._save_suite_results(suite_name, results)
 
-        report = self._generate_report(all_results)
-        self._save_report(report)
+    report = self._generate_report(all_results)
+    self._save_report(report)
 
-        return report
+    return report
 
-    def _run_suite(self, suite: dict) -> list:
-        """Run a single test suite."""
-        results = []
+  def _run_suite(self, suite: dict) -> list:
+    """Run a single test suite."""
+    results = []
 
-        for case in suite["test_cases"]:
-            start_time = time.time()
+    for case in suite["test_cases"]:
+      start_time = time.time()
 
-            # Generate response
-            response = llm.complete(
-                self.prompt.format(input=case["input"])
-            )
+      # Generate response
+      response = llm.complete(
+        self.prompt.format(input=case["input"])
+      )
 
-            latency = time.time() - start_time
+      latency = time.time() - start_time
 
-            # Evaluate
-            passed = self._check_result(response, case["expected"], suite.get("evaluation_type", "exact"))
+      # Evaluate
+      passed = self._check_result(response, case["expected"], suite.get("evaluation_type", "exact"))
 
-            results.append({
-                "id": case["id"],
-                "category": case["category"],
-                "input": case["input"],
-                "expected": case["expected"],
-                "actual": response,
-                "passed": passed,
-                "latency": latency,
-                "tags": case.get("tags", [])
-            })
+      results.append({
+        "id": case["id"],
+        "category": case["category"],
+        "input": case["input"],
+        "expected": case["expected"],
+        "actual": response,
+        "passed": passed,
+        "latency": latency,
+        "tags": case.get("tags", [])
+      })
 
-        return results
+    return results
 
-    def _generate_report(self, all_results: dict) -> dict:
-        """Generate comprehensive evaluation report."""
-        report = {
-            "timestamp": datetime.now().isoformat(),
-            "prompt_version": self.prompt_path,
-            "summary": {},
-            "by_category": {},
-            "by_tag": {},
-            "failures": []
-        }
+  def _generate_report(self, all_results: dict) -> dict:
+    """Generate comprehensive evaluation report."""
+    report = {
+      "timestamp": datetime.now().isoformat(),
+      "prompt_version": self.prompt_path,
+      "summary": {},
+      "by_category": {},
+      "by_tag": {},
+      "failures": []
+    }
 
-        total_passed = 0
-        total_cases = 0
+    total_passed = 0
+    total_cases = 0
 
-        for suite_name, results in all_results.items():
-            suite_passed = sum(1 for r in results if r["passed"])
-            suite_total = len(results)
+    for suite_name, results in all_results.items():
+      suite_passed = sum(1 for r in results if r["passed"])
+      suite_total = len(results)
 
-            report["summary"][suite_name] = {
-                "passed": suite_passed,
-                "total": suite_total,
-                "accuracy": suite_passed / suite_total if suite_total > 0 else 0,
-                "avg_latency": sum(r["latency"] for r in results) / suite_total
-            }
+      report["summary"][suite_name] = {
+        "passed": suite_passed,
+        "total": suite_total,
+        "accuracy": suite_passed / suite_total if suite_total > 0 else 0,
+        "avg_latency": sum(r["latency"] for r in results) / suite_total
+      }
 
-            total_passed += suite_passed
-            total_cases += suite_total
+      total_passed += suite_passed
+      total_cases += suite_total
 
-            # Track failures
-            for r in results:
-                if not r["passed"]:
-                    report["failures"].append({
-                        "suite": suite_name,
-                        "id": r["id"],
-                        "category": r["category"],
-                        "input": r["input"][:100],
-                        "expected": r["expected"],
-                        "actual": r["actual"][:100]
-                    })
+      # Track failures
+      for r in results:
+        if not r["passed"]:
+          report["failures"].append({
+            "suite": suite_name,
+            "id": r["id"],
+            "category": r["category"],
+            "input": r["input"][:100],
+            "expected": r["expected"],
+            "actual": r["actual"][:100]
+          })
 
-        report["overall"] = {
-            "passed": total_passed,
-            "total": total_cases,
-            "accuracy": total_passed / total_cases if total_cases > 0 else 0
-        }
+    report["overall"] = {
+      "passed": total_passed,
+      "total": total_cases,
+      "accuracy": total_passed / total_cases if total_cases > 0 else 0
+    }
 
-        return report
+    return report
 ```
 
 ---
@@ -673,45 +673,45 @@ from sklearn.metrics import cohen_kappa_score
 import numpy as np
 
 def calculate_irr(rater_scores: dict) -> dict:
-    """Calculate inter-rater reliability metrics."""
-    raters = list(rater_scores.keys())
+  """Calculate inter-rater reliability metrics."""
+  raters = list(rater_scores.keys())
 
-    # Pairwise Cohen's Kappa
-    kappas = {}
-    for i, r1 in enumerate(raters):
-        for r2 in raters[i+1:]:
-            kappa = cohen_kappa_score(rater_scores[r1], rater_scores[r2])
-            kappas[f"{r1}_vs_{r2}"] = kappa
+  # Pairwise Cohen's Kappa
+  kappas = {}
+  for i, r1 in enumerate(raters):
+    for r2 in raters[i+1:]:
+      kappa = cohen_kappa_score(rater_scores[r1], rater_scores[r2])
+      kappas[f"{r1}_vs_{r2}"] = kappa
 
-    # Fleiss' Kappa for multiple raters
-    fleiss = calculate_fleiss_kappa(rater_scores)
+  # Fleiss' Kappa for multiple raters
+  fleiss = calculate_fleiss_kappa(rater_scores)
 
-    # Agreement percentage
-    all_agree = sum(
-        1 for i in range(len(rater_scores[raters[0]]))
-        if len(set(rater_scores[r][i] for r in raters)) == 1
-    )
-    agreement_pct = all_agree / len(rater_scores[raters[0]])
+  # Agreement percentage
+  all_agree = sum(
+    1 for i in range(len(rater_scores[raters[0]]))
+    if len(set(rater_scores[r][i] for r in raters)) == 1
+  )
+  agreement_pct = all_agree / len(rater_scores[raters[0]])
 
-    return {
-        "pairwise_kappa": kappas,
-        "fleiss_kappa": fleiss,
-        "perfect_agreement": agreement_pct,
-        "interpretation": interpret_kappa(fleiss)
-    }
+  return {
+    "pairwise_kappa": kappas,
+    "fleiss_kappa": fleiss,
+    "perfect_agreement": agreement_pct,
+    "interpretation": interpret_kappa(fleiss)
+  }
 
 def interpret_kappa(kappa: float) -> str:
-    """Interpret Kappa score."""
-    if kappa < 0.20:
-        return "Poor agreement"
-    elif kappa < 0.40:
-        return "Fair agreement"
-    elif kappa < 0.60:
-        return "Moderate agreement"
-    elif kappa < 0.80:
-        return "Substantial agreement"
-    else:
-        return "Almost perfect agreement"
+  """Interpret Kappa score."""
+  if kappa < 0.20:
+    return "Poor agreement"
+  elif kappa < 0.40:
+    return "Fair agreement"
+  elif kappa < 0.60:
+    return "Moderate agreement"
+  elif kappa < 0.80:
+    return "Substantial agreement"
+  else:
+    return "Almost perfect agreement"
 ```
 
 ---
@@ -722,51 +722,51 @@ def interpret_kappa(kappa: float) -> str:
 
 ```python
 class RegressionDetector:
-    """Detect performance regressions between prompt versions."""
+  """Detect performance regressions between prompt versions."""
 
-    def __init__(self, baseline_results: dict, threshold: float = 0.05):
-        self.baseline = baseline_results
-        self.threshold = threshold
+  def __init__(self, baseline_results: dict, threshold: float = 0.05):
+    self.baseline = baseline_results
+    self.threshold = threshold
 
-    def compare(self, new_results: dict) -> dict:
-        """Compare new results against baseline."""
-        regressions = []
-        improvements = []
+  def compare(self, new_results: dict) -> dict:
+    """Compare new results against baseline."""
+    regressions = []
+    improvements = []
 
-        for suite in self.baseline["summary"]:
-            baseline_acc = self.baseline["summary"][suite]["accuracy"]
-            new_acc = new_results["summary"][suite]["accuracy"]
-            delta = new_acc - baseline_acc
+    for suite in self.baseline["summary"]:
+      baseline_acc = self.baseline["summary"][suite]["accuracy"]
+      new_acc = new_results["summary"][suite]["accuracy"]
+      delta = new_acc - baseline_acc
 
-            if delta < -self.threshold:
-                regressions.append({
-                    "suite": suite,
-                    "baseline": baseline_acc,
-                    "new": new_acc,
-                    "delta": delta
-                })
-            elif delta > self.threshold:
-                improvements.append({
-                    "suite": suite,
-                    "baseline": baseline_acc,
-                    "new": new_acc,
-                    "delta": delta
-                })
+      if delta < -self.threshold:
+        regressions.append({
+          "suite": suite,
+          "baseline": baseline_acc,
+          "new": new_acc,
+          "delta": delta
+        })
+      elif delta > self.threshold:
+        improvements.append({
+          "suite": suite,
+          "baseline": baseline_acc,
+          "new": new_acc,
+          "delta": delta
+        })
 
-        return {
-            "has_regressions": len(regressions) > 0,
-            "regressions": regressions,
-            "improvements": improvements,
-            "recommendation": self._get_recommendation(regressions, improvements)
-        }
+    return {
+      "has_regressions": len(regressions) > 0,
+      "regressions": regressions,
+      "improvements": improvements,
+      "recommendation": self._get_recommendation(regressions, improvements)
+    }
 
-    def _get_recommendation(self, regressions, improvements) -> str:
-        if regressions:
-            return "BLOCK: Regressions detected. Review failures before merging."
-        elif improvements:
-            return "APPROVE: Performance improved with no regressions."
-        else:
-            return "APPROVE: Performance stable within threshold."
+  def _get_recommendation(self, regressions, improvements) -> str:
+    if regressions:
+      return "BLOCK: Regressions detected. Review failures before merging."
+    elif improvements:
+      return "APPROVE: Performance improved with no regressions."
+    else:
+      return "APPROVE: Performance stable within threshold."
 ```
 
 ---

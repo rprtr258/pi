@@ -107,14 +107,14 @@ import re
 import json
 
 def extract_tagged_json(response: str, tag: str = "analysis") -> dict:
-    """Extract JSON from tagged output."""
-    pattern = rf"<{tag}>\s*(.*?)\s*</{tag}>"
-    match = re.search(pattern, response, re.DOTALL)
+  """Extract JSON from tagged output."""
+  pattern = rf"<{tag}>\s*(.*?)\s*</{tag}>"
+  match = re.search(pattern, response, re.DOTALL)
 
-    if not match:
-        raise ValueError(f"No <{tag}> tags found in response")
+  if not match:
+    raise ValueError(f"No <{tag}> tags found in response")
 
-    return json.loads(match.group(1))
+  return json.loads(match.group(1))
 ```
 
 ---
@@ -129,23 +129,23 @@ import anthropic
 client = anthropic.Anthropic()
 
 response = client.messages.create(
-    model="claude-opus-4-5-20251101",
-    max_tokens=1024,
-    messages=[
-        {
-            "role": "user",
-            "content": """Extract entities from this text and return as JSON.
+  model="claude-opus-4-5-20251101",
+  max_tokens=1024,
+  messages=[
+    {
+      "role": "user",
+      "content": """Extract entities from this text and return as JSON.
 
-            Required fields:
-            - people: array of {name, role}
-            - organizations: array of {name, type}
-            - locations: array of strings
+      Required fields:
+      - people: array of {name, role}
+      - organizations: array of {name, type}
+      - locations: array of strings
 
-            Text: {text}"""
-        }
-    ],
-    # Claude uses system prompt to enforce JSON
-    system="You are a JSON extraction assistant. Always respond with valid JSON only, no other text."
+      Text: {text}"""
+    }
+  ],
+  # Claude uses system prompt to enforce JSON
+  system="You are a JSON extraction assistant. Always respond with valid JSON only, no other text."
 )
 
 # Parse the response
@@ -160,18 +160,18 @@ from openai import OpenAI
 client = OpenAI()
 
 response = client.chat.completions.create(
-    model="gpt-4-turbo-preview",
-    response_format={"type": "json_object"},  # Enforces JSON output
-    messages=[
-        {
-            "role": "system",
-            "content": "Extract information and return as JSON."
-        },
-        {
-            "role": "user",
-            "content": f"Extract people and companies from: {text}"
-        }
-    ]
+  model="gpt-4-turbo-preview",
+  response_format={"type": "json_object"},  # Enforces JSON output
+  messages=[
+    {
+      "role": "system",
+      "content": "Extract information and return as JSON."
+    },
+    {
+      "role": "user",
+      "content": f"Extract people and companies from: {text}"
+    }
+  ]
 )
 
 result = json.loads(response.choices[0].message.content)
@@ -200,57 +200,57 @@ client = anthropic.Anthropic()
 
 # Define the tool schema
 tools = [
-    {
-        "name": "extract_contact",
-        "description": "Extract contact information from text",
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "name": {
-                    "type": "string",
-                    "description": "Full name of the person"
-                },
-                "email": {
-                    "type": "string",
-                    "description": "Email address"
-                },
-                "phone": {
-                    "type": "string",
-                    "description": "Phone number in E.164 format"
-                },
-                "company": {
-                    "type": "string",
-                    "description": "Company or organization name"
-                },
-                "title": {
-                    "type": "string",
-                    "description": "Job title or role"
-                }
-            },
-            "required": ["name"]
+  {
+    "name": "extract_contact",
+    "description": "Extract contact information from text",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Full name of the person"
+        },
+        "email": {
+          "type": "string",
+          "description": "Email address"
+        },
+        "phone": {
+          "type": "string",
+          "description": "Phone number in E.164 format"
+        },
+        "company": {
+          "type": "string",
+          "description": "Company or organization name"
+        },
+        "title": {
+          "type": "string",
+          "description": "Job title or role"
         }
+      },
+      "required": ["name"]
     }
+  }
 ]
 
 response = client.messages.create(
-    model="claude-opus-4-5-20251101",
-    max_tokens=1024,
-    tools=tools,
-    tool_choice={"type": "tool", "name": "extract_contact"},  # Force tool use
-    messages=[
-        {
-            "role": "user",
-            "content": f"Extract contact info from: {business_card_text}"
-        }
-    ]
+  model="claude-opus-4-5-20251101",
+  max_tokens=1024,
+  tools=tools,
+  tool_choice={"type": "tool", "name": "extract_contact"},  # Force tool use
+  messages=[
+    {
+      "role": "user",
+      "content": f"Extract contact info from: {business_card_text}"
+    }
+  ]
 )
 
 # Get structured output from tool call
 for block in response.content:
-    if block.type == "tool_use":
-        contact = block.input  # Already parsed as dict
-        print(f"Name: {contact['name']}")
-        print(f"Email: {contact.get('email', 'N/A')}")
+  if block.type == "tool_use":
+    contact = block.input  # Already parsed as dict
+    print(f"Name: {contact['name']}")
+    print(f"Email: {contact.get('email', 'N/A')}")
 ```
 
 ### OpenAI Function Calling
@@ -261,44 +261,44 @@ from openai import OpenAI
 client = OpenAI()
 
 functions = [
-    {
-        "name": "analyze_sentiment",
-        "description": "Analyze sentiment of customer feedback",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "sentiment": {
-                    "type": "string",
-                    "enum": ["positive", "negative", "neutral", "mixed"]
-                },
-                "confidence": {
-                    "type": "number",
-                    "minimum": 0,
-                    "maximum": 1
-                },
-                "key_phrases": {
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "Phrases that indicate sentiment"
-                },
-                "topics": {
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "Main topics discussed"
-                }
-            },
-            "required": ["sentiment", "confidence"]
+  {
+    "name": "analyze_sentiment",
+    "description": "Analyze sentiment of customer feedback",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "sentiment": {
+          "type": "string",
+          "enum": ["positive", "negative", "neutral", "mixed"]
+        },
+        "confidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "key_phrases": {
+          "type": "array",
+          "items": {"type": "string"},
+          "description": "Phrases that indicate sentiment"
+        },
+        "topics": {
+          "type": "array",
+          "items": {"type": "string"},
+          "description": "Main topics discussed"
         }
+      },
+      "required": ["sentiment", "confidence"]
     }
+  }
 ]
 
 response = client.chat.completions.create(
-    model="gpt-4-turbo-preview",
-    messages=[
-        {"role": "user", "content": f"Analyze this feedback: {feedback}"}
-    ],
-    functions=functions,
-    function_call={"name": "analyze_sentiment"}  # Force specific function
+  model="gpt-4-turbo-preview",
+  messages=[
+    {"role": "user", "content": f"Analyze this feedback: {feedback}"}
+  ],
+  functions=functions,
+  function_call={"name": "analyze_sentiment"}  # Force specific function
 )
 
 # Parse function call
@@ -425,43 +425,43 @@ from typing import Optional, List
 from enum import Enum
 
 class Severity(str, Enum):
-    CRITICAL = "critical"
-    HIGH = "high"
-    MEDIUM = "medium"
-    LOW = "low"
+  CRITICAL = "critical"
+  HIGH = "high"
+  MEDIUM = "medium"
+  LOW = "low"
 
 class CodeIssue(BaseModel):
-    severity: Severity
-    type: str = Field(..., pattern="^(bug|security|performance|style)$")
-    location: str
-    description: str = Field(..., min_length=10, max_length=500)
-    suggestion: Optional[str] = None
+  severity: Severity
+  type: str = Field(..., pattern="^(bug|security|performance|style)$")
+  location: str
+  description: str = Field(..., min_length=10, max_length=500)
+  suggestion: Optional[str] = None
 
-    @validator('location')
-    def validate_location(cls, v):
-        if ':' not in v and '(' not in v:
-            raise ValueError('Location must be file:line or function()')
-        return v
+  @validator('location')
+  def validate_location(cls, v):
+    if ':' not in v and '(' not in v:
+      raise ValueError('Location must be file:line or function()')
+    return v
 
 class CodeAnalysis(BaseModel):
-    summary: str = Field(..., max_length=200)
-    issues: List[CodeIssue]
-    quality_score: int = Field(..., ge=1, le=10)
+  summary: str = Field(..., max_length=200)
+  issues: List[CodeIssue]
+  quality_score: int = Field(..., ge=1, le=10)
 
-    @validator('issues')
-    def critical_issues_first(cls, v):
-        return sorted(v, key=lambda x: list(Severity).index(x.severity))
+  @validator('issues')
+  def critical_issues_first(cls, v):
+    return sorted(v, key=lambda x: list(Severity).index(x.severity))
 
 # Usage
 def parse_analysis(llm_response: str) -> CodeAnalysis:
-    """Parse and validate LLM response."""
-    try:
-        data = json.loads(llm_response)
-        return CodeAnalysis(**data)
-    except json.JSONDecodeError as e:
-        raise ValueError(f"Invalid JSON: {e}")
-    except ValidationError as e:
-        raise ValueError(f"Schema validation failed: {e}")
+  """Parse and validate LLM response."""
+  try:
+    data = json.loads(llm_response)
+    return CodeAnalysis(**data)
+  except json.JSONDecodeError as e:
+    raise ValueError(f"Invalid JSON: {e}")
+  except ValidationError as e:
+    raise ValueError(f"Schema validation failed: {e}")
 ```
 
 ### Zod Validation (TypeScript)

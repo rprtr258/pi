@@ -4,101 +4,101 @@
 
 ```python
 def calculate_total(items: list[Item], tax_rate: float = 0.0) -> float:
-    """Calculate total cost including tax.
+  """Calculate total cost including tax.
 
-    Args:
-        items: List of items to calculate total for.
-        tax_rate: Tax rate as decimal (e.g., 0.08 for 8%).
+  Args:
+    items: List of items to calculate total for.
+    tax_rate: Tax rate as decimal (e.g., 0.08 for 8%).
 
-    Returns:
-        Total cost including tax.
+  Returns:
+    Total cost including tax.
 
-    Raises:
-        ValueError: If tax_rate is negative or items is empty.
+  Raises:
+    ValueError: If tax_rate is negative or items is empty.
 
-    Example:
-        >>> calculate_total([Item(10), Item(20)], 0.1)
-        33.0
-    """
+  Example:
+    >>> calculate_total([Item(10), Item(20)], 0.1)
+    33.0
+  """
 ```
 
 ## NumPy Style
 
 ```python
 def calculate_total(items: list[Item], tax_rate: float = 0.0) -> float:
-    """
-    Calculate total cost including tax.
+  """
+  Calculate total cost including tax.
 
-    Parameters
-    ----------
-    items : list[Item]
-        List of items to calculate total for.
-    tax_rate : float, optional
-        Tax rate as decimal (e.g., 0.08 for 8%). Default is 0.0.
+  Parameters
+  ----------
+  items : list[Item]
+    List of items to calculate total for.
+  tax_rate : float, optional
+    Tax rate as decimal (e.g., 0.08 for 8%). Default is 0.0.
 
-    Returns
-    -------
-    float
-        Total cost including tax.
+  Returns
+  -------
+  float
+    Total cost including tax.
 
-    Raises
-    ------
-    ValueError
-        If tax_rate is negative or items is empty.
+  Raises
+  ------
+  ValueError
+    If tax_rate is negative or items is empty.
 
-    Examples
-    --------
-    >>> calculate_total([Item(10), Item(20)], 0.1)
-    33.0
-    """
+  Examples
+  --------
+  >>> calculate_total([Item(10), Item(20)], 0.1)
+  33.0
+  """
 ```
 
 ## Sphinx Style
 
 ```python
 def calculate_total(items: list[Item], tax_rate: float = 0.0) -> float:
-    """Calculate total cost including tax.
+  """Calculate total cost including tax.
 
-    :param items: List of items to calculate total for.
-    :type items: list[Item]
-    :param tax_rate: Tax rate as decimal (e.g., 0.08 for 8%).
-    :type tax_rate: float
-    :returns: Total cost including tax.
-    :rtype: float
-    :raises ValueError: If tax_rate is negative or items is empty.
+  :param items: List of items to calculate total for.
+  :type items: list[Item]
+  :param tax_rate: Tax rate as decimal (e.g., 0.08 for 8%).
+  :type tax_rate: float
+  :returns: Total cost including tax.
+  :rtype: float
+  :raises ValueError: If tax_rate is negative or items is empty.
 
-    .. code-block:: python
+  .. code-block:: python
 
-        >>> calculate_total([Item(10), Item(20)], 0.1)
-        33.0
-    """
+    >>> calculate_total([Item(10), Item(20)], 0.1)
+    33.0
+  """
 ```
 
 ## Class Documentation
 
 ```python
 class UserService:
-    """Service for managing user operations.
+  """Service for managing user operations.
 
-    This service handles CRUD operations for users and
-    integrates with the authentication system.
+  This service handles CRUD operations for users and
+  integrates with the authentication system.
 
-    Attributes:
-        db: Database session for queries.
-        cache: Redis client for caching.
+  Attributes:
+    db: Database session for queries.
+    cache: Redis client for caching.
 
-    Example:
-        >>> service = UserService(db, cache)
-        >>> user = await service.create_user(data)
+  Example:
+    >>> service = UserService(db, cache)
+    >>> user = await service.create_user(data)
+  """
+
+  def __init__(self, db: AsyncSession, cache: Redis) -> None:
+    """Initialize UserService.
+
+    Args:
+      db: Database session for queries.
+      cache: Redis client for caching.
     """
-
-    def __init__(self, db: AsyncSession, cache: Redis) -> None:
-        """Initialize UserService.
-
-        Args:
-            db: Database session for queries.
-            cache: Redis client for caching.
-        """
 ```
 
 ## Quick Reference

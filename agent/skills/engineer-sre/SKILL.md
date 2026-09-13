@@ -154,30 +154,30 @@ import subprocess, sys, json
 ERROR_THRESHOLD = 0.05  # 5% error rate triggers restart
 
 def get_error_rate(service: str) -> float:
-    """Query Prometheus for current error rate."""
-    import urllib.request
-    query = f'sum(rate(http_requests_total{{status=~"5..",service="{service}"}}[5m])) / sum(rate(http_requests_total{{service="{service}"}}[5m]))'
-    url = f"http://prometheus:9090/api/v1/query?query={urllib.request.quote(query)}"
-    with urllib.request.urlopen(url) as resp:
-        data = json.load(resp)
-    results = data["data"]["result"]
-    return float(results[0]["value"][1]) if results else 0.0
+  """Query Prometheus for current error rate."""
+  import urllib.request
+  query = f'sum(rate(http_requests_total{{status=~"5..",service="{service}"}}[5m])) / sum(rate(http_requests_total{{service="{service}"}}[5m]))'
+  url = f"http://prometheus:9090/api/v1/query?query={urllib.request.quote(query)}"
+  with urllib.request.urlopen(url) as resp:
+    data = json.load(resp)
+  results = data["data"]["result"]
+  return float(results[0]["value"][1]) if results else 0.0
 
 def restart_deployment(namespace: str, deployment: str) -> None:
-    subprocess.run(
-        ["kubectl", "rollout", "restart", f"deployment/{deployment}", "-n", namespace],
-        check=True
-    )
-    print(f"Restarted {namespace}/{deployment}")
+  subprocess.run(
+    ["kubectl", "rollout", "restart", f"deployment/{deployment}", "-n", namespace],
+    check=True
+  )
+  print(f"Restarted {namespace}/{deployment}")
 
 if __name__ == "__main__":
-    service, namespace, deployment = sys.argv[1], sys.argv[2], sys.argv[3]
-    rate = get_error_rate(service)
-    print(f"Error rate for {service}: {rate:.2%}")
-    if rate > ERROR_THRESHOLD:
-        restart_deployment(namespace, deployment)
-    else:
-        print("Within SLO threshold — no action required")
+  service, namespace, deployment = sys.argv[1], sys.argv[2], sys.argv[3]
+  rate = get_error_rate(service)
+  print(f"Error rate for {service}: {rate:.2%}")
+  if rate > ERROR_THRESHOLD:
+    restart_deployment(namespace, deployment)
+  else:
+    print("Within SLO threshold — no action required")
 ```
 
 [Documentation](https://jeffallan.github.io/claude-skills/skills/devops/sre-engineer/)

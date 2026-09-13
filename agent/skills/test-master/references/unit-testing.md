@@ -41,27 +41,27 @@ import pytest
 from unittest.mock import Mock, AsyncMock
 
 class TestUserService:
-    @pytest.fixture
-    def mock_repo(self):
-        return Mock()
+  @pytest.fixture
+  def mock_repo(self):
+    return Mock()
 
-    @pytest.fixture
-    def service(self, mock_repo):
-        return UserService(mock_repo)
+  @pytest.fixture
+  def service(self, mock_repo):
+    return UserService(mock_repo)
 
-    async def test_get_user_returns_user(self, service, mock_repo):
-        mock_repo.find_by_id = AsyncMock(return_value={"id": "1", "name": "Test"})
+  async def test_get_user_returns_user(self, service, mock_repo):
+    mock_repo.find_by_id = AsyncMock(return_value={"id": "1", "name": "Test"})
 
-        result = await service.get_user("1")
+    result = await service.get_user("1")
 
-        assert result == {"id": "1", "name": "Test"}
-        mock_repo.find_by_id.assert_called_once_with("1")
+    assert result == {"id": "1", "name": "Test"}
+    mock_repo.find_by_id.assert_called_once_with("1")
 
-    async def test_get_user_raises_not_found(self, service, mock_repo):
-        mock_repo.find_by_id = AsyncMock(return_value=None)
+  async def test_get_user_raises_not_found(self, service, mock_repo):
+    mock_repo.find_by_id = AsyncMock(return_value=None)
 
-        with pytest.raises(NotFoundError):
-            await service.get_user("1")
+    with pytest.raises(NotFoundError):
+      await service.get_user("1")
 ```
 
 ## Mocking Patterns

@@ -125,27 +125,27 @@ server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
 # Python
 @app.list_resource_templates()
 async def list_resource_templates() -> list[ResourceTemplate]:
-    return [
-        ResourceTemplate(
-            uriTemplate="user://{user_id}/profile",
-            name="User Profile",
-            description="Get user profile by ID",
-            mimeType="application/json",
-        )
-    ]
+  return [
+    ResourceTemplate(
+      uriTemplate="user://{user_id}/profile",
+      name="User Profile",
+      description="Get user profile by ID",
+      mimeType="application/json",
+    )
+  ]
 
 @app.read_resource()
 async def read_resource(uri: str) -> str:
-    # Parse template URI
-    import re
+  # Parse template URI
+  import re
 
-    match = re.match(r'^user://([^/]+)/profile$', uri)
-    if match:
-        user_id = match.group(1)
-        profile = await get_user_profile(user_id)
-        return json.dumps(profile, indent=2)
+  match = re.match(r'^user://([^/]+)/profile$', uri)
+  if match:
+    user_id = match.group(1)
+    profile = await get_user_profile(user_id)
+    return json.dumps(profile, indent=2)
 
-    raise ValueError(f"Unknown resource: {uri}")
+  raise ValueError(f"Unknown resource: {uri}")
 ```
 
 ## Content Types
@@ -250,34 +250,34 @@ server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
 ```python
 @app.list_resources()
 async def list_resources() -> list[Resource]:
-    tables = await db.get_tables()
+  tables = await db.get_tables()
 
-    return [
-        Resource(
-            uri=f"db://{table}/schema",
-            name=f"{table} Schema",
-            description=f"Schema for {table} table",
-            mimeType="text/plain",
-        )
-        for table in tables
-    ]
+  return [
+    Resource(
+      uri=f"db://{table}/schema",
+      name=f"{table} Schema",
+      description=f"Schema for {table} table",
+      mimeType="text/plain",
+    )
+    for table in tables
+  ]
 
 @app.read_resource()
 async def read_resource(uri: str) -> str:
-    if uri.startswith("db://"):
-        parts = uri[5:].split("/")
-        table = parts[0]
-        resource_type = parts[1] if len(parts) > 1 else "data"
+  if uri.startswith("db://"):
+    parts = uri[5:].split("/")
+    table = parts[0]
+    resource_type = parts[1] if len(parts) > 1 else "data"
 
-        if resource_type == "schema":
-            schema = await db.get_schema(table)
-            return schema
+    if resource_type == "schema":
+      schema = await db.get_schema(table)
+      return schema
 
-        if resource_type == "data":
-            rows = await db.query(f"SELECT * FROM {table} LIMIT 100")
-            return json.dumps(rows, indent=2)
+    if resource_type == "data":
+      rows = await db.query(f"SELECT * FROM {table} LIMIT 100")
+      return json.dumps(rows, indent=2)
 
-    raise ValueError(f"Unknown resource: {uri}")
+  raise ValueError(f"Unknown resource: {uri}")
 ```
 
 ### API Resources
@@ -340,34 +340,34 @@ import git
 
 @app.list_resources()
 async def list_resources() -> list[Resource]:
-    return [
-        Resource(
-            uri="git://log",
-            name="Git Log",
-            description="Recent commits",
-            mimeType="text/plain",
-        ),
-        Resource(
-            uri="git://status",
-            name="Git Status",
-            description="Working tree status",
-            mimeType="text/plain",
-        ),
-    ]
+  return [
+    Resource(
+      uri="git://log",
+      name="Git Log",
+      description="Recent commits",
+      mimeType="text/plain",
+    ),
+    Resource(
+      uri="git://status",
+      name="Git Status",
+      description="Working tree status",
+      mimeType="text/plain",
+    ),
+  ]
 
 @app.read_resource()
 async def read_resource(uri: str) -> str:
-    repo = git.Repo(".")
+  repo = git.Repo(".")
 
-    if uri == "git://log":
-        log = repo.git.log("--oneline", "-n", "10")
-        return log
+  if uri == "git://log":
+    log = repo.git.log("--oneline", "-n", "10")
+    return log
 
-    if uri == "git://status":
-        status = repo.git.status()
-        return status
+  if uri == "git://status":
+    status = repo.git.status()
+    return status
 
-    raise ValueError(f"Unknown resource: {uri}")
+  raise ValueError(f"Unknown resource: {uri}")
 ```
 
 ## Resource Subscriptions
@@ -463,21 +463,21 @@ function getMimeType(filename: string): string {
 
 ```python
 def is_safe_path(base_dir: str, path: str) -> bool:
-    """Ensure path doesn't escape base directory"""
-    base = os.path.abspath(base_dir)
-    target = os.path.abspath(os.path.join(base_dir, path))
-    return target.startswith(base)
+  """Ensure path doesn't escape base directory"""
+  base = os.path.abspath(base_dir)
+  target = os.path.abspath(os.path.join(base_dir, path))
+  return target.startswith(base)
 
 @app.read_resource()
 async def read_resource(uri: str) -> str:
-    if uri.startswith("file:///"):
-        path = uri[8:]
-        if not is_safe_path(ALLOWED_DIR, path):
-            raise ValueError("Access denied")
+  if uri.startswith("file:///"):
+    path = uri[8:]
+    if not is_safe_path(ALLOWED_DIR, path):
+      raise ValueError("Access denied")
 
-        full_path = os.path.join(ALLOWED_DIR, path)
-        with open(full_path) as f:
-            return f.read()
+    full_path = os.path.join(ALLOWED_DIR, path)
+    with open(full_path) as f:
+      return f.read()
 ```
 
 ### 4. Caching
@@ -513,20 +513,20 @@ server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
 ```python
 @app.read_resource()
 async def read_resource(uri: str) -> str:
-    if uri == "db://logs/recent":
-        # For large datasets, limit size
-        logs = await db.query(
-            "SELECT * FROM logs ORDER BY timestamp DESC LIMIT 1000"
-        )
-        return json.dumps(logs, indent=2)
+  if uri == "db://logs/recent":
+    # For large datasets, limit size
+    logs = await db.query(
+      "SELECT * FROM logs ORDER BY timestamp DESC LIMIT 1000"
+    )
+    return json.dumps(logs, indent=2)
 
-    if uri == "file:///large.txt":
-        # Read first 100KB only
-        with open("/path/to/large.txt") as f:
-            content = f.read(100 * 1024)
-            if f.read(1):  # Check if there's more
-                content += "\n\n[Content truncated...]"
-            return content
+  if uri == "file:///large.txt":
+    # Read first 100KB only
+    with open("/path/to/large.txt") as f:
+      content = f.read(100 * 1024)
+      if f.read(1):  # Check if there's more
+        content += "\n\n[Content truncated...]"
+      return content
 ```
 
 ### 6. Error Handling

@@ -29,7 +29,7 @@ Only add context Claude doesn't already have. Challenge each piece of informatio
 
 **Good example: Concise** (approximately 50 tokens):
 
-````markdown  theme={null}
+````markdown
 ## Extract PDF text
 
 Use pdfplumber for text extraction:
@@ -44,7 +44,7 @@ with pdfplumber.open("file.pdf") as pdf:
 
 **Bad example: Too verbose** (approximately 150 tokens):
 
-```markdown  theme={null}
+```markdown
 ## Extract PDF text
 
 PDF (Portable Document Format) files are a common file format that contains
@@ -70,7 +70,7 @@ Use when:
 
 Example:
 
-```markdown  theme={null}
+```markdown
 ## Code review process
 
 1. Analyze the code structure and organization
@@ -89,16 +89,16 @@ Use when:
 
 Example:
 
-````markdown  theme={null}
+````markdown
 ## Generate report
 
 Use this template and customize as needed:
 
 ```python
 def generate_report(data, format="markdown", include_charts=True):
-    # Process data
-    # Generate output in specified format
-    # Optionally include visualizations
+  # Process data
+  # Generate output in specified format
+  # Optionally include visualizations
 ```
 ````
 
@@ -112,7 +112,7 @@ Use when:
 
 Example:
 
-````markdown  theme={null}
+````markdown
 ## Database migration
 
 Run exactly this script:
@@ -202,33 +202,33 @@ Effective examples:
 
 **PDF Processing skill:**
 
-```yaml  theme={null}
+```yaml
 description: Extract text and tables from PDF files, fill forms, merge documents. Use when working with PDF files or when the user mentions PDFs, forms, or document extraction.
 ```
 
 **Excel Analysis skill:**
 
-```yaml  theme={null}
+```yaml
 description: Analyze Excel spreadsheets, create pivot tables, generate charts. Use when analyzing Excel files, spreadsheets, tabular data, or .xlsx files.
 ```
 
 **Git Commit Helper skill:**
 
-```yaml  theme={null}
+```yaml
 description: Generate descriptive commit messages by analyzing git diffs. Use when the user asks for help writing commit messages or reviewing staged changes.
 ```
 
 Avoid vague descriptions like these:
 
-```yaml  theme={null}
+```yaml
 description: Helps with documents
 ```
 
-```yaml  theme={null}
+```yaml
 description: Processes data
 ```
 
-```yaml  theme={null}
+```yaml
 description: Does stuff with files
 ```
 
@@ -268,7 +268,7 @@ pdf/
 
 #### Pattern 1: High-level guide with references
 
-````markdown  theme={null}
+````markdown
 ---
 name: PDF Processing
 description: Extracts text and tables from PDF files, fills forms, and merges documents. Use when working with PDF files or when the user mentions PDFs, forms, or document extraction.
@@ -308,7 +308,7 @@ bigquery-skill/
     └── marketing.md (campaigns, attribution)
 ```
 
-````markdown SKILL.md theme={null}
+````markdown SKILL.md
 # BigQuery Data Analysis
 
 ## Available datasets
@@ -333,7 +333,7 @@ grep -i "api usage" reference/product.md
 
 Show basic content, link to advanced content:
 
-```markdown  theme={null}
+```markdown
 # DOCX Processing
 
 ## Creating documents
@@ -358,7 +358,7 @@ Claude may partially read files when they're referenced from other referenced fi
 
 **Bad example: Too deep**:
 
-```markdown  theme={null}
+```markdown
 # SKILL.md
 See [advanced.md](advanced.md)...
 
@@ -371,7 +371,7 @@ Here's the actual information...
 
 **Good example: One level deep**:
 
-```markdown  theme={null}
+```markdown
 # SKILL.md
 
 **Basic usage**: [instructions in SKILL.md]
@@ -386,7 +386,7 @@ For reference files longer than 100 lines, include a table of contents at the to
 
 **Example**:
 
-```markdown  theme={null}
+```markdown
 # API Reference
 
 ## Contents
@@ -415,7 +415,7 @@ Break complex operations into clear, sequential steps. For particularly complex 
 
 **Example 1: Research synthesis workflow** (for Skills without code):
 
-````markdown  theme={null}
+````markdown
 ## Research synthesis workflow
 
 Copy this checklist and track your progress:
@@ -457,7 +457,7 @@ This example shows how workflows apply to analysis tasks that don't require code
 
 **Example 2: PDF form filling workflow** (for Skills with code):
 
-````markdown  theme={null}
+````markdown
 ## PDF form filling workflow
 
 Copy this checklist and check off items as you complete them:
@@ -508,7 +508,7 @@ This pattern greatly improves output quality.
 
 **Example 1: Style guide compliance** (for Skills without code):
 
-```markdown  theme={null}
+```markdown
 ## Content review process
 
 1. Draft your content following the guidelines in STYLE_GUIDE.md
@@ -528,7 +528,7 @@ This shows the validation loop pattern using reference documents instead of scri
 
 **Example 2: Document editing process** (for Skills with code):
 
-```markdown  theme={null}
+```markdown
 ## Document editing process
 
 1. Make your edits to `word/document.xml`
@@ -552,14 +552,14 @@ Don't include information that will become outdated:
 
 **Bad example: Time-sensitive** (will become wrong):
 
-```markdown  theme={null}
+```markdown
 If you're doing this before August 2025, use the old API.
 After August 2025, use the new API.
 ```
 
 **Good example** (use "old patterns" section):
 
-```markdown  theme={null}
+```markdown
 ## Current method
 
 Use the v2 API endpoint: `api.example.com/v2/messages`
@@ -603,7 +603,7 @@ Provide templates for output format. Match the level of strictness to your needs
 
 **For strict requirements** (like API responses or data formats):
 
-````markdown  theme={null}
+````markdown
 ## Report structure
 
 ALWAYS use this exact template structure:
@@ -627,7 +627,7 @@ ALWAYS use this exact template structure:
 
 **For flexible guidance** (when adaptation is useful):
 
-````markdown  theme={null}
+````markdown
 ## Report structure
 
 Here is a sensible default format, but use your best judgment based on the analysis:
@@ -652,7 +652,7 @@ Adjust sections as needed for the specific analysis type.
 
 For Skills where output quality depends on seeing examples, provide input/output pairs just like in regular prompting:
 
-````markdown  theme={null}
+````markdown
 ## Commit message format
 
 Generate commit messages following these examples:
@@ -694,7 +694,7 @@ Examples help Claude understand the desired style and level of detail more clear
 
 Guide Claude through decision points:
 
-```markdown  theme={null}
+```markdown
 ## Document modification workflow
 
 1. Determine the modification type:
@@ -736,7 +736,7 @@ This approach ensures you're solving actual problems rather than anticipating re
 
 **Evaluation structure**:
 
-```json  theme={null}
+```json
 {
   "skills": ["pdf-processing"],
   "query": "Extract all text from this PDF file and save it to output.txt",
@@ -835,7 +835,7 @@ Unix-style paths work across all platforms, while Windows-style paths cause erro
 
 Don't present multiple approaches unless necessary:
 
-````markdown  theme={null}
+````markdown
 **Bad example: Too many choices** (confusing):
 "You can use pypdf, or pdfplumber, or PyMuPDF, or pdf2image, or..."
 
@@ -858,37 +858,37 @@ When writing scripts for Skills, handle error conditions rather than punting to 
 
 **Good example: Handle errors explicitly**:
 
-```python  theme={null}
+```python
 def process_file(path):
-    """Process a file, creating it if it doesn't exist."""
-    try:
-        with open(path) as f:
-            return f.read()
-    except FileNotFoundError:
-        # Create file with default content instead of failing
-        print(f"File {path} not found, creating default")
-        with open(path, 'w') as f:
-            f.write('')
-        return ''
-    except PermissionError:
-        # Provide alternative instead of failing
-        print(f"Cannot access {path}, using default")
-        return ''
+  """Process a file, creating it if it doesn't exist."""
+  try:
+    with open(path) as f:
+      return f.read()
+  except FileNotFoundError:
+    # Create file with default content instead of failing
+    print(f"File {path} not found, creating default")
+    with open(path, 'w') as f:
+      f.write('')
+    return ''
+  except PermissionError:
+    # Provide alternative instead of failing
+    print(f"Cannot access {path}, using default")
+    return ''
 ```
 
 **Bad example: Punt to Claude**:
 
-```python  theme={null}
+```python
 def process_file(path):
-    # Just fail and let Claude figure it out
-    return open(path).read()
+  # Just fail and let Claude figure it out
+  return open(path).read()
 ```
 
 Configuration parameters should also be justified and documented to avoid "voodoo constants" (Ousterhout's law). If you don't know the right value, how will Claude determine it?
 
 **Good example: Self-documenting**:
 
-```python  theme={null}
+```python
 # HTTP requests typically complete within 30 seconds
 # Longer timeout accounts for slow connections
 REQUEST_TIMEOUT = 30
@@ -900,7 +900,7 @@ MAX_RETRIES = 3
 
 **Bad example: Magic numbers**:
 
-```python  theme={null}
+```python
 TIMEOUT = 47  # Why 47?
 RETRIES = 5   # Why 5?
 ```
@@ -929,7 +929,7 @@ For most utility scripts, execution is preferred because it's more reliable and 
 
 **Example**:
 
-````markdown  theme={null}
+````markdown
 ## Utility scripts
 
 **analyze_form.py**: Extract all form fields from PDF
@@ -964,7 +964,7 @@ python scripts/fill_form.py input.pdf fields.json output.pdf
 
 When inputs can be rendered as images, have Claude analyze them:
 
-````markdown  theme={null}
+````markdown
 ## Form layout analysis
 
 1. Convert PDF to images:
@@ -1058,7 +1058,7 @@ If your Skill uses MCP (Model Context Protocol) tools, always use fully qualifie
 
 **Example**:
 
-```markdown  theme={null}
+```markdown
 Use the BigQuery:bigquery_schema tool to retrieve table schemas.
 Use the GitHub:create_issue tool to create issues.
 ```
@@ -1074,7 +1074,7 @@ Without the server prefix, Claude may fail to locate the tool, especially when m
 
 Don't assume packages are available:
 
-````markdown  theme={null}
+````markdown
 **Bad example: Assumes installation**:
 "Use the pdf library to process the file."
 

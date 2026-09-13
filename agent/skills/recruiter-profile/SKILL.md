@@ -51,7 +51,7 @@ reference is missing a detail the platform needs (e.g. exact months, a skill lev
 check the underlying sources it cites before asking. Keep a working set of what will go into each
 empty or incomplete field.
 
-### 4. Ask about gaps 
+### 4. Ask about gaps
 
 Skip this step when the reference already covers everything the platform needs. If gathering left
 gaps or judgment calls — missing dates, level mappings (e.g. language proficiency wording),

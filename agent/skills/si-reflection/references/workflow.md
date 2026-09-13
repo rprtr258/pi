@@ -44,8 +44,8 @@ Reject candidates that are:
 
 ## 3. Decide the Target
 
-- **AGENTS.md** — instructions to future agents working in this repo: commands, conventions, gotchas, “do not do X.” 
-- *Docs* - documentation, architectural notes and similar.
+- **AGENTS.md** — instructions to future agents working in this repo: commands, conventions, gotchas, “do not do X.”
+- **Docs** - documentation, architectural notes and similar.
 - **Skill** — reusable agent behavior that applies across projects or recurring task types.
 
 When in doubt:

@@ -31,7 +31,7 @@ app.get('/profile', authenticate, (req, res) => {
 # FastAPI Dependency
 @router.get("/profile")
 async def get_profile(current_user: User = Depends(get_current_user)):
-    return current_user
+  return current_user
 ```
 
 ## Authorization Patterns
@@ -74,9 +74,9 @@ const validated = CreateUserSchema.parse(req.body);
 ```python
 # Pydantic model
 class CreateUser(BaseModel):
-    email: EmailStr
-    name: str = Field(min_length=1, max_length=100)
-    password: str = Field(min_length=12)
+  email: EmailStr
+  name: str = Field(min_length=1, max_length=100)
+  password: str = Field(min_length=12)
 ```
 
 ## Rate Limiting

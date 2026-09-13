@@ -294,29 +294,29 @@ from pydantic import BaseModel
 app = FastAPI()
 
 class ServiceRequest(BaseModel):
-    name: str
-    environment: str
-    language: str
-    database: bool = False
+  name: str
+  environment: str
+  language: str
+  database: bool = False
 
 @app.post("/api/v1/services")
 async def create_service(request: ServiceRequest):
-    # Validate and enqueue
-    task = platform.provision_service(
-        name=request.name,
-        env=request.environment,
-        template=f"golden-path-{request.language}"
-    )
-    return {"task_id": task.id, "status": "provisioning"}
+  # Validate and enqueue
+  task = platform.provision_service(
+    name=request.name,
+    env=request.environment,
+    template=f"golden-path-{request.language}"
+  )
+  return {"task_id": task.id, "status": "provisioning"}
 
 @app.get("/api/v1/services/{name}/status")
 async def service_status(name: str):
-    return {
-        "status": "running",
-        "url": f"https://{name}.example.com",
-        "health": "healthy",
-        "cost_mtd": "$142.50"
-    }
+  return {
+    "status": "running",
+    "url": f"https://{name}.example.com",
+    "health": "healthy",
+    "cost_mtd": "$142.50"
+  }
 ```
 
 ## Multi-Tenant Architecture

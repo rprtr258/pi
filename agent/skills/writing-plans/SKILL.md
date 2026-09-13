@@ -74,8 +74,8 @@ This structure informs the task decomposition. Each task should produce self-con
 
 ```python
 def test_specific_behavior():
-    result = function(input)
-    assert result == expected
+  result = function(input)
+  assert result == expected
 ```
 
 - [ ] **Step 2: Run test to verify it fails**
@@ -87,7 +87,7 @@ Expected: FAIL with "function not defined"
 
 ```python
 def function(input):
-    return expected
+  return expected
 ```
 
 - [ ] **Step 4: Run test to verify it passes**

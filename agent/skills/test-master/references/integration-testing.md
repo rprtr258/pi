@@ -93,20 +93,20 @@ from httpx import AsyncClient
 
 @pytest.mark.asyncio
 async def test_create_user(client: AsyncClient):
-    response = await client.post("/api/users/", json={
-        "email": "test@example.com",
-        "name": "Test"
-    })
-    assert response.status_code == 201
-    assert response.json()["email"] == "test@example.com"
+  response = await client.post("/api/users/", json={
+    "email": "test@example.com",
+    "name": "Test"
+  })
+  assert response.status_code == 201
+  assert response.json()["email"] == "test@example.com"
 
 @pytest.mark.asyncio
 async def test_invalid_email(client: AsyncClient):
-    response = await client.post("/api/users/", json={
-        "email": "invalid",
-        "name": "Test"
-    })
-    assert response.status_code == 422
+  response = await client.post("/api/users/", json={
+    "email": "invalid",
+    "name": "Test"
+  })
+  assert response.status_code == 422
 ```
 
 ## Quick Reference

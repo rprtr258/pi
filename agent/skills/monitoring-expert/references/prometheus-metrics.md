@@ -104,20 +104,20 @@ collectDefaultMetrics({ register });
 from prometheus_client import Counter, Histogram, Gauge, generate_latest
 
 http_requests = Counter(
-    'http_requests_total',
-    'Total HTTP requests',
-    ['method', 'path', 'status']
+  'http_requests_total',
+  'Total HTTP requests',
+  ['method', 'path', 'status']
 )
 
 http_duration = Histogram(
-    'http_request_duration_seconds',
-    'HTTP request duration',
-    ['method', 'path']
+  'http_request_duration_seconds',
+  'HTTP request duration',
+  ['method', 'path']
 )
 
 @app.get("/metrics")
 def metrics():
-    return Response(generate_latest(), media_type="text/plain")
+  return Response(generate_latest(), media_type="text/plain")
 ```
 
 ## Quick Reference

@@ -268,21 +268,21 @@ from PIL import Image, ImageDraw
 
 # Circular crop (for logos on modern/clean styles)
 def crop_circle(input_path, output_path):
-    img = Image.open(input_path).convert('RGBA')
-    w, h = img.size
-    size = min(w, h)
-    left, top = (w - size) // 2, (h - size) // 2
-    img = img.crop((left, top, left + size, top + size))
-    mask = Image.new('L', (size, size), 0)
-    ImageDraw.Draw(mask).ellipse([0, 0, size, size], fill=255)
-    img.putalpha(mask)
-    img.save(output_path, 'PNG')
+  img = Image.open(input_path).convert('RGBA')
+  w, h = img.size
+  size = min(w, h)
+  left, top = (w - size) // 2, (h - size) // 2
+  img = img.crop((left, top, left + size, top + size))
+  mask = Image.new('L', (size, size), 0)
+  ImageDraw.Draw(mask).ellipse([0, 0, size, size], fill=255)
+  img.putalpha(mask)
+  img.save(output_path, 'PNG')
 
 # Resize (for oversized images that inflate HTML)
 def resize_max(input_path, output_path, max_dim=1200):
-    img = Image.open(input_path)
-    img.thumbnail((max_dim, max_dim), Image.LANCZOS)
-    img.save(output_path, quality=85)
+  img = Image.open(input_path)
+  img.thumbnail((max_dim, max_dim), Image.LANCZOS)
+  img.save(output_path, quality=85)
 ```
 
 | Situation | Operation |

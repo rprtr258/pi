@@ -39,43 +39,43 @@ Applies to any task involving code documentation, API specs, or developer-facing
 ### Google-style Docstring (Python)
 ```python
 def fetch_user(user_id: int, active_only: bool = True) -> dict:
-    """Fetch a single user record by ID.
+  """Fetch a single user record by ID.
 
-    Args:
-        user_id: Unique identifier for the user.
-        active_only: When True, raise an error for inactive users.
+  Args:
+    user_id: Unique identifier for the user.
+    active_only: When True, raise an error for inactive users.
 
-    Returns:
-        A dict containing user fields (id, name, email, created_at).
+  Returns:
+    A dict containing user fields (id, name, email, created_at).
 
-    Raises:
-        ValueError: If user_id is not a positive integer.
-        UserNotFoundError: If no matching user exists.
-    """
+  Raises:
+    ValueError: If user_id is not a positive integer.
+    UserNotFoundError: If no matching user exists.
+  """
 ```
 
 ### NumPy-style Docstring (Python)
 ```python
 def compute_similarity(vec_a: np.ndarray, vec_b: np.ndarray) -> float:
-    """Compute cosine similarity between two vectors.
+  """Compute cosine similarity between two vectors.
 
-    Parameters
-    ----------
-    vec_a : np.ndarray
-        First input vector, shape (n,).
-    vec_b : np.ndarray
-        Second input vector, shape (n,).
+  Parameters
+  ----------
+  vec_a : np.ndarray
+    First input vector, shape (n,).
+  vec_b : np.ndarray
+    Second input vector, shape (n,).
 
-    Returns
-    -------
-    float
-        Cosine similarity in the range [-1, 1].
+  Returns
+  -------
+  float
+    Cosine similarity in the range [-1, 1].
 
-    Raises
-    ------
-    ValueError
-        If vectors have different lengths.
-    """
+  Raises
+  ------
+  ValueError
+    If vectors have different lengths.
+  """
 ```
 
 ### JSDoc (TypeScript)

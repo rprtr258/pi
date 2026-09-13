@@ -213,17 +213,17 @@ from contextvars import ContextVar
 correlation_id_var = ContextVar('correlation_id', default=None)
 
 class CorrelationIdFilter(logging.Filter):
-    def filter(self, record):
-        record.correlation_id = correlation_id_var.get()
-        return True
+  def filter(self, record):
+    record.correlation_id = correlation_id_var.get()
+    return True
 
 # Middleware
 async def correlation_middleware(request, call_next):
-    correlation_id = request.headers.get('X-Correlation-ID', str(uuid4()))
-    correlation_id_var.set(correlation_id)
-    response = await call_next(request)
-    response.headers['X-Correlation-ID'] = correlation_id
-    return response
+  correlation_id = request.headers.get('X-Correlation-ID', str(uuid4()))
+  correlation_id_var.set(correlation_id)
+  response = await call_next(request)
+  response.headers['X-Correlation-ID'] = correlation_id
+  return response
 ```
 
 **Log Aggregation:**
@@ -317,8 +317,8 @@ from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 # Setup tracing
 provider = TracerProvider()
 jaeger_exporter = JaegerExporter(
-    agent_host_name="jaeger",
-    agent_port=6831
+  agent_host_name="jaeger",
+  agent_port=6831
 )
 provider.add_span_processor(BatchSpanProcessor(jaeger_exporter))
 trace.set_tracer_provider(provider)
@@ -331,20 +331,20 @@ FastAPIInstrumentor.instrument_app(app)
 tracer = trace.get_tracer(__name__)
 
 async def create_order(order_data):
-    with tracer.start_as_current_span("create_order") as span:
-        span.set_attribute("order.items_count", len(order_data.items))
-        span.set_attribute("order.total", order_data.total)
+  with tracer.start_as_current_span("create_order") as span:
+    span.set_attribute("order.items_count", len(order_data.items))
+    span.set_attribute("order.total", order_data.total)
 
-        # Database operation
-        with tracer.start_as_current_span("db.insert_order"):
-            order_id = await db.insert_order(order_data)
+    # Database operation
+    with tracer.start_as_current_span("db.insert_order"):
+      order_id = await db.insert_order(order_data)
 
-        # Call payment service
-        with tracer.start_as_current_span("http.payment_service") as payment_span:
-            payment_span.set_attribute("http.url", f"{PAYMENT_URL}/payments")
-            result = await payment_service.charge(order_id, order_data.total)
+    # Call payment service
+    with tracer.start_as_current_span("http.payment_service") as payment_span:
+      payment_span.set_attribute("http.url", f"{PAYMENT_URL}/payments")
+      result = await payment_service.charge(order_id, order_data.total)
 
-        return order_id
+    return order_id
 ```
 
 **Trace Visualization:**
@@ -371,28 +371,28 @@ Problem: Tracing every request is expensive
 Solutions:
 
 1. Probabilistic Sampling:
-   - Trace 1% of requests
-   - Good for high-volume services
+  - Trace 1% of requests
+  - Good for high-volume services
 
 2. Rate Limiting Sampling:
-   - Max 100 traces per second
-   - Prevents overwhelming trace backend
+  - Max 100 traces per second
+  - Prevents overwhelming trace backend
 
 3. Tail-Based Sampling:
-   - Trace all errors
-   - Trace slow requests (>5s)
-   - Sample 1% of fast successful requests
+  - Trace all errors
+  - Trace slow requests (>5s)
+  - Sample 1% of fast successful requests
 
 4. Priority Sampling:
-   - Always trace premium users
-   - Always trace critical endpoints
-   - Sample others
+  - Always trace premium users
+  - Always trace critical endpoints
+  - Sample others
 
 Implementation:
 from opentelemetry.sdk.trace.sampling import (
-    ParentBasedTraceIdRatioBased,
-    ALWAYS_ON,
-    ALWAYS_OFF
+  ParentBasedTraceIdRatioBased,
+  ALWAYS_ON,
+  ALWAYS_OFF
 )
 
 # Sample 1% of traces
@@ -400,17 +400,17 @@ sampler = ParentBasedTraceIdRatioBased(0.01)
 
 # Or custom sampler
 class CustomSampler:
-    def should_sample(self, context, trace_id, name, attributes):
-        # Always sample errors
-        if attributes.get("http.status_code", 0) >= 500:
-            return ALWAYS_ON
+  def should_sample(self, context, trace_id, name, attributes):
+    # Always sample errors
+    if attributes.get("http.status_code", 0) >= 500:
+      return ALWAYS_ON
 
-        # Always sample slow requests
-        if attributes.get("duration_ms", 0) > 5000:
-            return ALWAYS_ON
+    # Always sample slow requests
+    if attributes.get("duration_ms", 0) > 5000:
+      return ALWAYS_ON
 
-        # Sample 1% of others
-        return ParentBasedTraceIdRatioBased(0.01).should_sample(...)
+    # Sample 1% of others
+    return ParentBasedTraceIdRatioBased(0.01).should_sample(...)
 ```
 
 ## Service Level Objectives (SLOs)
@@ -483,22 +483,22 @@ Benefits:
 ```
 # SLI: Availability
 availability_sli = (
-    sum(rate(http_requests_total{status!~"5.."}[30d]))
-    /
-    sum(rate(http_requests_total[30d]))
+  sum(rate(http_requests_total{status!~"5.."}[30d]))
+  /
+  sum(rate(http_requests_total[30d]))
 ) * 100
 
 # SLI: Latency
 latency_sli = histogram_quantile(
-    0.99,
-    rate(http_request_duration_seconds_bucket[30d])
+  0.99,
+  rate(http_request_duration_seconds_bucket[30d])
 )
 
 # Error Budget
 error_budget_remaining = (
-    1 - (target_slo / 100)
+  1 - (target_slo / 100)
 ) - (
-    1 - (availability_sli / 100)
+  1 - (availability_sli / 100)
 )
 
 Alert when error budget < 10%:
@@ -717,40 +717,40 @@ Cons:
 **Incident Response:**
 ```
 1. Detect (Alert fires)
-   - Check dashboard
-   - Verify alert is valid
-   - Assess impact
+  - Check dashboard
+  - Verify alert is valid
+  - Assess impact
 
 2. Triage (Determine severity)
-   - Critical: Page on-call
-   - Warning: Create ticket
-   - How many users affected?
-   - What functionality broken?
+  - Critical: Page on-call
+  - Warning: Create ticket
+  - How many users affected?
+  - What functionality broken?
 
 3. Investigate (Find root cause)
-   - Check recent deployments
-   - Review logs (search by correlation ID)
-   - Analyze traces (slow operations)
-   - Check metrics (resource saturation)
-   - Examine dependencies
+  - Check recent deployments
+  - Review logs (search by correlation ID)
+  - Analyze traces (slow operations)
+  - Check metrics (resource saturation)
+  - Examine dependencies
 
 4. Mitigate (Stop the bleeding)
-   - Rollback deployment
-   - Scale up resources
-   - Failover to backup
-   - Enable circuit breakers
-   - Rate limit traffic
+  - Rollback deployment
+  - Scale up resources
+  - Failover to backup
+  - Enable circuit breakers
+  - Rate limit traffic
 
 5. Resolve (Fix root cause)
-   - Deploy fix
-   - Verify resolution
-   - Monitor for recurrence
+  - Deploy fix
+  - Verify resolution
+  - Monitor for recurrence
 
 6. Post-mortem (Learn and improve)
-   - Timeline of events
-   - Root cause analysis
-   - Action items
-   - Update runbooks
+  - Timeline of events
+  - Root cause analysis
+  - Action items
+  - Update runbooks
 ```
 
 **Using Traces to Debug:**
@@ -758,28 +758,28 @@ Cons:
 Scenario: API returning 500 errors
 
 1. Find failing trace:
-   - Filter: status = error, service = api-gateway
-   - Sort by timestamp (most recent)
+  - Filter: status = error, service = api-gateway
+  - Sort by timestamp (most recent)
 
 2. Analyze span waterfall:
-   - Identify which service failed (order-service returned 500)
-   - Check error message in span
-   - Review span attributes
+  - Identify which service failed (order-service returned 500)
+  - Check error message in span
+  - Review span attributes
 
 3. Correlate with logs:
-   - Extract trace ID from failed trace
-   - Search logs: traceId:"trace-abc123"
-   - Find exception stack trace
+  - Extract trace ID from failed trace
+  - Search logs: traceId:"trace-abc123"
+  - Find exception stack trace
 
 4. Check related metrics:
-   - order-service error rate spiked 10 min ago
-   - Corresponds with deployment
-   - Likely cause: Bad deployment
+  - order-service error rate spiked 10 min ago
+  - Corresponds with deployment
+  - Likely cause: Bad deployment
 
 5. Remediate:
-   - Rollback order-service
-   - Verify errors stopped
-   - Create ticket for bug fix
+  - Rollback order-service
+  - Verify errors stopped
+  - Create ticket for bug fix
 ```
 
 ## Summary

@@ -173,12 +173,12 @@ Cons:
 OrderService maintains denormalized customer data:
 
 CREATE TABLE orders (
-    order_id UUID PRIMARY KEY,
-    customer_id UUID,
-    customer_name VARCHAR(255),  -- Denormalized
-    customer_email VARCHAR(255), -- Denormalized
-    order_total DECIMAL,
-    created_at TIMESTAMP
+  order_id UUID PRIMARY KEY,
+  customer_id UUID,
+  customer_name VARCHAR(255),  -- Denormalized
+  customer_email VARCHAR(255), -- Denormalized
+  order_total DECIMAL,
+  created_at TIMESTAMP
 );
 
 UserService publishes events:
@@ -189,10 +189,10 @@ UserService publishes events:
 OrderService subscribes and updates local copy:
 
 async def on_customer_updated(event):
-    await db.execute(
-        "UPDATE orders SET customer_name = $1, customer_email = $2 WHERE customer_id = $3",
-        event.name, event.email, event.customer_id
-    )
+  await db.execute(
+    "UPDATE orders SET customer_name = $1, customer_email = $2 WHERE customer_id = $3",
+    event.name, event.email, event.customer_id
+  )
 
 Pros:
 - Fast queries (no joins across services)
@@ -217,13 +217,13 @@ Read Model (Query Side):
 
 Example Read Model:
 CREATE TABLE order_details_view (
-    order_id UUID,
-    customer_id UUID,
-    customer_name VARCHAR(255),
-    customer_email VARCHAR(255),
-    items JSONB,
-    order_total DECIMAL,
-    order_status VARCHAR(50)
+  order_id UUID,
+  customer_id UUID,
+  customer_name VARCHAR(255),
+  customer_email VARCHAR(255),
+  items JSONB,
+  order_total DECIMAL,
+  order_status VARCHAR(50)
 );
 
 Pros:
@@ -293,24 +293,24 @@ Compensations:
 
 Saga Orchestrator:
 saga_state = {
-    "saga_id": "saga-123",
-    "status": "in_progress",
-    "steps_completed": []
+  "saga_id": "saga-123",
+  "status": "in_progress",
+  "steps_completed": []
 }
 
 # Step 1
 result1 = await account_service.debit(account_a, 100)
 if not result1.success:
-    return fail_saga("Insufficient funds")
+  return fail_saga("Insufficient funds")
 
 saga_state["steps_completed"].append("debit_a")
 
 # Step 2
 result2 = await account_service.credit(account_b, 100)
 if not result2.success:
-    # Compensate step 1
-    await account_service.credit(account_a, 100)
-    return fail_saga("Account B invalid")
+  # Compensate step 1
+  await account_service.credit(account_a, 100)
+  return fail_saga("Account B invalid")
 
 saga_state["status"] = "completed"
 return success_saga()
@@ -319,23 +319,23 @@ return success_saga()
 **Saga State Persistence:**
 ```
 CREATE TABLE saga_state (
-    saga_id UUID PRIMARY KEY,
-    saga_type VARCHAR(50),
-    current_step INTEGER,
-    max_steps INTEGER,
-    status VARCHAR(20),
-    payload JSONB,
-    steps_completed JSONB,
-    created_at TIMESTAMP,
-    updated_at TIMESTAMP
+  saga_id UUID PRIMARY KEY,
+  saga_type VARCHAR(50),
+  current_step INTEGER,
+  max_steps INTEGER,
+  status VARCHAR(20),
+  payload JSONB,
+  steps_completed JSONB,
+  created_at TIMESTAMP,
+  updated_at TIMESTAMP
 );
 
 After each step:
 UPDATE saga_state
 SET
-    current_step = current_step + 1,
-    steps_completed = jsonb_array_append(steps_completed, 'step_name'),
-    updated_at = NOW()
+  current_step = current_step + 1,
+  steps_completed = jsonb_array_append(steps_completed, 'step_name'),
+  updated_at = NOW()
 WHERE saga_id = $1;
 
 On failure, load saga state and execute compensations
@@ -347,34 +347,34 @@ Each saga step must be idempotent:
 
 Debit Operation:
 async def debit_account(account_id, amount, saga_id):
-    # Check if already processed
-    existing = await db.fetchone(
-        "SELECT * FROM transactions WHERE saga_id = $1 AND operation = 'debit'",
-        saga_id
-    )
-    if existing:
-        return {"success": True, "transaction_id": existing.id}
+  # Check if already processed
+  existing = await db.fetchone(
+    "SELECT * FROM transactions WHERE saga_id = $1 AND operation = 'debit'",
+    saga_id
+  )
+  if existing:
+    return {"success": True, "transaction_id": existing.id}
 
-    # Process debit
-    result = await db.execute(
-        "UPDATE accounts SET balance = balance - $1 WHERE id = $2 AND balance >= $1",
-        amount, account_id
-    )
+  # Process debit
+  result = await db.execute(
+    "UPDATE accounts SET balance = balance - $1 WHERE id = $2 AND balance >= $1",
+    amount, account_id
+  )
 
-    if result.rowcount == 0:
-        return {"success": False, "error": "Insufficient funds"}
+  if result.rowcount == 0:
+    return {"success": False, "error": "Insufficient funds"}
 
-    # Record transaction
-    await db.execute(
-        "INSERT INTO transactions (saga_id, account_id, amount, operation) VALUES ($1, $2, $3, 'debit')",
-        saga_id, account_id, amount
-    )
+  # Record transaction
+  await db.execute(
+    "INSERT INTO transactions (saga_id, account_id, amount, operation) VALUES ($1, $2, $3, 'debit')",
+    saga_id, account_id, amount
+  )
 
-    return {"success": True}
+  return {"success": True}
 
 Compensating Operation:
 async def compensate_debit(account_id, amount, saga_id):
-    await credit_account(account_id, amount, saga_id)
+  await credit_account(account_id, amount, saga_id)
 ```
 
 ## Event Sourcing
@@ -495,12 +495,12 @@ Version 2 (added customer email):
 
 Event Handler:
 def handle_order_placed(event):
-    if event.eventVersion == "1.0":
-        # Handle old format
-        process_order_v1(event.payload)
-    elif event.eventVersion == "2.0":
-        # Handle new format
-        process_order_v2(event.payload)
+  if event.eventVersion == "1.0":
+    # Handle old format
+    process_order_v1(event.payload)
+  elif event.eventVersion == "2.0":
+    # Handle new format
+    process_order_v2(event.payload)
 ```
 
 **2. Event Upcasting:**
@@ -508,17 +508,17 @@ def handle_order_placed(event):
 Transform old events to new format during replay:
 
 def upcast_event(event):
-    if event.eventType == "OrderPlaced" and event.eventVersion == "1.0":
-        # Transform to v2.0
-        return {
-            "eventType": "OrderPlaced",
-            "eventVersion": "2.0",
-            "payload": {
-                **event.payload,
-                "customerEmail": "unknown@example.com"  # Default value
-            }
-        }
-    return event
+  if event.eventType == "OrderPlaced" and event.eventVersion == "1.0":
+    # Transform to v2.0
+    return {
+      "eventType": "OrderPlaced",
+      "eventVersion": "2.0",
+      "payload": {
+        **event.payload,
+        "customerEmail": "unknown@example.com"  # Default value
+      }
+    }
+  return event
 ```
 
 **3. Event Transformation:**
@@ -603,28 +603,28 @@ Events:
 
 Materialized View:
 CREATE TABLE order_summary (
-    order_id UUID PRIMARY KEY,
-    customer_id UUID,
-    customer_name VARCHAR(255),
-    order_date TIMESTAMP,
-    total_amount DECIMAL,
-    status VARCHAR(50),
-    items_count INTEGER,
-    last_updated TIMESTAMP
+  order_id UUID PRIMARY KEY,
+  customer_id UUID,
+  customer_name VARCHAR(255),
+  order_date TIMESTAMP,
+  total_amount DECIMAL,
+  status VARCHAR(50),
+  items_count INTEGER,
+  last_updated TIMESTAMP
 );
 
 View Service:
 async def on_order_created(event):
-    await db.execute(
-        "INSERT INTO order_summary (order_id, customer_id, status, ...) VALUES (...)",
-        event.data
-    )
+  await db.execute(
+    "INSERT INTO order_summary (order_id, customer_id, status, ...) VALUES (...)",
+    event.data
+  )
 
 async def on_order_shipped(event):
-    await db.execute(
-        "UPDATE order_summary SET status = 'shipped', last_updated = NOW() WHERE order_id = $1",
-        event.order_id
-    )
+  await db.execute(
+    "UPDATE order_summary SET status = 'shipped', last_updated = NOW() WHERE order_id = $1",
+    event.order_id
+  )
 ```
 
 ## Data Partitioning

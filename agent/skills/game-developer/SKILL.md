@@ -10,7 +10,6 @@ metadata:
   role: specialist
   scope: implementation
   output-format: code
-  related-skills: 
 ---
 
 # Game Developer

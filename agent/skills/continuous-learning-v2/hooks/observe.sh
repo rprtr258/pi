@@ -285,32 +285,32 @@ import json, sys, os, re
 
 parsed = json.load(sys.stdin)
 observation = {
-    "timestamp": os.environ["TIMESTAMP"],
-    "event": parsed["event"],
-    "tool": parsed["tool"],
-    "session": parsed["session"],
-    "project_id": os.environ.get("PROJECT_ID_ENV", "global"),
-    "project_name": os.environ.get("PROJECT_NAME_ENV", "global")
+  "timestamp": os.environ["TIMESTAMP"],
+  "event": parsed["event"],
+  "tool": parsed["tool"],
+  "session": parsed["session"],
+  "project_id": os.environ.get("PROJECT_ID_ENV", "global"),
+  "project_name": os.environ.get("PROJECT_NAME_ENV", "global")
 }
 
 # Scrub secrets: match common key=value, key: value, and key"value patterns
 # Includes optional auth scheme (e.g., "Bearer", "Basic") before token
 _SECRET_RE = re.compile(
-    r"(?i)(api[_-]?key|token|secret|password|authorization|credentials?|auth)"
-    r"""(["'"'"'\s:=]+)"""
-    r"([A-Za-z]+\s+)?"
-    r"([A-Za-z0-9_\-/.+=]{8,})"
+  r"(?i)(api[_-]?key|token|secret|password|authorization|credentials?|auth)"
+  r"""(["'"'"'\s:=]+)"""
+  r"([A-Za-z]+\s+)?"
+  r"([A-Za-z0-9_\-/.+=]{8,})"
 )
 
 def scrub(val):
-    if val is None:
-        return None
-    return _SECRET_RE.sub(lambda m: m.group(1) + m.group(2) + (m.group(3) or "") + "[REDACTED]", str(val))
+  if val is None:
+    return None
+  return _SECRET_RE.sub(lambda m: m.group(1) + m.group(2) + (m.group(3) or "") + "[REDACTED]", str(val))
 
 if parsed["input"]:
-    observation["input"] = scrub(parsed["input"])
+  observation["input"] = scrub(parsed["input"])
 if parsed["output"] is not None:
-    observation["output"] = scrub(parsed["output"])
+  observation["output"] = scrub(parsed["output"])
 
 print(json.dumps(observation))
 ' >> "$OBSERVATIONS_FILE"

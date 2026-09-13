@@ -69,15 +69,15 @@ breaker = pybreaker.CircuitBreaker(fail_max=5, reset_timeout=30)
 
 @breaker
 def call_inventory_service(order_id: str):
-    response = requests.get(f"{INVENTORY_URL}/stock/{order_id}", timeout=2)
-    response.raise_for_status()
-    return response.json()
+  response = requests.get(f"{INVENTORY_URL}/stock/{order_id}", timeout=2)
+  response.raise_for_status()
+  return response.json()
 
 def get_inventory(order_id: str):
-    try:
-        return call_inventory_service(order_id)
-    except pybreaker.CircuitBreakerError:
-        return {"status": "unavailable", "fallback": True}
+  try:
+    return call_inventory_service(order_id)
+  except pybreaker.CircuitBreakerError:
+    return {"status": "unavailable", "fallback": True}
 ```
 
 ### Saga Orchestration Skeleton (TypeScript)
@@ -125,7 +125,7 @@ readinessProbe:
   initialDelaySeconds: 5
   periodSeconds: 10
 ```
-`/health/live` — returns 200 if the process is running.  
+`/health/live` — returns 200 if the process is running.
 `/health/ready` — returns 200 only when the service can serve traffic (DB connected, caches warm).
 
 ## Constraints

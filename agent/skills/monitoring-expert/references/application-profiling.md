@@ -92,19 +92,19 @@ import pstats
 
 # Profile a function
 def main():
-    # Your code here
-    process_data()
+  # Your code here
+  process_data()
 
 if __name__ == '__main__':
-    profiler = cProfile.Profile()
-    profiler.enable()
+  profiler = cProfile.Profile()
+  profiler.enable()
 
-    main()
+  main()
 
-    profiler.disable()
-    stats = pstats.Stats(profiler)
-    stats.sort_stats('cumulative')
-    stats.print_stats(20)  # Top 20 functions
+  profiler.disable()
+  stats = pstats.Stats(profiler)
+  stats.sort_stats('cumulative')
+  stats.print_stats(20)  # Top 20 functions
 ```
 
 ### Line Profiler
@@ -114,11 +114,11 @@ from line_profiler import LineProfiler
 
 @profile
 def expensive_function():
-    # Code to profile
-    result = []
-    for i in range(10000):
-        result.append(i ** 2)
-    return result
+  # Code to profile
+  result = []
+  for i in range(10000):
+    result.append(i ** 2)
+  return result
 
 # Run with: kernprof -l -v script.py
 ```
@@ -130,9 +130,9 @@ from memory_profiler import profile
 
 @profile
 def process_large_data():
-    data = [i for i in range(1000000)]
-    result = [x * 2 for x in data]
-    return result
+  data = [i for i in range(1000000)]
+  result = [x * 2 for x in data]
+  return result
 
 # Run with: python -m memory_profiler script.py
 ```
@@ -156,18 +156,18 @@ py-spy record -o profile.svg --duration 60 -- python app.py
 
 ```go
 import (
-    "net/http"
-    _ "net/http/pprof"
-    "runtime"
+  "net/http"
+  _ "net/http/pprof"
+  "runtime"
 )
 
 func main() {
-    // Enable profiling endpoint
-    go func() {
-        http.ListenAndServe("localhost:6060", nil)
-    }()
+  // Enable profiling endpoint
+  go func() {
+    http.ListenAndServe("localhost:6060", nil)
+  }()
 
-    // Your application code
+  // Your application code
 }
 ```
 

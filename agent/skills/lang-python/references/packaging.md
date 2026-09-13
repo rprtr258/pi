@@ -241,8 +241,8 @@ __version__: str
 def main_function(arg: str) -> dict[str, Any]: ...
 
 class CoreClass:
-    def __init__(self, name: str) -> None: ...
-    def process(self) -> str: ...
+  def __init__(self, name: str) -> None: ...
+  def process(self) -> str: ...
 ```
 
 ## CLI Entry Points
@@ -253,12 +253,12 @@ import sys
 from typing import NoReturn
 
 def main() -> NoReturn:
-    """Main CLI entry point."""
-    print("MyProject CLI")
-    sys.exit(0)
+  """Main CLI entry point."""
+  print("MyProject CLI")
+  sys.exit(0)
 
 if __name__ == "__main__":
-    main()
+  main()
 ```
 
 ## Requirements Files
@@ -357,10 +357,10 @@ import tomli
 from pathlib import Path
 
 def get_version() -> str:
-    pyproject = Path(__file__).parent.parent / "pyproject.toml"
-    with open(pyproject, "rb") as f:
-        data = tomli.load(f)
-    return data["project"]["version"]
+  pyproject = Path(__file__).parent.parent / "pyproject.toml"
+  with open(pyproject, "rb") as f:
+    data = tomli.load(f)
+  return data["project"]["version"]
 ```
 
 ## Dependency Management Best Practices

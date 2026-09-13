@@ -139,30 +139,30 @@ scenarios:
 from locust import HttpUser, task, between
 
 class WebsiteUser(HttpUser):
-    wait_time = between(1, 3)
+  wait_time = between(1, 3)
 
-    @task(3)
-    def view_products(self):
-        self.client.get("/products")
+  @task(3)
+  def view_products(self):
+    self.client.get("/products")
 
-    @task(1)
-    def view_product(self):
-        product_id = random.randint(1, 100)
-        self.client.get(f"/products/{product_id}")
+  @task(1)
+  def view_product(self):
+    product_id = random.randint(1, 100)
+    self.client.get(f"/products/{product_id}")
 
-    @task(1)
-    def create_order(self):
-        self.client.post("/orders", json={
-            "product_id": random.randint(1, 100),
-            "quantity": random.randint(1, 5)
-        })
+  @task(1)
+  def create_order(self):
+    self.client.post("/orders", json={
+      "product_id": random.randint(1, 100),
+      "quantity": random.randint(1, 5)
+    })
 
-    def on_start(self):
-        # Login or setup
-        self.client.post("/login", json={
-            "username": "test",
-            "password": "test"
-        })
+  def on_start(self):
+    # Login or setup
+    self.client.post("/login", json={
+      "username": "test",
+      "password": "test"
+    })
 ```
 
 ## JMeter Thread Groups

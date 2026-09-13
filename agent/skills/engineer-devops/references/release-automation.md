@@ -81,14 +81,14 @@ import launchdarkly
 ld = launchdarkly.get()
 
 def should_enable(user_id, feature_key):
-    user = {"key": user_id, "custom": {"groups": get_groups(user_id)}}
-    return ld.variation(feature_key, user, False)
+  user = {"key": user_id, "custom": {"groups": get_groups(user_id)}}
+  return ld.variation(feature_key, user, False)
 
 # Usage
 if should_enable(user.id, "new-payment-flow"):
-    return new_payment_service.process(payment)
+  return new_payment_service.process(payment)
 else:
-    return legacy_payment_service.process(payment)
+  return legacy_payment_service.process(payment)
 ```
 
 ### Flagger Progressive Delivery
@@ -448,24 +448,24 @@ from alembic import op
 import sqlalchemy as sa
 
 def upgrade():
-    # Step 1: Add new column (nullable)
-    op.add_column('users',
-      sa.Column('email_verified', sa.Boolean(), nullable=True))
+  # Step 1: Add new column (nullable)
+  op.add_column('users',
+    sa.Column('email_verified', sa.Boolean(), nullable=True))
 
-    # Step 2: Backfill data (in batches)
-    connection = op.get_bind()
-    connection.execute("""
-      UPDATE users SET email_verified = true
-      WHERE email IS NOT NULL
-      LIMIT 1000
-    """)
-    # Repeat until complete (or use background job)
+  # Step 2: Backfill data (in batches)
+  connection = op.get_bind()
+  connection.execute("""
+    UPDATE users SET email_verified = true
+    WHERE email IS NOT NULL
+    LIMIT 1000
+  """)
+  # Repeat until complete (or use background job)
 
-    # Step 3: Make non-nullable (in next release)
-    # op.alter_column('users', 'email_verified', nullable=False)
+  # Step 3: Make non-nullable (in next release)
+  # op.alter_column('users', 'email_verified', nullable=False)
 
 def downgrade():
-    op.drop_column('users', 'email_verified')
+  op.drop_column('users', 'email_verified')
 ```
 
 ## Release Metrics Dashboard

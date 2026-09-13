@@ -36,29 +36,29 @@ Configuration:
 ```python
 # Using resilience4j-like pattern
 @CircuitBreaker(
-    name="payment-service",
-    fallbackMethod="paymentFallback",
-    failureThreshold=50,
-    waitDurationInOpenState=30000,  # 30s
-    permittedNumberOfCallsInHalfOpenState=3
+  name="payment-service",
+  fallbackMethod="paymentFallback",
+  failureThreshold=50,
+  waitDurationInOpenState=30000,  # 30s
+  permittedNumberOfCallsInHalfOpenState=3
 )
 async def process_payment(order_id: str, amount: float):
-    async with httpx.AsyncClient() as client:
-        response = await client.post(
-            f"{PAYMENT_SERVICE_URL}/payments",
-            json={"orderId": order_id, "amount": amount},
-            timeout=5.0
-        )
-        return response.json()
+  async with httpx.AsyncClient() as client:
+    response = await client.post(
+      f"{PAYMENT_SERVICE_URL}/payments",
+      json={"orderId": order_id, "amount": amount},
+      timeout=5.0
+    )
+    return response.json()
 
 async def paymentFallback(order_id: str, amount: float, exception):
-    # Log the failure
-    logger.error(f"Payment service unavailable: {exception}")
-    # Return graceful degradation
-    return {
-        "status": "pending",
-        "message": "Payment processing delayed, will retry"
-    }
+  # Log the failure
+  logger.error(f"Payment service unavailable: {exception}")
+  # Return graceful degradation
+  return {
+    "status": "pending",
+    "message": "Payment processing delayed, will retry"
+  }
 ```
 
 **When to Use:**
@@ -200,18 +200,18 @@ If tenant-a floods the system:
 ```python
 # Using semaphores for concurrency limits
 class BulkheadExecutor:
-    def __init__(self):
-        self.payment_semaphore = asyncio.Semaphore(20)
-        self.inventory_semaphore = asyncio.Semaphore(20)
-        self.notification_semaphore = asyncio.Semaphore(10)
+  def __init__(self):
+    self.payment_semaphore = asyncio.Semaphore(20)
+    self.inventory_semaphore = asyncio.Semaphore(20)
+    self.notification_semaphore = asyncio.Semaphore(10)
 
-    async def call_payment_service(self, data):
-        async with self.payment_semaphore:
-            return await payment_service.call(data)
+  async def call_payment_service(self, data):
+    async with self.payment_semaphore:
+      return await payment_service.call(data)
 
-    async def call_inventory_service(self, data):
-        async with self.inventory_semaphore:
-            return await inventory_service.call(data)
+  async def call_inventory_service(self, data):
+    async with self.inventory_semaphore:
+      return await inventory_service.call(data)
 ```
 
 ### Timeout Pattern
@@ -320,18 +320,18 @@ Saga Steps:
 Orchestrator Logic:
 step1_result = await order_service.create_order()
 if not step1_result.success:
-    return failure("Order creation failed")
+  return failure("Order creation failed")
 
 step2_result = await payment_service.charge(amount)
 if not step2_result.success:
-    await order_service.cancel_order(step1_result.order_id)
-    return failure("Payment failed")
+  await order_service.cancel_order(step1_result.order_id)
+  return failure("Payment failed")
 
 step3_result = await inventory_service.reserve(items)
 if not step3_result.success:
-    await payment_service.refund(step2_result.payment_id)
-    await order_service.cancel_order(step1_result.order_id)
-    return failure("Inventory unavailable")
+  await payment_service.refund(step2_result.payment_id)
+  await order_service.cancel_order(step1_result.order_id)
+  return failure("Inventory unavailable")
 
 # Continue saga...
 
@@ -351,13 +351,13 @@ Cons:
 Persist saga state to handle failures:
 
 CREATE TABLE saga_instances (
-    saga_id UUID PRIMARY KEY,
-    saga_type VARCHAR(50),
-    current_step VARCHAR(50),
-    status VARCHAR(20),
-    payload JSONB,
-    created_at TIMESTAMP,
-    updated_at TIMESTAMP
+  saga_id UUID PRIMARY KEY,
+  saga_type VARCHAR(50),
+  current_step VARCHAR(50),
+  status VARCHAR(20),
+  payload JSONB,
+  created_at TIMESTAMP,
+  updated_at TIMESTAMP
 );
 
 On orchestrator restart:
@@ -519,23 +519,23 @@ For slow-starting applications:
 ```python
 @app.get("/health/live")
 async def liveness():
-    return {"status": "alive"}
+  return {"status": "alive"}
 
 @app.get("/health/ready")
 async def readiness():
-    checks = {
-        "database": await check_database(),
-        "cache": await check_cache(),
-        "payment_service": await check_payment_service()
-    }
+  checks = {
+    "database": await check_database(),
+    "cache": await check_cache(),
+    "payment_service": await check_payment_service()
+  }
 
-    all_healthy = all(checks.values())
-    status_code = 200 if all_healthy else 503
+  all_healthy = all(checks.values())
+  status_code = 200 if all_healthy else 503
 
-    return JSONResponse(
-        status_code=status_code,
-        content={"status": "ready" if all_healthy else "not ready", "checks": checks}
-    )
+  return JSONResponse(
+    status_code=status_code,
+    content={"status": "ready" if all_healthy else "not ready", "checks": checks}
+  )
 ```
 
 ### Graceful Degradation
@@ -547,35 +547,35 @@ async def readiness():
 **1. Cached Responses:**
 ```
 async def get_product_recommendations(user_id):
-    try:
-        async with circuit_breaker:
-            return await ml_service.get_recommendations(user_id)
-    except ServiceUnavailable:
-        # Fallback to cached popular products
-        return await cache.get_popular_products()
+  try:
+    async with circuit_breaker:
+      return await ml_service.get_recommendations(user_id)
+  except ServiceUnavailable:
+    # Fallback to cached popular products
+    return await cache.get_popular_products()
 ```
 
 **2. Default Values:**
 ```
 async def get_user_preferences(user_id):
-    try:
-        return await preferences_service.get(user_id)
-    except ServiceUnavailable:
-        # Return sensible defaults
-        return {
-            "language": "en",
-            "currency": "USD",
-            "theme": "light"
-        }
+  try:
+    return await preferences_service.get(user_id)
+  except ServiceUnavailable:
+    # Return sensible defaults
+    return {
+      "language": "en",
+      "currency": "USD",
+      "theme": "light"
+    }
 ```
 
 **3. Feature Toggles:**
 ```
 if feature_flags.is_enabled("personalized_recommendations"):
-    recommendations = await ml_service.get_recommendations()
+  recommendations = await ml_service.get_recommendations()
 else:
-    # Fallback to simple algorithm
-    recommendations = await get_popular_products()
+  # Fallback to simple algorithm
+  recommendations = await get_popular_products()
 ```
 
 ## Summary
