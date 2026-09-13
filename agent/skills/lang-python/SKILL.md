@@ -1,5 +1,5 @@
 ---
-name: python-pro
+name: lang-python
 description: Use when building Python 3.11+ applications requiring type safety, async programming, or robust error handling. Generates type-annotated Python code, configures mypy in strict mode, writes pytest test suites with fixtures and mocking, and validates code with black and ruff. Invoke for type hints, async/await patterns, dataclasses, dependency injection, logging configuration, and structured error handling.
 license: MIT
 metadata:
@@ -46,8 +46,9 @@ Load detailed guidance based on context:
 | Type System | `references/type-system.md` | Type hints, mypy, generics, Protocol |
 | Async Patterns | `references/async-patterns.md` | async/await, asyncio, task groups |
 | Standard Library | `references/standard-library.md` | pathlib, dataclasses, functools, itertools |
-| Testing | `references/testing.md` | pytest, fixtures, mocking, parametrize |
+| Testing | `references/testing.md` | TDD, pytest, fixtures, parametrize, mocking, async, coverage, property-based |
 | Packaging | `references/packaging.md` | poetry, pip, pyproject.toml, distribution |
+| Python Patterns | `references/patterns.md` | idiomatic patterns, EAFP, decorators, concurrency, __slots__ |
 
 ## Constraints
 
