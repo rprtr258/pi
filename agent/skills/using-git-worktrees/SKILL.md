@@ -1,6 +1,6 @@
 ---
 name: using-git-worktrees
-description: Use when starting feature work that needs isolation from current workspace or before executing implementation plans - creates isolated git worktrees with smart directory selection and safety verification
+description: Use when starting feature work that needs isolation from current workspace, before executing implementation plans, or when asked to open a new worktree, work in a separate tree, compare a worktree to main, create a PR from a worktree, merge changes back, or delete a worktree - creates isolated git worktrees (via ~/.scripts/worktree when available) with smart directory selection and safety verification
 ---
 
 # Using Git Worktrees
@@ -12,6 +12,44 @@ Git worktrees create isolated workspaces sharing the same repository, allowing w
 **Core principle:** Systematic directory selection + safety verification = reliable isolation.
 
 **Announce at start:** "I'm using the using-git-worktrees skill to set up an isolated workspace."
+
+## Script Workflow (preferred when available)
+
+If `~/.scripts/worktree` exists, use it for the standard worktree workflow instead of manual commands.
+
+Create a new worktree folder:
+
+```bash
+~/.scripts/worktree new "feature description"
+```
+
+Set up a worktree after creation:
+
+```bash
+~/.scripts/worktree setup <worktree-directory>
+```
+
+Open a worktree in tmuxinator:
+
+```bash
+~/.scripts/worktree open <worktree-directory>
+```
+
+Delete a worktree:
+
+```bash
+~/.scripts/worktree destroy <worktree-directory>
+```
+
+Typical agent flow:
+
+```bash
+~/.scripts/worktree new "improve login flow"
+~/.scripts/worktree setup 26-03-improve-login-flow
+cd worktrees/26-03-improve-login-flow
+```
+
+If the script does not exist, use the manual workflow below.
 
 ## Directory Selection Process
 
@@ -205,6 +243,17 @@ Ready to implement auth feature
 - Verify directory is ignored for project-local
 - Auto-detect and run project setup
 - Verify clean test baseline
+
+## Notes for Agents
+
+- `worktree new` only creates the git worktree and branch. It does not start tmux or another agent.
+- Run `worktree setup` explicitly after creating the worktree.
+- In this project, `bin/worktree-setup` copies `config/master.key` and the SQLite development database from the main checkout before running `bin/rails db:prepare`.
+- When asked to create a PR, commit in the worktree, push the branch, then use the `gh` skill.
+- When asked to integrate directly into main, use a deliberate git workflow (usually a squash merge).
+- When asked to clean up, ensure no uncommitted work is being lost before destroying the worktree.
+- **`FIX:` comments**: Hans may leave `# FIX: ...` comments directly in source files while reviewing a diff. Always grep for these before starting work: `grep -r "FIX:" .` — address each one, then remove the comment.
+- **`worktree diff`** opens an interactive visual diff in the terminal (DiffView). Do **not** run it — it is a manual user command only.
 
 ## Integration
 
