@@ -71,7 +71,6 @@ db.query(query, [id]);
 - [x] Code is readable
 - [x] Tests are adequate
 - [x] Documentation is present
-```
 
 ## Verdict Guidelines
 

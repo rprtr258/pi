@@ -253,6 +253,50 @@ const response = await fetch(url, { signal });
 controller.abort();
 ```
 
+Handle the abort in the caller — a cancellation is not an error to report:
+
+```js
+try {
+  const response = await fetch(url, { signal });
+} catch (error) {
+  if (error.name === "AbortError") return; // cancelled by the user
+  throw error;
+}
+```
+
+## Promise Utilities
+
+Small promise helpers that come up constantly:
+
+```js
+const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const fetchWithTimeout = (url, timeout = 5000) => {
+  return Promise.race([
+    fetch(url),
+    delay(timeout).then(() => Promise.reject(new Error("Timeout"))),
+  ]);
+};
+```
+
+## Retry with Exponential Backoff
+
+For flaky operations (network calls), retry with capped exponential backoff:
+
+```js
+const retryWithBackoff = async (fn, maxRetries = 3) => {
+  for (let i = 0; i < maxRetries; i++) {
+    try {
+      return await fn();
+    } catch (error) {
+      if (i === maxRetries - 1) throw error;
+      const delay = Math.min(1000 * 2 ** i, 10000);
+      await new Promise((resolve) => setTimeout(resolve, delay));
+    }
+  }
+};
+```
+
 ## for-await-of
 
 Use `for await...of` with async iterables:
@@ -264,3 +308,160 @@ async function processStream(stream) {
   }
 }
 ```
+
+## Async Generators
+
+```javascript
+// Async generator for pagination
+async function* fetchPaginatedData(baseUrl) {
+  let page = 1;
+  let hasMore = true;
+
+  while (hasMore) {
+    const response = await fetch(`${baseUrl}?page=${page}`);
+    const data = await response.json();
+
+    yield data.items;
+
+    hasMore = data.hasMore;
+    page++;
+  }
+}
+
+// Usage
+for await (const items of fetchPaginatedData('/api/items')) {
+  processItems(items);
+}
+
+// Async generator with error handling
+async function* streamWithRetry(source) {
+  let retries = 3;
+
+  while (retries > 0) {
+    try {
+      for await (const chunk of source) {
+        yield chunk;
+      }
+      break;
+    } catch (error) {
+      retries--;
+      if (retries === 0) throw error;
+      await delay(1000);
+    }
+  }
+}
+```
+
+## Concurrent Queue Management
+
+```javascript
+// Limit concurrent operations
+class AsyncQueue {
+  #queue = [];
+  #running = 0;
+  #maxConcurrent;
+
+  constructor(maxConcurrent = 3) {
+    this.#maxConcurrent = maxConcurrent;
+  }
+
+  async run(fn) {
+    while (this.#running >= this.#maxConcurrent) {
+      await new Promise(resolve => this.#queue.push(resolve));
+    }
+
+    this.#running++;
+    try {
+      return await fn();
+    } finally {
+      this.#running--;
+      const resolve = this.#queue.shift();
+      if (resolve) resolve();
+    }
+  }
+}
+
+// Usage
+const queue = new AsyncQueue(2);
+const results = await Promise.all(
+  urls.map(url => queue.run(() => fetch(url)))
+);
+```
+
+## Event Loop Understanding
+
+```javascript
+// Microtasks vs Macrotasks
+console.log('1: Synchronous');
+
+setTimeout(() => console.log('2: Macrotask (setTimeout)'), 0);
+
+Promise.resolve().then(() => console.log('3: Microtask (Promise)'));
+
+queueMicrotask(() => console.log('4: Microtask (queueMicrotask)'));
+
+console.log('5: Synchronous');
+
+// Output order: 1, 5, 3, 4, 2
+
+// Avoid blocking the event loop
+const processLargeArray = async (items) => {
+  const results = [];
+  const chunkSize = 100;
+
+  for (let i = 0; i < items.length; i += chunkSize) {
+    const chunk = items.slice(i, i + chunkSize);
+    results.push(...chunk.map(processItem));
+
+    // Yield to event loop
+    await new Promise(resolve => setTimeout(resolve, 0));
+  }
+
+  return results;
+};
+```
+
+
+## Stream Processing
+
+```javascript
+// Process ReadableStream
+const processStream = async (url) => {
+  const response = await fetch(url);
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+
+  let result = '';
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    result += decoder.decode(value, { stream: true });
+  }
+
+  return result;
+};
+
+// Transform streams
+const transformStream = new TransformStream({
+  transform(chunk, controller) {
+    const transformed = chunk.toString().toUpperCase();
+    controller.enqueue(transformed);
+  }
+});
+
+const response = await fetch('/data');
+const transformed = response.body.pipeThrough(transformStream);
+```
+
+## Quick Reference
+
+| Pattern | Use Case | Example |
+|---------|----------|---------|
+| `Promise.all()` | Parallel, fail-fast | `await Promise.all([p1, p2])` |
+| `Promise.allSettled()` | Parallel, all results | `await Promise.allSettled([p1, p2])` |
+| `Promise.race()` | First to complete | `await Promise.race([p1, p2])` |
+| `Promise.any()` | First to succeed | `await Promise.any([p1, p2])` |
+| `async function*` | Async iteration | `for await (const x of gen())` |
+| `AbortController` | Cancellation | `fetch(url, { signal })` |
+| `queueMicrotask()` | Priority microtask | `queueMicrotask(fn)` |

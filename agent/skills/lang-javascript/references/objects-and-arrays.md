@@ -131,7 +131,7 @@ for (const item of items) {
 }
 ```
 
-Don't use `for...in` on arrays — it iterates string keys including inherited properties.
+Don't use `for...in` on arrays — it iterates string keys including inherited properties. Use `for...of` or array methods instead.
 
 ## Destructuring
 

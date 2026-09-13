@@ -64,7 +64,7 @@ class Timer {
 }
 ```
 
-Never use arrow functions as methods on objects or prototypes — they won't have the correct `this`:
+Never use arrow functions as methods on objects or prototypes — they won't have the correct `this`. Use method shorthand or a `function` for methods:
 
 ```js
 // Bad — arrow captures module-level this, not the object
