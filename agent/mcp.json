@@ -14,7 +14,7 @@
     },
     "filesystem": {
       "command": "bunx",
-      "args": ["-y", "@modelcontextprotocol/server-filesystem", "${workspaceFolder}"]
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "."]
     },
     "memory": {
       "command": "bunx",

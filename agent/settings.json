@@ -1,8 +1,11 @@
 {
-  "lastChangelogVersion": "0.99.0",
+  "lastChangelogVersion": "0.99.1",
   "defaultProvider": "deepseek",
   "defaultModel": "deepseek-v4-flash",
   "defaultThinkingLevel": "medium",
+  "defaultTools": [
+    "+codemode"
+  ],
   "editorPaddingX": 0,
   "theme": "dark",
   "packages": [
@@ -13,7 +16,7 @@
     "npm:pi-dynamic-workflows",
     "npm:napkin-ai",
     "npm:pi-lsp",
-    "npm:pi-fff",
+    "npm:@ff-labs/pi-fff",
     "npm:pi-interactive-shell",
     "git:github.com/nicobailon/visual-explainer",
     "git:github.com/cathrynlavery/diagram-design"

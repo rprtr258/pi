@@ -1,6 +1,8 @@
 sessions/
 missions/
 bin/
-pi-fff/
+fff/
+mcp-auth.json
 mcp-cache.json
 run-history.jsonl
+
