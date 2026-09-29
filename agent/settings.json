@@ -1,5 +1,5 @@
 {
-  "lastChangelogVersion": "0.87.1",
+  "lastChangelogVersion": "0.99.0",
   "defaultProvider": "deepseek",
   "defaultModel": "deepseek-v4-flash",
   "defaultThinkingLevel": "medium",
@@ -9,8 +9,6 @@
     "npm:@plannotator/pi-extension",
     "npm:pi-autoresearch",
     "git:github.com/DietrichGebert/ponytail",
-    "npm:pi-mcp-adapter",
-    "npm:context-mode",
     "npm:pi-subagents",
     "npm:pi-dynamic-workflows",
     "npm:napkin-ai",
