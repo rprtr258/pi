@@ -1,7 +1,7 @@
 {
+  "lastChangelogVersion": "1.0.0",
   "defaultProvider": "deepseek",
   "defaultModel": "deepseek-v4-flash",
-  "lastChangelogVersion": "0.99.2",
   "defaultThinkingLevel": "medium",
   "defaultTools": [
     "+codemode"
@@ -28,5 +28,6 @@
   "treeFilterMode": "no-tools",
   "retry": {
     "maxRetries": 10
-  }
+  },
+  "tuiMode": "regular"
 }
