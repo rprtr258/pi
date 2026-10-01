@@ -1,5 +1,6 @@
 sessions/
 missions/
+pi-subagents/
 bin/
 fff/
 mcp-auth.json
