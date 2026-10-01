@@ -20,7 +20,8 @@
     "npm:pi-interactive-shell",
     "git:github.com/nicobailon/visual-explainer",
     "git:github.com/cathrynlavery/diagram-design",
-    "npm:@lolipopshock/pi-clm"
+    "npm:@lolipopshock/pi-clm",
+    "npm:@rprtr258/md-pi"
   ],
   "enableInstallTelemetry": false,
   "hideThinkingBlock": false,
