@@ -15,4 +15,15 @@ IMPORTANT, always follow these rules:
 - For commands likely to emit large output (builds, tests, logs, directory scans), redirect the full output to a tmp file first, then inspect its tail (e.g. `cmd > /tmp/out.log 2>&1; tail -n 50 /tmp/out.log`). Reuse that file for any follow-up searching/grep instead of re-running the command or re-fetching the output.
 - When the user corrects you, re-read every prior instruction in the session before acting.
 - When a constraint can't be satisfied, say so and ship what you have. Don't try to hack around it.
+- Always seek ways for self improvement.
+  - User comments are most important possibilities for improvement.
+  - Report errors, difficulties and rough edges found during task execution.
+  - If something is missing, also note that, e.g. missing validation commands in project instructions or stale docs, etc.
+  - Seek ways to be faster/more correct. Long running tests, large timeouts, complex commands for relatively simple tasks, everything.
+  - Propose how to fix most profitable ones:
+    - Automate if possible.
+    - Or, by updating skills/instructions/tools/extensions/etc appropriately.
+    - If some skills/extensions/tools/clis/etc will be useful for creation, mention that.
+    - If some skills/extensions/tools/clis/etc get in the way or work incorrectly or inefficiently, mention that.
+  - Everything is subject for improvement, even system prompt. Be honest, concise and direct mentioning improvement opportunities.
 
