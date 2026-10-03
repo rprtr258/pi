@@ -21,6 +21,7 @@
       "args": ["-y", "@modelcontextprotocol/server-memory"]
     },
     "sequential-thinking": {
+      "exposure": "direct",
       "command": "bunx",
       "args": ["-y", "@modelcontextprotocol/server-sequential-thinking"]
     }

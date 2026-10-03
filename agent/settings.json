@@ -1,10 +1,11 @@
 {
-  "lastChangelogVersion": "1.0.0",
+  "lastChangelogVersion": "1.0.1",
   "defaultProvider": "deepseek",
   "defaultModel": "deepseek-v4-flash",
   "defaultThinkingLevel": "medium",
   "defaultTools": [
-    "+codemode"
+    "+codemode",
+    "+tool_search"
   ],
   "editorPaddingX": 0,
   "theme": "dark",
