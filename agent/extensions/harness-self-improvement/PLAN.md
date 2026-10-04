@@ -33,6 +33,9 @@ Manual only. Pi extension exposes a `/harness` command. Never auto-triggered, ne
    for: tool error/retry rates, most/least used tools and skills, user corrections and
    rejections ("no", "wrong", rephrased requests), abandoned or re-asked tasks,
    redundant multi-step patterns that suggest a missing macro-tool or skill.
+   Also classify sampled sessions into structured facets — session type, outcome,
+   user satisfaction, and a `friction` list — persisted to `harness-facets.json`;
+   `./stats.ts` merges that file, and its distributions rank findings.
 
    **Profit/effectiveness, not just errors.** Errors are only one failure signal.
    Also mine for whether tool/skill usage was profitable: did the invocation earn its
@@ -68,11 +71,20 @@ strengths, weaknesses, top findings ranked by frequency × impact. Output: a fin
 list with evidence pointers.
 
 **Use subagents for session analysis.** Session logs are large; reading them in the
-main agent bloats context. Run `stats.ts` directly (small output), but delegate
-everything beyond it — sampling, grepping, reading session files, drilling into a
-tool's error cases — to subagents (one per analysis angle or findings pass). They
-return only compact findings: counts, file paths, quotes. The main agent plans and
-confirms from those summaries, never from raw session content.
+main agent bloats context. Run `./stats.ts` directly (small output: enriched metrics —
+tokens/cost, durations, response times, interruptions, git activity, languages,
+concurrent sessions), plus `./stats.ts --sessions` for a compact per-session work
+list. Delegate everything beyond that — sampling, grepping, reading session files,
+drilling into a tool's error cases — to subagents (one per analysis angle or findings
+pass). They return only compact findings: counts, file paths, quotes. The main agent
+plans and confirms from those summaries, never from raw session content.
+
+**Facet classification.** Have a pass of subagents classify sampled sessions into
+structured facets (session type, outcome, user satisfaction, `friction[]`) and write
+them to `harness-facets.json` — schema:
+`{sessions:[{sessionId,type,outcome,satisfaction,goal,friction:[{type,detail}]}]}`.
+`./stats.ts` auto-merges this file, and `./stats.ts --html` renders its distributions;
+use those distributions to rank findings. Session bytes stay in the subagents.
 
 ### 2. Plan
 Turn findings into concrete improvement candidates. Each candidate states:
@@ -94,7 +106,9 @@ Before presenting, write the analysis output to a findings file in this director
    `Short summary` (one line), `Long description` (What / Why / How to verify / Risk).
    Rows ranked best-first; each candidate's Why references finding IDs.
 
-Use `<br>` for line breaks inside long-description cells. Then open it for the user's notes
+Use `<br>` for line breaks inside long-description cells. Run `./stats.ts --html` to
+produce a browsable `harness-report.html` (includes the facet distributions) alongside
+the findings file. Then open it for the user's notes
 and next-step marks by calling the `harness_annotate_findings` tool (this extension) with the
 file path: it opens the browser annotation UI, blocks until the user finishes, and returns
 their feedback. Returned feedback and notes are part of the approval; the user may also

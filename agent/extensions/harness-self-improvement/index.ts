@@ -14,12 +14,17 @@ const CYCLE_PROMPT = `Run one agent harness improvement cycle.
 Read PLAN.md first — it defines scope, evidence rules, and the cycle.
 
 1. Analyze: mine session logs for inefficiencies. Start with:
-   $ ./stats.ts
-   Then dig into the top findings with direct session inspection. Every finding needs evidence (file, count, or user quote).
+   $ ./stats.ts            — enriched summary (tokens, cost, durations, response times, interruptions, git, languages, concurrency)
+   $ ./stats.ts --sessions — compact per-session list; pick classification targets from it
+   Keep session bytes out of your context: delegate drilling to subagents. Have subagents classify
+   sampled sessions into facets (session type, outcome, satisfaction, friction[]) and write
+   harness-facets.json — ./stats.ts auto-merges it and --html renders its distributions.
+   Every finding needs evidence (file, count, or user quote).
 2. Plan: rank concrete improvement candidates (what / why / how to verify / risk).
 3. Confirm: write findings + ranked candidates to harness-findings.md (findings with evidence, then
-   candidates: what / why / how to verify / risk). Then call the harness_annotate_findings tool
-   with that file — it opens the browser annotation UI and returns my notes and next-step marks.
+   candidates: what / why / how to verify / risk). Optionally run ./stats.ts --html for a browsable
+   report. Then call the harness_annotate_findings tool with that file — it opens the browser
+   annotation UI and returns my notes and next-step marks.
    Wait — no change without my explicit per-change approval (my annotations and my reply both count).`;
 
 export default function (pi: ExtensionAPI) {
@@ -27,6 +32,15 @@ export default function (pi: ExtensionAPI) {
     description: "Run an agent harness improvement cycle (see PLAN.md)",
     handler: async () => {
       pi.sendUserMessage(CYCLE_PROMPT);
+    },
+  });
+
+  pi.registerCommand("harness-report", {
+    description: "Generate the harness HTML session report (./stats.ts --html)",
+    handler: async () => {
+      pi.sendUserMessage(
+        "Generate the harness HTML report: run `./stats.ts --html` and report the output path. If harness-facets.json exists, ./stats.ts merges it automatically.",
+      );
     },
   });
 
