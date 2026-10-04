@@ -36,7 +36,7 @@ If mostly yes, treat it as core.
 
 ## Distillation
 
-When a codebase is muddy:
+When a repository is muddy:
 
 1. Name the core domain in one sentence.
 2. Identify supporting and generic subdomains around it.

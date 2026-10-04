@@ -7,7 +7,7 @@ description: Write or improve a README.md for an open source project. Use this f
 
 Apply the structure below when creating or improving a README.
 
-**Never invent facts.** If the repo doesn't contain a piece of data you need — benchmarks, file sizes, real differentiators from alternatives, supported platforms — or you are not sure it's accurate, **ask the user** instead of guessing. A README with fabricated numbers is worse than one without numbers.
+**Never invent facts.** If the repository doesn't contain a piece of data you need — benchmarks, file sizes, real differentiators from alternatives, supported platforms — or you are not sure it's accurate, **ask the user** instead of guessing. A README with fabricated numbers is worse than one without numbers.
 
 ## Structure: a "progressive JPEG"
 
@@ -86,7 +86,7 @@ Validate by following the guide from scratch as if you'd never seen the project;
 ## Checklist before finishing
 
 1. First paragraph alone sells the project (what / benefit / difference).
-2. Every number and claim is real, sourced from the repo, the user, or an actual measurement.
+2. Every number and claim is real, sourced from the repository, the user, or an actual measurement.
 3. The example is self-explanatory, 4–10 lines, and shows its output.
 4. Getting started works from a clean machine.
 5. Skimming only headings + bold text still tells the story.

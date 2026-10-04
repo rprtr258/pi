@@ -545,7 +545,7 @@ When starting a new Go project:
 - [ ] **Ask the developer** their preferred DI approach — see [dependency-injection](../../patterns/references/clean-architecture.md)
 - [ ] Decide project type (CLI, library, service, monorepo)
 - [ ] Right-size the structure to the project scope
-- [ ] Choose module name (matches repo URL, lowercase, hyphens)
+- [ ] Choose module name (matches repository URL, lowercase, hyphens)
 - [ ] Run `go version` to detect the current go version
 - [ ] Run `go mod init github.com/user/project-name`
 - [ ] Create `cmd/{name}/main.go` for entry point

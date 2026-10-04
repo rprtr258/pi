@@ -16,7 +16,7 @@ This skill turns a design brief into an ordered, buildable task list. Each task 
 
 1. Read the design brief. Look for `.design/*/DESIGN_BRIEF.md`. If multiple subfolders exist, use the most recently modified one, or ask the user which feature they are working on. Also check for `DESIGN_ARCHITECTURE.md` and a tokens file in the same subfolder. If none exist, ask the user to describe what they are building.
 
-2. Explore the existing codebase to understand what is already built. Scan specifically for:
+2. Explore the existing repository to understand what is already built. Scan specifically for:
    - **Component directories**: `components/`, `ui/`, `shared/` and list every component by name
    - **Existing pages/views**: what is already built that this feature must coexist with
    - **Token/theme files**: `tokens.css`, `globals.css`, Tailwind config, theme providers

@@ -170,23 +170,43 @@ For complete rules, examples, and rationale, see:
 | `ALL_CAPS` constants | Go reserves casing for visibility, not emphasis — use `MixedCaps` (`MaxRetries`) |
 | `GetName()` getter | Go omits `Get` because `user.Name()` reads naturally at call sites. But `Is`/`Has`/`Can` prefixes are kept for boolean predicates: `IsHealthy() bool` not `Healthy() bool` |
 | `Url`, `Http`, `Json` acronyms | Mixed-case acronyms create ambiguity (`HttpsUrl` — is it `Https+Url`?). Use all caps or all lower |
+
+### Receivers and Package Names
+
+| Mistake | Fix |
+| --- | --- |
 | `this` or `self` receiver | Go methods are called frequently — use 1-2 letter abbreviation (`s` for `Server`) to reduce visual noise |
 | `util`, `helper` packages | These names say nothing about content — use specific names that describe the abstraction |
 | `http.HTTPClient` stuttering | Package name is always present at call site — `http.Client` avoids reading "HTTP" twice |
+
+### Constructors, Booleans, and Errors
+
+| Mistake | Fix |
+| --- | --- |
 | `user.NewUser()` constructor | Single primary type uses `New()` — `user.New()` avoids repeating the type name |
 | `connected bool` field | Bare adjective is ambiguous — use `isConnected` so the field reads as a true/false question |
 | `"invalid message ID"` error | Error strings must be fully lowercase including acronyms — `"invalid message id"` |
 | `StatusReady` at iota 0 | Zero value should be a sentinel — `StatusUnknown` at 0 catches uninitialized values |
 | `"not found"` error string | Sentinel errors should include the package name — `"mypackage: not found"` identifies the origin |
+
+### Types and Identifier Names
+
+| Mistake | Fix |
+| --- | --- |
 | `userSlice` type-in-name | Types encode implementation detail — `users` describes what it holds, not how |
 | Inconsistent receiver names | Switching names across methods of the same type confuses readers — use one name consistently |
 | `snake_case` identifiers | Underscores conflict with Go's MixedCaps convention and tooling expectations — use `mixedCaps` |
 | Long names for short scopes | Name length should match scope — `i` is fine for a 3-line loop, `userIndex` is noise |
 | Naming constants by value | Values change, roles don't — `DefaultPort` survives a port change, `Port8080` doesn't |
 | `FetchCtx()` context variant | `WithContext` is the standard Go suffix — `FetchWithContext()` is instantly recognizable |
+
+### Functions, Packages, and Vocabulary
+
+| Mistake | Fix |
+| --- | --- |
 | `sort()` in-place but no `In` | Readers assume functions return new values. `SortIn()` signals mutation |
 | `parse()` panicking on error | `MustParse()` warns callers that failure panics — surprises belong in the name |
-| Mixing `With*`, `Set*`, `Use*` | Consistency across the codebase — `With*` is the Go convention for functional options |
+| Mixing `With*`, `Set*`, `Use*` | Consistency across the repository — `With*` is the Go convention for functional options |
 | Plural package names | Go convention is singular (`net/url` not `net/urls`) — keeps import paths consistent |
 | `Wrapf` without `f` suffix | The `f` suffix signals format-string semantics — `Wrapf`, `Errorf` tell callers to pass format args |
 | Unnecessary import aliases | Aliases add cognitive load. Only alias on collision — `mrand "math/rand"` |

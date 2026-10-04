@@ -161,7 +161,7 @@ var httpRequestsTotal = promauto.NewCounterVec(...)
 var httpRequestsTotal = promauto.NewCounterVec(...)
 ```
 
-This convention has practical benefits: PromQL queries are reviewed in PRs alongside the metric, queries stay in sync with metric changes (label renames, bucket changes), and new team members can understand the metric's purpose at a glance.
+This convention has practical benefits: PromQL queries are reviewed in pull requests alongside the metric, queries stay in sync with metric changes (label renames, bucket changes), and new team members can understand the metric's purpose at a glance.
 
 ## Metric Examples and PromQL Queries
 

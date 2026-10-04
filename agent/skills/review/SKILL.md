@@ -63,7 +63,7 @@ Findings grouped by severity using the Output Format. If critical issues are fou
 - Error handling: errors caught, meaningful messages, logged; no swallowed rejections.
 
 ### Design
-- Fits existing architecture and codebase patterns; right abstraction level; new abstractions justified.
+- Fits existing architecture and repository patterns; right abstraction level; new abstractions justified.
 - Solving the right problem at the right level; component interactions logical and necessary.
 - Naming clear and intention-revealing; public APIs documented.
 
@@ -101,7 +101,7 @@ End with the only metric that matters: `net: -<N> lines possible.` If there is n
 ## Security Review
 
 - **Report on**: only the specific file, diff, or code provided.
-- **Research**: the ENTIRE codebase to build confidence before reporting.
+- **Research**: the ENTIRE repository to build confidence before reporting.
 
 ### Confidence Levels
 
@@ -135,12 +135,13 @@ Load detailed guidance based on context:
 
 | Topic | Reference | Load When |
 |-------|-----------|-----------|
-| Review Checklist | `references/review-checklist.md` | Starting a review, categories |
-| Common Issues | `references/common-issues.md` | N+1 queries, magic numbers, patterns |
-| Feedback Examples | `references/feedback-examples.md` | Writing good feedback |
-| Report Template | `references/report-template.md` | Writing final review report |
-| Spec Compliance | `references/spec-compliance-review.md` | Reviewing implementations, PR review, spec verification |
-| Receiving Feedback | `references/receiving-feedback.md` | Responding to review comments, handling feedback |
+| Review Checklist | [references/review-checklist.md](references/review-checklist.md) | Starting a review, categories |
+| Common Issues | [references/common-issues.md](references/common-issues.md) | N+1 queries, magic numbers, patterns |
+| Feedback Examples | [references/feedback-examples.md](references/feedback-examples.md) | Writing good feedback |
+| Report Template | [references/report-template.md](references/report-template.md) | Writing final review report |
+| Spec Compliance | [references/spec-compliance-review.md](references/spec-compliance-review.md) | Reviewing implementations, pull request review, spec verification |
+| Receiving Feedback | [references/receiving-feedback.md](references/receiving-feedback.md) | Responding to review comments, handling feedback |
+| Security | [references/security/security.md](references/security/security.md) | SAST, vulnerability patterns, secret scanning, infrastructure security, penetration testing |
 
 ## Evidence & Working Rules
 
@@ -207,7 +208,7 @@ If a task requires intervening on the system itself (e.g., freeing disk space, i
 ## Constraints
 
 ### MUST DO
-- Summarize PR intent before reviewing (see Workflow step 1)
+- Summarize pull request intent before reviewing (see Workflow step 1)
 - Provide specific, actionable feedback
 - Include code examples in suggestions
 - Praise good patterns

@@ -6,8 +6,8 @@ Full rules for local-files privacy mode, linked from the skill.
 
 Use local-files privacy mode when the user explicitly asks for no DB writes,
 no hosted Plan database writes, no Plan MCP publish, fully local files, offline/private
-planning, repo-owned/source-controlled planning artifacts, or when
-`AGENT_NATIVE_PLANS_MODE=local-files` is set. Also use it when a user or repo
+planning, repository-owned/source-controlled planning artifacts, or when
+`AGENT_NATIVE_PLANS_MODE=local-files` is set. Also use it when a user or repository
 policy says a plan must stay under their own brand, domain, source control, or
 infrastructure. In this mode the plan data must never be sent to the Plan MCP
 server or Plan app action surface. Schema-only block catalog lookup is allowed
@@ -15,6 +15,8 @@ because it sends no plan content: use the MCP `get-plan-blocks` tool if it is
 already available, or run
 `npx @agent-native/core@latest plan blocks --out plan-blocks.md` and read that
 file before authoring MDX.
+
+### Local-Files Contract
 
 The local-files contract is:
 
@@ -28,11 +30,13 @@ The local-files contract is:
   verbatim: checklist items need `id` and `label`; question-form questions need
   `id`, `title`, and `mode`; and each option needs `id` and `label`. `plan local
   check` validates these required fields against the renderer schema.
-- Write the plan as a local MDX folder: use `plans/<slug>/` when the user
-  wants the artifact checked into the repo, or use a repo-ignored/temporary
-  folder such as `.agent-native/plans/<slug>/` or `/tmp/agent-native-plans/<slug>/`
-  when it should not be checked in. The folder contains `plan.mdx`, optional
+- Write the plan as a local MDX directory: use `plans/<slug>/` when the user
+  wants the artifact checked into the repository, or use a repository-ignored/temporary
+  Directory such as `.agent-native/plans/<slug>/` or `/tmp/agent-native-plans/<slug>/`
+  when it should not be checked in. The directory contains `plan.mdx`, optional
   `canvas.mdx`, optional `prototype.mdx`, and optional `.plan-state.json`.
+### Local Check, Serve, and Verify
+
 - Run `npx @agent-native/core@latest plan local check --dir plans/<slug>`
   before serving, then run
   `npx @agent-native/core@latest plan local serve --dir plans/<slug> --kind plan --open`.
@@ -50,6 +54,8 @@ The local-files contract is:
   prints diagnostics, and exits. If the browser hangs on "Loading plan", fetch
   the `bridgeUrl` from the verify/serve JSON to read the concrete validation
   error.
+### Forbidden Tools and Feedback
+
 - Do **not** call `create-visual-plan`, `create-ui-plan`,
   `create-prototype-plan`, `create-plan-design`, `import-visual-plan-source`,
   `update-visual-plan`, `patch-visual-plan-source`, `get-plan-feedback`,
@@ -59,6 +65,8 @@ The local-files contract is:
   the local bridge command, and summarize the new local bridge URL. Hosted
   comments, sharing, history, and publish/export receipts are unavailable until
   the user explicitly opts into publishing.
+
+### Privacy Boundary
 
 Local-files mode prevents plan content from going to the Agent-Native Plan
 database. It does not by itself make the coding agent's language model local;

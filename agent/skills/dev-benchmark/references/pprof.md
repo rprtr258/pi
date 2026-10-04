@@ -13,6 +13,11 @@ Each profile type answers a different performance question. Choosing the wrong p
 | **Heap (alloc_space)** | `pprof -alloc_space` | Finding largest allocation sites by volume | Measures total bytes allocated; use when you need to reduce peak memory, not just GC frequency |
 | **Heap (inuse_space)** | `pprof -inuse_space` | Memory growing over time, suspected leaks | Shows currently live heap objects; compare two snapshots to isolate leak sources |
 | **Heap (inuse_objects)** | `pprof -inuse_objects` | Object count growth, suspected leak of small objects | Counts live objects regardless of size; useful when leak is many small objects not visible in inuse_space |
+
+### Concurrency and thread profiles
+
+| Profile | Flag / Endpoint | Use when | Why this profile and not another |
+| --- | --- | --- | --- |
 | **Goroutine** | `/debug/pprof/goroutine` | Blocked I/O, goroutine leaks, pool exhaustion | Snapshots all goroutine stacks; look for goroutines piling up on the same call site |
 | **Mutex** | `/debug/pprof/mutex` | Lock contention between goroutines | Measures cumulative time goroutines waited to acquire mutexes. Must enable first: `runtime.SetMutexProfileFraction(5)` |
 | **Block** | `/debug/pprof/block` | Goroutines blocked on channels, mutexes, timers, select | Measures cumulative time goroutines spent blocked on synchronization primitives. Must enable first: `runtime.SetBlockProfileRate(1)` |

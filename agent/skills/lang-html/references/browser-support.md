@@ -93,7 +93,7 @@ Use Invoker Commands when you need `command="show-modal"` for dialogs; `popovert
 </search>
 ```
 
-`<search>` degrades gracefully in older browsers — it renders as an unstyled block element. The `role="search"` landmark will be missing in those browsers, but the form remains functional. Use `<form role="search">` if the landmark is critical.
+`<search>` degrades to an unstyled block element in older browsers. The `role="search"` landmark will be missing in those browsers, but the form remains functional. Use `<form role="search">` if the landmark is critical.
 
 ## Support Checklist
 

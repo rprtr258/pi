@@ -9,14 +9,14 @@ For features spanning multiple domains, you can accelerate discovery by launchin
 ## When to Use
 
 - Feature touches 3+ distinct system layers (e.g., auth, database, UI)
-- Codebase is unfamiliar or underdocumented
+- Repository is unfamiliar or underdocumented
 - You need concrete technical facts before asking requirements questions
 - Stakeholder time is limited and you want to minimize back-and-forth
 
 ## When NOT to Use
 
 - Feature is well-scoped to a single domain
-- You already have deep codebase knowledge
+- You already have deep repository knowledge
 - Requirements are purely business/UX (no technical exploration needed)
 
 ## Pattern

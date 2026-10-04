@@ -78,4 +78,4 @@ Save as: `docs/specs/YYYY-MM-DD-{topic}.spec.md` (project conventions for locati
 | Acceptance Criteria | How to verify | Yes |
 | Error Handling | Failure cases | Yes |
 | Out of Scope | Prevent scope creep | Recommended |
-| Open Questions | Track decisions | As needed |
+| Open Questions | Track decisions | When questions remain open |

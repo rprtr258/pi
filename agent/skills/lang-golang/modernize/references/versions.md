@@ -151,7 +151,7 @@ for range 10 { fmt.Println("hello") }
 
 ### Remove loop variable shadow copies _(Go 1.22+)_
 
-Go 1.22 changed loop variable semantics: each iteration creates a new variable. Loop variable captures (`v := v`) SHOULD be removed in Go 1.22+ codebases.
+Go 1.22 changed loop variable semantics: each iteration creates a new variable. Loop variable captures (`v := v`) SHOULD be removed in Go 1.22+ repositories.
 
 **Requirement**: The `go` directive in `go.mod` must be `go 1.22` or later for this behavior.
 

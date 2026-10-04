@@ -401,7 +401,7 @@ WHEN NOT MATCHED THEN
 - Choose InnoDB over MyISAM
 - Optimize buffer pool size
 - Use covering indexes aggressively
-- Be aware of case-insensitive defaults
+- Set explicit collations; MySQL comparison defaults are case-insensitive
 - Consider read replicas for scaling
 
 **SQL Server:**
@@ -415,5 +415,5 @@ WHEN NOT MATCHED THEN
 - Use EXPLAIN PLAN
 - Leverage partitioning features
 - Use bind variables to avoid parsing
-- Configure SGA/PGA appropriately
+- Size SGA/PGA from the measured working set
 - Consider Real Application Clusters (RAC)

@@ -124,7 +124,7 @@ type MaybeUser = User | null;
 function getUser(id: string): User | null { ... }
 ```
 
-This keeps nullability visible where it matters and prevents it from spreading through the codebase.
+This keeps nullability visible where it matters and prevents it from spreading through the repository.
 
 ### Null Narrowing
 
@@ -355,7 +355,7 @@ Keep the branding mechanism consistent across the project. The `unique symbol` p
 - **Function accepts anything, passes through without touching** → `unknown`
 - **Migrating JS to TS incrementally** → `any` (temporary, with comment)
 - **Test mock that intentionally bypasses type checking** → `any` (with comment)
-- **Too lazy to type it properly** → Fix the types
+- **Avoiding the effort of typing it** → Fix the types
 
 ### Using `unknown` Safely
 

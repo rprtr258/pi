@@ -341,7 +341,7 @@ Before deploying skill, verify you followed RED-GREEN-REFACTOR:
 Reveals what YOU think needs preventing, not what ACTUALLY needs preventing.
 ✅ Fix: Always run baseline scenarios first.
 
-**❌ Not watching test fail properly**
+**❌ Not confirming the test fails for the right reason**
 Running only academic tests, not real pressure scenarios.
 ✅ Fix: Use pressure scenarios that make agent WANT to violate.
 

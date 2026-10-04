@@ -6,8 +6,8 @@
 
 Two complementary approaches:
 
-- **PR gating** - run base and head benchmarks in the same CI job, compare statistically, and fail the PR when a regression threshold is exceeded. Catches regressions before merge.
-- **Trend tracking** - publish benchmark results after every merge to a dashboard to watch long-term drift. Complements gating because small per-PR regressions accumulate invisibly.
+- **pull request gating** - run base and head benchmarks in the same CI job, compare statistically, and fail the pull request when a regression threshold is exceeded. Catches regressions before merge.
+- **Trend tracking** - publish benchmark results after every merge to a dashboard to watch long-term drift. Complements gating because small regressions from each pull request accumulate invisibly.
 
 Set thresholds relative to your runner noise (see Noisy Neighbor Mitigation below). Apply stricter thresholds only to critical-path benchmarks.
 

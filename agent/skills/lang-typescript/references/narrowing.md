@@ -134,7 +134,7 @@ function getArea(shape: Shape): number {
 
 If you add `Triangle` to `Shape` without a case, TypeScript errors: `Type 'Triangle' is not assignable to type 'never'`.
 
-An equivalent helper is common in larger codebases:
+An equivalent helper is common in larger repositories:
 
 ```ts
 function assertNever(x: never): never {

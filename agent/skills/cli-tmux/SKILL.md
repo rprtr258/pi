@@ -1,6 +1,6 @@
 ---
 name: cli-tmux
-description: Run and interact with terminal applications (htop, vim, etc.) using tmux sessions in the sandbox
+description: Run and interact with terminal applications (htop, vim, etc.) using tmux sessions in the sandbox. Use when driving an interactive terminal app that needs a tmux session.
 allowed-tools:
   - process
 ---

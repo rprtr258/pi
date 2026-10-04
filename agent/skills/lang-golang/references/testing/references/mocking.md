@@ -67,7 +67,7 @@ func TestService_GetUser_NotFound(t *testing.T) {
 
 ## Mock Organization
 
-For larger codebases, organize mocks alongside the code they mock:
+For larger repositories, organize mocks alongside the code they mock:
 
 ```go
 // user_service.go

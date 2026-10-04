@@ -28,11 +28,11 @@ Load detailed guidance based on context:
 
 | Topic | Reference | Load When |
 |-------|-----------|-----------|
-| Service Boundaries | `references/decomposition.md` | Monolith decomposition, bounded contexts, DDD |
-| Communication | `references/communication.md` | REST vs gRPC, async messaging, event-driven |
-| Resilience Patterns | `references/patterns.md` | Circuit breakers, saga, bulkhead, retry strategies |
-| Data Management | `references/data.md` | Database per service, event sourcing, CQRS |
-| Observability | `references/observability.md` | Distributed tracing, correlation IDs, metrics |
+| Service Boundaries | [references/decomposition.md](references/decomposition.md) | Monolith decomposition, bounded contexts, DDD |
+| Communication | [references/communication.md](references/communication.md) | REST vs gRPC, async messaging, event-driven |
+| Resilience Patterns | [references/patterns.md](references/patterns.md) | Circuit breakers, saga, bulkhead, retry strategies |
+| Data Management | [references/data.md](references/data.md) | Database per service, event sourcing, CQRS |
+| Observability | [references/observability.md](references/observability.md) | Distributed tracing, correlation IDs, metrics |
 
 ## Implementation Examples
 

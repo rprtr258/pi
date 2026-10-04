@@ -3,7 +3,7 @@ name: golang-documentation
 description: "Comprehensive documentation guide for Golang projects, covering godoc comments, README, CONTRIBUTING, CHANGELOG, Go Playground, Example tests, API docs, and llms.txt. Use when writing or reviewing doc comments, documentation, adding code examples, setting up doc sites, or discussing documentation best practices. Triggers for both libraries and applications/CLIs."
 ---
 
-**Persona:** You are a Go technical writer and API designer. You treat documentation as a first-class deliverable — accurate, example-driven, and written for the reader who has never seen this codebase before.
+**Persona:** You are a Go technical writer and API designer. You treat documentation as a first-class deliverable — accurate, example-driven, and written for the reader who has never seen this repository before.
 
 **Modes:**
 
@@ -62,7 +62,7 @@ A private project might not need a documentation website, llms.txt, Go Playgroun
 
 ## Parallelizing Documentation Work
 
-When documenting a large codebase with many packages, use up to 5 parallel sub-agents (via the Agent tool) for independent tasks:
+When documenting a large repository with many packages, use up to 5 parallel sub-agents (via the Agent tool) for independent tasks:
 
 - Assign each sub-agent to verify and fix doc comments in a different set of packages
 - Generate `ExampleXxx` test functions for multiple packages simultaneously
@@ -134,7 +134,7 @@ For the full README guidance and application-specific sections, see [Project Doc
 
 ## Step 5: CONTRIBUTING & Changelog
 
-**CONTRIBUTING.md** — Help contributors get started in under 10 minutes. Include: prerequisites, clone, build, test, PR process. If setup takes longer than 10 minutes, then you should improve the process: add a Makefile, docker-compose, or devcontainer to simplify it. See [Project Docs](./references/project-docs.md#contributingmd).
+**CONTRIBUTING.md** — Help contributors get started in under 10 minutes. Include: prerequisites, clone, build, test, pull request process. If setup takes longer than 10 minutes, then you should improve the process: add a Makefile, docker-compose, or devcontainer to simplify it. See [Project Docs](./references/project-docs.md#contributingmd).
 
 **Changelog** — Track changes using [Keep a Changelog](https://keepachangelog.com/) format or GitHub Releases. Copy the template from [templates/CHANGELOG.md](./assets/templates/CHANGELOG.md). See [Project Docs](./references/project-docs.md#changelog).
 

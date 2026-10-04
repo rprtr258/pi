@@ -21,15 +21,15 @@ Load detailed guidance based on context:
 
 | Topic | Reference | Load When |
 |-------|-----------|-----------|
-| Query Patterns | `references/query-patterns.md` | JOINs, CTEs, subqueries, recursive queries |
-| Window Functions | `references/window-functions.md` | ROW_NUMBER, RANK, LAG/LEAD, analytics |
-| Optimization | `references/optimization.md` | EXPLAIN plans, indexes, statistics, tuning |
-| Index Strategies | `references/index-strategies.md` | B-tree, covering, partial, expression indexes, anti-patterns |
-| Monitoring & Analysis | `references/monitoring-analysis.md` | Slow queries, locks, wait events, alert thresholds |
-| PostgreSQL Tuning | `references/postgresql-tuning.md` | Memory, planner, autovacuum, WAL, connection pooling |
-| MySQL Tuning | `references/mysql-tuning.md` | InnoDB, buffer pool, query optimization, my.cnf |
-| Database Design | `references/database-design.md` | Normalization, keys, constraints, schemas |
-| Dialect Differences | `references/dialect-differences.md` | PostgreSQL vs MySQL vs SQL Server specifics |
+| Query Patterns | [references/query-patterns.md](references/query-patterns.md) | JOINs, CTEs, subqueries, recursive queries |
+| Window Functions | [references/window-functions.md](references/window-functions.md) | ROW_NUMBER, RANK, LAG/LEAD, analytics |
+| Optimization | [references/optimization.md](references/optimization.md) | EXPLAIN plans, indexes, statistics, tuning |
+| Index Strategies | [references/index-strategies.md](references/index-strategies.md) | B-tree, covering, partial, expression indexes, anti-patterns |
+| Monitoring & Analysis | [references/monitoring-analysis.md](references/monitoring-analysis.md) | Slow queries, locks, wait events, alert thresholds |
+| PostgreSQL Tuning | [references/postgresql-tuning.md](references/postgresql-tuning.md) | Memory, planner, autovacuum, WAL, connection pooling |
+| MySQL Tuning | [references/mysql-tuning.md](references/mysql-tuning.md) | InnoDB, buffer pool, query optimization, my.cnf |
+| Database Design | [references/database-design.md](references/database-design.md) | Normalization, keys, constraints, schemas |
+| Dialect Differences | [references/dialect-differences.md](references/dialect-differences.md) | PostgreSQL vs MySQL vs SQL Server specifics |
 
 ## Quick-Reference Examples
 
@@ -105,7 +105,7 @@ CREATE INDEX idx_order_items_order_qty
 ### MUST DO
 - Analyze execution plans before recommending optimizations
 - Use set-based operations over row-by-row processing
-- Apply filtering early in query execution (before joins where possible)
+- Apply filtering early in query execution (before joins)
 - Use EXISTS over COUNT for existence checks
 - Handle NULLs explicitly in comparisons and aggregations
 - Create covering indexes for frequent queries

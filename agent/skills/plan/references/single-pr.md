@@ -1,14 +1,14 @@
 # Single-PR Plan Format — Bite-Sized TDD Tasks
 
-Use this format when a spec or requirements exist and the plan must be executable by an engineer or fresh agent with zero codebase context. For quick scoped plans, the lighter structure in [template](template.md) is enough — but still apply the granularity, no-placeholder, and self-review rules below whenever the plan hands off to `subagent-driven-development`.
+Use this format when a spec or requirements exist and the plan must be executable by an engineer or fresh agent with zero repository context. For quick scoped plans, the lighter structure in [template](template.md) is enough — but still apply the granularity, no-placeholder, and self-review rules below whenever the plan hands off to `subagent-driven-development`.
 
 ## Overview
 
-Write comprehensive implementation plans assuming the engineer has zero context for our codebase and questionable taste. Document everything they need to know: which files to touch for each task, code, testing, docs they might need to check, how to test it. Give them the whole plan as bite-sized tasks. DRY. YAGNI. TDD. Frequent commits.
+Write comprehensive implementation plans assuming the engineer has zero context for our repository and questionable taste. Document everything they need to know: which files to touch for each task, code, testing, docs they might need to check, how to test it. Give them the whole plan as bite-sized tasks. DRY. YAGNI. TDD. Frequent commits.
 
 Assume they are a skilled developer, but know almost nothing about our toolset or problem domain. Assume they don't know good test design very well.
 
-**Announce at start:** "I'm using the plan skill (single-PR mode) to create the implementation plan."
+**Announce at start:** "I'm using the plan skill (single pull request mode) to create the implementation plan."
 
 **Context:** This should be run in a dedicated worktree (created by the requirements skill, when used).
 
@@ -28,7 +28,7 @@ Before defining tasks, map out which files will be created or modified and what 
 - Design units with clear boundaries and well-defined interfaces. Each file should have one clear responsibility.
 - You reason best about code you can hold in context at once, and your edits are more reliable when files are focused. Prefer smaller, focused files over large ones that do too much.
 - Files that change together should live together. Split by responsibility, not by technical layer.
-- In existing codebases, follow established patterns. If the codebase uses large files, don't unilaterally restructure - but if a file you're modifying has grown unwieldy, including a split in the plan is reasonable.
+- In existing repositories, follow established patterns. If the repository uses large files, don't unilaterally restructure - but if a file you're modifying has grown unwieldy, including a split in the plan is reasonable.
 
 This structure informs the task decomposition. Each task should produce self-contained changes that make sense independently.
 

@@ -88,7 +88,7 @@ LLMs respond to the same persuasion principles as humans. Understanding this psy
 **What it is:** Shared identity, "we-ness", in-group belonging.
 
 **How it works in skills:**
-- Collaborative language: "our codebase", "we're colleagues"
+- Collaborative language: "our repository", "we're colleagues"
 - Shared goals: "we both want quality"
 
 **When to use:**

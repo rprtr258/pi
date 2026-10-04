@@ -7,7 +7,7 @@ Example names:
 - `plans/2026-03-01-refactor-map-view-v1.md`
 - `plans/2026-02-15-allow-password-resets-v2.md`
 
-> This is the single-PR plan structure. For multi-session construction plans, see [multi-session](multi-session.md).
+> This is the single pull request plan structure. For multi-session construction plans, see [multi-session](multi-session.md).
 
 ## Required Structure
 

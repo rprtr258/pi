@@ -5,15 +5,15 @@ description: Analyze an unfamiliar codebase and generate a structured onboarding
 
 # Codebase Onboarding
 
-Systematically analyze an unfamiliar codebase and produce a structured onboarding guide. Designed for developers joining a new project or setting up Claude Code in an existing repo for the first time.
+Systematically analyze an unfamiliar repository and produce a structured onboarding guide. Designed for developers joining a new project or setting up Claude Code in an existing repository for the first time.
 
 ## When to Use
 
 - First time opening a project with Claude Code
 - Joining a new team or repository
-- User asks "help me understand this codebase"
+- User asks "help me understand this repository"
 - User asks to generate a AGENTS.md for a project
-- User says "onboard me" or "walk me through this repo"
+- User says "onboard me" or "walk me through this repository"
 
 ## How It Works
 
@@ -84,7 +84,7 @@ Trace one request from entry to response:
 
 ### Phase 3: Convention Detection
 
-Identify patterns the codebase already follows:
+Identify patterns the repository already follows:
 
 **Naming Conventions**
 - File naming: kebab-case, camelCase, PascalCase, snake_case
@@ -100,8 +100,8 @@ Identify patterns the codebase already follows:
 **Git Conventions**
 - Branch naming from recent branches
 - Commit message style from recent commits
-- PR workflow (squash, merge, rebase)
-- If the repo has no commits yet or only a shallow history (e.g. `git clone --depth 1`), skip this section and note "Git history unavailable or too shallow to detect conventions"
+- Pull request workflow (squash, merge, rebase)
+- If the repository has no commits yet or only a shallow history (e.g. `git clone --depth 1`), skip this section and note "Git history unavailable or too shallow to detect conventions"
 
 ### Phase 4: Generate Onboarding Artifacts
 
@@ -217,7 +217,7 @@ Generate or update a project-specific AGENTS.md based on detected conventions. I
 ## Examples
 
 ### Example 1: First time in a new repo
-**User**: "Onboard me to this codebase"
+**User**: "Onboard me to this repository"
 **Action**: Run full 4-phase workflow → produce Onboarding Guide + Starter AGENTS.md
 **Output**: Onboarding Guide printed directly to the conversation, plus a `AGENTS.md` written to the project root
 

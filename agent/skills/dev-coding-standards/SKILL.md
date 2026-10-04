@@ -1,6 +1,6 @@
 ---
 name: dev-coding-standards
-description: Baseline cross-project coding conventions for naming, readability, immutability, and code-quality review. Use detailed frontend or backend skills for framework-specific patterns.
+description: Baseline cross-project coding conventions for naming, readability, immutability, and code-quality review. Use detailed frontend or backend skills for framework-specific patterns. Use when reviewing code or applying baseline conventions for naming, readability, and immutability.
 ---
 
 # Coding Standards & Best Practices
@@ -18,48 +18,17 @@ This skill is the shared floor, not the detailed framework playbook.
 - Starting a new project or module
 - Reviewing code for quality and maintainability
 - Refactoring existing code to follow conventions
-- Enforcing naming, formatting, or structural consistency
 - Setting up linting, formatting, or type-checking rules
 - Onboarding new contributors to coding conventions
 
-## Scope Boundaries
-
-Activate this skill for:
-- descriptive naming
-- immutability defaults
-- readability, KISS, DRY, and YAGNI enforcement
-- error-handling expectations and code-smell review
-
-Do not use this skill as the primary source for:
-- React composition, hooks, or rendering patterns
-- backend architecture, API design, or database layering
-- domain-specific framework guidance when a narrower ECC skill already exists
+Scope: descriptive naming, immutability defaults, readability, KISS/DRY/YAGNI, error-handling expectations, and code-smell review. For React composition/hooks/rendering or backend architecture/API design, use the dedicated skills above — this file is not their primary source.
 
 ## Code Quality Principles
 
-### 1. Readability First
-- Code is read more than written
-- Clear variable and function names
-- Self-documenting code preferred over comments
-- Consistent formatting
-
-### 2. KISS (Keep It Simple, Stupid)
-- Simplest solution that works
-- Avoid over-engineering
-- No premature optimization
-- Easy to understand > clever code
-
-### 3. DRY (Don't Repeat Yourself)
-- Extract common logic into functions
-- Create reusable components
-- Share utilities across modules
-- Avoid copy-paste programming
-
-### 4. YAGNI (You Aren't Gonna Need It)
-- Don't build features before they're needed
-- Avoid speculative generality
-- Add complexity only when required
-- Start simple, refactor when needed
+1. **Readability first** — code is read more than written; clear names, self-documenting code, consistent formatting.
+2. **KISS** — simplest solution that works; no over-engineering, premature optimization, or clever code.
+3. **DRY** — extract common logic into functions/components; avoid copy-paste.
+4. **YAGNI** — don't build features before they're needed; add complexity only when required.
 
 ## TypeScript/JavaScript Standards
 
@@ -69,12 +38,10 @@ Do not use this skill as the primary source for:
 // PASS: GOOD: Descriptive names
 const marketSearchQuery = 'election'
 const isUserAuthenticated = true
-const totalRevenue = 1000
 
 // FAIL: BAD: Unclear names
 const q = 'election'
 const flag = true
-const x = 1000
 ```
 
 ### Function Naming
@@ -83,12 +50,10 @@ const x = 1000
 // PASS: GOOD: Verb-noun pattern
 async function fetchMarketData(marketId: string) { }
 function calculateSimilarity(a: number[], b: number[]) { }
-function isValidEmail(email: string): boolean { }
 
 // FAIL: BAD: Unclear or noun-only
 async function market(id: string) { }
 function similarity(a, b) { }
-function email(e) { }
 ```
 
 ### Immutability Pattern (CRITICAL)
@@ -200,10 +165,7 @@ export function Button({
   )
 }
 
-// FAIL: BAD: No types, unclear structure
-export function Button(props) {
-  return <button onClick={props.onClick}>{props.children}</button>
-}
+// FAIL: BAD: No types, unclear structure — export function Button(props) { ... }
 ```
 
 ### Custom Hooks
@@ -223,22 +185,18 @@ export function useDebounce<T>(value: T, delay: number): T {
 
   return debouncedValue
 }
-
-// Usage
-const debouncedQuery = useDebounce(searchQuery, 500)
 ```
 
 ### State Management
 
 ```typescript
-// PASS: GOOD: Proper state updates
 const [count, setCount] = useState(0)
 
-// Functional update for state based on previous state
+// PASS: GOOD: Functional update — safe when state depends on previous state
 setCount(prev => prev + 1)
 
-// FAIL: BAD: Direct state reference
-setCount(count + 1)  // Can be stale in async scenarios
+// FAIL: BAD: Direct state reference — can be stale in async scenarios
+setCount(count + 1)
 ```
 
 ### Conditional Rendering
@@ -312,20 +270,15 @@ const CreateMarketSchema = z.object({
 })
 
 export async function POST(request: Request) {
-  const body = await request.json()
-
-  try {
-    const validated = CreateMarketSchema.parse(body)
-    // Proceed with validated data
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json({
-        success: false,
-        error: 'Validation failed',
-        details: error.errors
-      }, { status: 400 })
-    }
+  const parsed = CreateMarketSchema.safeParse(await request.json())
+  if (!parsed.success) {
+    return NextResponse.json({
+      success: false,
+      error: 'Validation failed',
+      details: parsed.error.errors
+    }, { status: 400 })
   }
+  // Proceed with parsed.data
 }
 ```
 
@@ -391,12 +344,6 @@ name = user.name
  * @param limit - Maximum number of results (default: 10)
  * @returns Array of markets sorted by similarity score
  * @throws {Error} If OpenAI API fails or Redis unavailable
- *
- * @example
- * ```typescript
- * const results = await searchMarkets('election', 5)
- * console.log(results[0].name) // "Trump vs Biden"
- * ```
  */
 export async function searchMarkets(
   query: string,
@@ -450,10 +397,7 @@ const { data } = await supabase
   .select('id, name, status')
   .limit(10)
 
-// FAIL: BAD: Select everything
-const { data } = await supabase
-  .from('markets')
-  .select('*')
+// FAIL: BAD: Select everything — .select('*')
 ```
 
 ## Testing Standards
@@ -480,7 +424,6 @@ test('calculates similarity correctly', () => {
 // PASS: GOOD: Descriptive test names
 test('returns empty array when no markets match query', () => { })
 test('throws error when OpenAI API key is missing', () => { })
-test('falls back to substring search when Redis unavailable', () => { })
 
 // FAIL: BAD: Vague test names
 test('works', () => { })
@@ -493,10 +436,7 @@ Watch for these anti-patterns:
 
 ### 1. Long Functions
 ```typescript
-// FAIL: BAD: Function > 50 lines
-function processMarketData() {
-  // 100 lines of code
-}
+// FAIL: BAD: function processMarketData() spanning 100+ lines
 
 // PASS: GOOD: Split into smaller functions
 function processMarketData() {
@@ -544,5 +484,3 @@ const DEBOUNCE_DELAY_MS = 500
 if (retryCount > MAX_RETRIES) { }
 setTimeout(callback, DEBOUNCE_DELAY_MS)
 ```
-
-**Remember**: Code quality is not negotiable. Clear, maintainable code enables rapid development and confident refactoring.

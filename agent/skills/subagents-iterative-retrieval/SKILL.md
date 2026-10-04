@@ -1,6 +1,6 @@
 ---
 name: subagents-iterative-retrieval
-description: Pattern for progressively refining context retrieval to solve the subagent context problem
+description: Pattern for progressively refining context retrieval to solve the subagent context problem. Use when refining context retrieval for multi-agent workflows where subagents discover their context needs as they work.
 ---
 
 # Iterative Retrieval Pattern
@@ -9,7 +9,7 @@ Solves the "context problem" in multi-agent workflows where subagents don't know
 
 ## When to Activate
 
-- Spawning subagents that need codebase context they cannot predict upfront
+- Spawning subagents that need repository context they cannot predict upfront
 - Building multi-agent workflows where context is progressively refined
 - Encountering "context too large" or "missing context" failures in agent tasks
 - Designing RAG-like retrieval pipelines for code exploration
@@ -19,7 +19,7 @@ Solves the "context problem" in multi-agent workflows where subagents don't know
 
 Subagents are spawned with limited context. They don't know:
 - Which files contain relevant code
-- What patterns exist in the codebase
+- What patterns exist in the repository
 - What terminology the project uses
 
 Standard approaches fail:
@@ -198,7 +198,7 @@ When retrieving context for this task:
 ## Best Practices
 
 1. **Start broad, narrow progressively** - Don't over-specify initial queries
-2. **Learn codebase terminology** - First cycle often reveals naming conventions
+2. **Learn repository terminology** - First cycle often reveals naming conventions
 3. **Track what's missing** - Explicit gap identification drives refinement
 4. **Stop at "good enough"** - 3 high-relevance files beats 10 mediocre ones
 5. **Exclude confidently** - Low-relevance files won't become relevant

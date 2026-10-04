@@ -7,7 +7,7 @@ description: "Comprehensive guide to stretchr/testify for Golang testing. Covers
 
 **Modes:**
 
-- **Write mode** — adding new tests or mocks to a codebase.
+- **Write mode** — adding new tests or mocks to a repository.
 - **Review mode** — auditing existing test code for testify misuse.
 
 # stretchr/testify

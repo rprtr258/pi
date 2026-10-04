@@ -44,14 +44,14 @@ Reject candidates that are:
 
 ## 3. Decide the Target
 
-- **AGENTS.md** — instructions to future agents working in this repo: commands, conventions, gotchas, “do not do X.”
+- **AGENTS.md** — instructions to future agents working in this repository: commands, conventions, gotchas, “do not do X.”
 - **Docs** - documentation, architectural notes and similar.
 - **Skill** — reusable agent behavior that applies across projects or recurring task types.
 
 When in doubt:
 
-- Should this auto-load for future agents in this repo? Use `AGENTS.md` or docs.
-- Is this a repeated agent workflow independent of this repo? Create or update a skill.
+- Should this auto-load for future agents in this repository? Use `AGENTS.md` or docs.
+- Is this a repeated agent workflow independent of this repository? Create or update a skill.
 
 If the ideal target file does not exist, propose creating it only when there is at least one solid entry. Do not create an empty scaffold.
 

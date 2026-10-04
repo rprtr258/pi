@@ -22,7 +22,7 @@ BEFORE writing the spec.
 ### Understanding the idea
 
 Start by checking existing project documentation (README.md, docs/, CONTEXT.md),
-codebase patterns and standards (directory structure, naming, module
+Repository patterns and standards (directory structure, naming, module
 organization), and recent commits for context. A well-crafted spec must reflect
 project reality.
 
@@ -30,10 +30,10 @@ project reality.
    scope, edge cases, terminology, UI changes, non-functional constraints
    (performance, security). Interview from two perspectives: PM (user problems,
    priorities, success metrics) and dev (integration points, validation, error
-   handling). Load `references/interview-questions.md` for proven question
+   handling). Load [references/interview-questions.md](references/interview-questions.md) for proven question
    frameworks. For features spanning multiple domains, optionally front-load
    technical context via research subagents first - see
-   `references/pre-discovery-subagents.md`.
+   [references/pre-discovery-subagents.md](references/pre-discovery-subagents.md).
 2. **Prefer multiple-choice prompts** where options can be predetermined;
    use open-ended questions only for what cannot be enumerated.
 3. **YAGNI direction:** push back on features that are unneeded, overly
@@ -52,9 +52,9 @@ project reality.
 
 ### Multi-service work: capability constraints
 
-If the feature crosses services, repos, or teams, extract the capability
+If the feature crosses services, repositories, or teams, extract the capability
 contract before writing the spec - these usually live only in
-senior-engineer memory, and rediscovering them mid-PR is expensive:
+senior-engineer memory, and rediscovering them once the pull request is open is expensive:
 
 - **Constraints:** business rules, scope boundaries, invariants, trust
   boundaries, data ownership, lifecycle transitions, rollout/migration
@@ -64,16 +64,16 @@ senior-engineer memory, and rediscovering them mid-PR is expensive:
 - **Non-goals:** what this feature explicitly does not own.
 
 Mark unresolved items as Open Questions - do not invent product truth. If the
-repo has a durable product-context file (`PRODUCT.md`, `docs/product/`),
+Repository has a durable product-context file (`PRODUCT.md`, `docs/product/`),
 record the constraints there so they survive across sessions.
 
 ### Writing the spec
 
 Load the format references, then write the document:
 
-- `references/ears-syntax.md` - EARS grammar for functional requirements
-- `references/acceptance-criteria.md` - Given/When/Then scenario format
-- `references/specification-template.md` - full document template with the
+- [references/ears-syntax.md](references/ears-syntax.md) - EARS grammar for functional requirements
+- [references/acceptance-criteria.md](references/acceptance-criteria.md) - Given/When/Then scenario format
+- [references/specification-template.md](references/specification-template.md) - full document template with the
   error-handling table
 
 Save the spec as `docs/specs/YYYY-MM-DD-{topic}.spec.md` in the project
@@ -98,8 +98,8 @@ If any fail, return to that step - even if the user says "just write it".
 ## Spec Contents (Required)
 
 1. **Overview** (2-3 sentences)
-2. **Functional Requirements** in EARS syntax (reference `references/ears-syntax.md`): `WHEN <trigger> [the system] SHALL <response>`
-3. **Acceptance Criteria** in Given/When/Then (reference `references/acceptance-criteria.md`)
+2. **Functional Requirements** in EARS syntax (reference [references/ears-syntax.md](references/ears-syntax.md)): `WHEN <trigger> [the system] SHALL <response>`
+3. **Acceptance Criteria** in Given/When/Then (reference [references/acceptance-criteria.md](references/acceptance-criteria.md))
 4. **Non-Functional Requirements** (performance, security, etc.)
 5. **Error handling matrix**
 6. **Open questions** - anything you could not resolve in conversation. Explicitly mark what is UNRESOLVED rather than guessing.

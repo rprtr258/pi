@@ -16,7 +16,7 @@
 ## Review Process
 
 ### 1. Context (5 min)
-- [ ] Read PR description
+- [ ] Read pull request description
 - [ ] Understand the problem being solved
 - [ ] Check linked issues/tickets
 - [ ] Note expected changes
@@ -65,7 +65,7 @@
 ### Security Questions
 - Is all user input validated?
 - Are SQL queries parameterized?
-- Is output properly encoded?
+- Is output encoded for its target context (HTML, SQL, shell)?
 - Are secrets handled safely?
 - Is authentication checked?
 - Is authorization enforced?
@@ -81,7 +81,7 @@
 
 | Review Focus | Time % |
 |--------------|--------|
-| Context & PR description | 10% |
+| Context & pull request description | 10% |
 | Architecture & design | 20% |
 | Code logic & details | 40% |
 | Tests & coverage | 20% |

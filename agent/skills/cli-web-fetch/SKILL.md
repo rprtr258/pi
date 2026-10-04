@@ -1,6 +1,6 @@
 ---
 name: cli-web-fetch
-description: "Instructions for manually fetching web content using curl and bash. Does NOT provide an MCP tool. Read this file when a URL needs to be fetched."
+description: "Instructions for manually fetching web content using curl and bash. Does NOT provide an MCP tool. Read this file when a URL needs to be fetched. Use when fetching web content without an MCP tool."
 ---
 
 # Web Fetch Skill

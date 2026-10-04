@@ -7,7 +7,7 @@ description: "Comprehensive guide for Go database access. Covers parameterized q
 
 **Modes:**
 
-- **Write mode** — generating new repository functions, query helpers, or transaction wrappers: follow the skill's sequential instructions; launch a background agent to grep for existing query patterns and naming conventions in the codebase before generating new code.
+- **Write mode** — generating new repository functions, query helpers, or transaction wrappers: follow the skill's sequential instructions; launch a background agent to grep for existing query patterns and naming conventions in the repository before generating new code.
 - **Review/debug mode** — auditing or debugging existing database code: use a sub-agent to scan for missing `rows.Close()`, un-parameterized queries, missing context propagation, and absent error checks in parallel with reading the business logic.
 
 > **Community default.** A company skill that explicitly supersedes [database](database.md) takes precedence.

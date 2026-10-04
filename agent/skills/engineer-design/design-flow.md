@@ -121,4 +121,4 @@ The `screenshots/` subfolder is created during the design review phase. All visu
 
 ## If the Designer Returns Mid-Flow
 
-Check the `.design/` folder for existing feature subfolders. If files from earlier phases exist (DESIGN_BRIEF.md, DESIGN_ARCHITECTURE.md, TASKS.md) inside a feature folder, read them to understand where the designer left off. Ask which feature to resume if multiple folders exist. Resume from the next incomplete phase.
+Check the `.design/` directory for existing feature subfolders. If files from earlier phases exist (DESIGN_BRIEF.md, DESIGN_ARCHITECTURE.md, TASKS.md) inside a feature directory, read them to understand where the designer left off. Ask which feature to resume if multiple directories exist. Resume from the next incomplete phase.

@@ -11,7 +11,7 @@ the runtime or tooling requires it.
 
 ### Named Exports by Default
 
-Use named exports. They provide consistent naming across the codebase and enable tree-shaking:
+Use named exports. They provide consistent naming across the repository and enable tree-shaking:
 
 ```js
 // Good — named exports
@@ -229,7 +229,7 @@ convenience that adds indirection without value.
 
 Barrel exports are unenforceable within a project. Any developer can always import directly from the source file — there
 is no mechanism to require they use the barrel instead. This creates two sources of truth for every export: the barrel
-and the source file. IDEs will autocomplete both paths, and over time a codebase accumulates a mix of
+and the source file. IDEs will autocomplete both paths, and over time a repository accumulates a mix of
 `import from "./services"` and `import from "./services/user.js"` with no way to converge.
 
 Package entry points are different. Node.js `exports` field in `package.json` restricts which paths external consumers

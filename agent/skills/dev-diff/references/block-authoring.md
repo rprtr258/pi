@@ -4,6 +4,8 @@ Complete block authoring material, linked from the skill: Diff → Block Mapping
 
 ## Diff → Block Mapping
 
+### Conceptual Names And Data Models
+
 Map each kind of change to the block that carries it, derived mechanically from
 the actual diff. The names below are the CONCEPTUAL block types, not the JSX
 tags — resolve every conceptual name to its exact tag + prop schema with the
@@ -16,6 +18,9 @@ tags — resolve every conceptual name to its exact tag + prop schema with the
   migration diff. That diff-aware `data-model` is the headline; reach for a split
   `diff` of the literal SQL only when the exact statement still matters, not by
   default.
+
+### API Endpoints And Compatibility
+
 - **API / action / route change** → `api-endpoint` with the method, path,
   params, request, and responses as they are after the change. Flag each changed
   param/response with `change` (and `was` on a param whose type/shape changed),
@@ -35,6 +40,9 @@ tags — resolve every conceptual name to its exact tag + prop schema with the
   relevant `data-model` / `api-endpoint` block. Name the changed field,
   endpoint, or behavior and mark whether it is breaking, risky, or non-breaking;
   pair that note with a split `diff` for the literal lines.
+
+### Code Hunks And Annotations
+
 - **Any meaningful code hunk** → `diff` with `mode: "split"`, carrying the real
   `before` / `after` text and the `filename` / `language`. Split mode is the
   default for recap code review because before/after legibility is the point;
@@ -57,6 +65,9 @@ tags — resolve every conceptual name to its exact tag + prop schema with the
   If the recap ends with more than one supporting diff, that trailing diff
   appendix should be one horizontal `tabs` block under its own `## Key changes`
   heading, not a stack of separate `diff` blocks.
+
+### New Files And File Trees
+
 - **Brand-new file or a substantial added block with no meaningful "before"** →
   `annotated-code` rather than a one-sided split `diff`. Carry the real new code
   with its `filename` / `language` and anchor a few high-signal notes to the lines
@@ -67,6 +78,9 @@ tags — resolve every conceptual name to its exact tag + prop schema with the
 - **Files added / removed / renamed** → `file-tree` with each entry's `change`
   flag (`added`, `removed`, `modified`, `renamed`) and a short `note`; attach a
   `snippet` only when one tells the reviewer something the path does not.
+
+### UI, Diagrams, And Narrative
+
 - **Rendered UI / interaction change** → one or more wireframes showing the
   visible UI delta before the reviewer reads code. Use `Before` / `After`
   wireframes when the comparison clarifies the change; otherwise use after-only
@@ -93,6 +107,8 @@ tags — resolve every conceptual name to its exact tag + prop schema with the
 
 ## Block reference — call `get-plan-blocks`, do not memorize tags
 
+### Fetch The Block Catalog First
+
 The conceptual block names above (`api-endpoint`, `data-model`, `json-explorer`,
 `tabs`, …) are NOT the JSX tags you author with, and the exact tags, required
 fields, and prop shapes change as the block library evolves. Do not author from
@@ -108,6 +124,8 @@ was installed as plain text and no MCP tools are registered, run
 file first. The CLI command calls the public no-auth `get-plan-blocks` route and
 sends no plan/recap content. If network access is unavailable, use the bundled
 references and validate with `plan local check` / `plan local serve`.
+
+### Catalog Output And Tag Validation
 
 The catalog returns the authoritative, always-current block vocabulary generated
 live from the app's own block registry — the same config the renderer and MDX
@@ -128,6 +146,8 @@ any other capitalized tag at the block level is rejected on import with an
 "Unknown plan block" / "did you mean" error. Lowercase HTML tags inside
 `rich-text`/markdown prose (`<div>`, `<span>`, `<code>`, `<br>`, …) are always
 fine — only capitalized component-style block tags are validated.
+
+### Block Envelope And Component Rules
 
 A few recap-specific authoring rules the registry table cannot encode:
 

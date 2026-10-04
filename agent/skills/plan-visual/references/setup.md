@@ -6,6 +6,8 @@ Connector setup and authentication for Plans, linked from the skill.
 
 There are two ways into Plans.
 
+### Coding Agent (CLI)
+
 **Coding agent (CLI).** Install once with the Agent-Native CLI. The command
 installs the Plans skills, registers the hosted Plans MCP connector, and runs
 auth/setup for the selected local client(s) in the same step (a one-time browser
@@ -25,6 +27,8 @@ the connector without authenticating, then run
 whenever you are ready, or choose a narrower `--client`. Auth and MCP tool
 loading are per client config/session.
 
+### Browser and Local Use
+
 **Browser (people you share with).** Open the Plans editor and create & edit
 with no sign-up — you work as a guest. Sign in only when you want to save or
 share; signing in claims the plans you made as a guest into your account.
@@ -33,8 +37,10 @@ Sharing and commenting require an account: public/shared plans are viewable by
 anyone with the link, but commenting on them needs an agent-native account.
 
 For fully offline, no-account use, run the Plans app locally and sync plans to
-your repo as MDX. This local mode is a separate advanced path, not the default
+your repository as MDX. This local mode is a separate advanced path, not the default
 hosted flow.
+
+### Auth Recovery and Hosted Endpoint
 
 If a Plans tool returns `needs auth`, `Unauthorized`, or `Session terminated`,
 do not keep retrying the tool. Stop and give the user the reconnect step for the

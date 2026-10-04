@@ -147,7 +147,7 @@ When feedback IS correct:
 
 **If you catch yourself about to write "Thanks":** DELETE IT. State the fix instead.
 
-## Gracefully Correcting Your Pushback
+## Correcting Your Pushback
 
 If you pushed back and were wrong:
 ```
@@ -166,7 +166,7 @@ State the correction factually and move on.
 | Mistake | Fix |
 |---------|-----|
 | Performative agreement | State requirement or just act |
-| Blind implementation | Verify against codebase first |
+| Blind implementation | Verify against repository first |
 | Batch without testing | One at a time, test each |
 | Assuming reviewer is right | Check if breaks things |
 | Avoiding pushback | Technical correctness > comfort |
@@ -202,7 +202,7 @@ You understand 1,2,3,6. Unclear on 4,5.
 
 ## GitHub Thread Replies
 
-When replying to inline review comments on GitHub, reply in the comment thread (`gh api repos/{owner}/{repo}/pulls/{pr}/comments/{id}/replies`), not as a top-level PR comment.
+When replying to inline review comments on GitHub, reply in the comment thread (`gh api repos/{owner}/{repo}/pulls/{pr}/comments/{id}/replies`), not as a top-level pull request comment.
 
 ## The Bottom Line
 

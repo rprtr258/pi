@@ -44,14 +44,39 @@ Use the focused reference that matches the CSS concern:
 | --------------------- | ---------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
 | layout                | Grid, Flexbox, subgrid, layout choice, and alignment patterns                                  | [layout](references/layout.md)                         |
 | responsive components | Container queries, container units, component breakpoints, and viewport media query boundaries | [container-queries](references/container-queries.md)   |
+
+### Cascade and Selectors
+
+| Topic                 | Description                                                                                    | Reference                                              |
+| --------------------- | ---------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
 | cascade               | Cascade layers, specificity control, selector shape, and `!important` avoidance                | [cascade-layers](references/cascade-layers.md)         |
 | selectors             | `:has()`, `:is()`, `:where()`, `:not()`, parent/sibling state, and scoped selector patterns    | [selectors](references/selectors.md)                   |
+
+### Sizing and Logical Properties
+
+| Topic                 | Description                                                                                    | Reference                                              |
+| --------------------- | ---------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
 | sizing                | Intrinsic sizing, fluid type/space, `clamp()`, `minmax()`, `fit-content`, and `aspect-ratio`   | [intrinsic-sizing](references/intrinsic-sizing.md)     |
 | logical properties    | Writing-mode-safe spacing, sizing, borders, and positioning                                    | [logical-properties](references/logical-properties.md) |
+
+### Custom Properties and Colors
+
+| Topic                 | Description                                                                                    | Reference                                              |
+| --------------------- | ---------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
 | custom properties     | CSS variables as design tokens, component APIs, inheritance, and fallbacks                     | [custom-properties](references/custom-properties.md)   |
 | colors                | OKLCH, `color-mix()`, relative colors, contrast, and progressive enhancement                   | [colors](references/colors.md)                         |
+
+### Motion and Anchor Positioning
+
+| Topic                 | Description                                                                                    | Reference                                              |
+| --------------------- | ---------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
 | motion                | Transitions, transforms, `@starting-style`, scroll-driven animation, and reduced motion        | [motion](references/motion.md)                         |
 | anchors and popovers  | CSS anchor positioning, popovers, tooltips, menus, and fallbacks                               | [anchor-positioning](references/anchor-positioning.md) |
+
+### Forms, Lists, and Support
+
+| Topic                 | Description                                                                                    | Reference                                              |
+| --------------------- | ---------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
 | forms                 | Native form states, validation selectors, accent colors, field layout, and accessible styling  | [forms](references/forms.md)                           |
 | lists                 | Styling bullets, numbering, markers, counters, and custom `::before` marker patterns           | [lists](references/lists.md)                           |
 | support               | `@supports`, Baseline checks, browser compatibility, and progressive enhancement               | [browser-support](references/browser-support.md)       |

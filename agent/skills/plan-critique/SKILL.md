@@ -7,17 +7,17 @@ Interview me relentlessly about every aspect of this plan until we reach a share
 
 Ask the questions one at a time, waiting for feedback on each question before continuing.
 
-If a question can be answered by exploring the codebase, explore the codebase instead.
+If a question can be answered by exploring the repository, explore the repository instead.
 
 ## Domain awareness
 
-If the repo has no `CONTEXT.md`, `CONTEXT-MAP.md`, or `docs/adr/` — or the user just wants a grilling with no documentation side effects — skip the rest of this section and run the interview bare: nothing gets written.
+If the repository has no `CONTEXT.md`, `CONTEXT-MAP.md`, or `docs/adr/` — or the user just wants a grilling with no documentation side effects — skip the rest of this section and run the interview bare: nothing gets written.
 
-During codebase exploration, also look for existing documentation:
+During repository exploration, also look for existing documentation:
 
 ### File structure
 
-Most repos have a single context:
+Most repositories have a single context:
 
 ```
 /
@@ -29,7 +29,7 @@ Most repos have a single context:
 └── src/
 ```
 
-If a `CONTEXT-MAP.md` exists at the root, the repo has multiple contexts. The map points to where each one lives:
+If a `CONTEXT-MAP.md` exists at the root, the repository has multiple contexts. The map points to where each one lives:
 
 ```
 /

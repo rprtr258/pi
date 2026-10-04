@@ -6,6 +6,8 @@ authoring a plan; it is the bar these plans must clear.
 
 <!-- SHARED-CORE:exemplar START -->
 
+## A UI-first plan
+
 **GOOD.** A UI-first plan for a todo app: a canvas with a `desktop` artboard whose
 `data.html` is a real flex layout — a sidebar of links (`Inbox 12`, `Today 4`,
 `Done`), a main column with an `<h1>Today</h1>`, accent `.wf-pill`s for the
@@ -24,12 +26,14 @@ changes a multi-step completion flow, the same top area includes a Prototype tab
 whose screens use the same labels and states as the canvas artboards, with
 `data-goto` controls for the sequence. This is the bar.
 
+## Architecture and review plans
+
 **GOOD.** A broad product-architecture plan opens with a plain recommendation
 and one concrete app state before the abstraction. The first canvas artboard is
 pure product UI that matches the current app shell; nearby notes explain the
 user-visible delta. A separate diagram below shows the mechanics, such as file
 or data flow. The document then separates the reusable core from app/provider
-adapters and examples, covers contracts, folder or schema shape, sync
+adapters and examples, covers contracts, directory or schema shape, sync
 boundaries, roadmap, non-goals, a bottom Open Questions form for unresolved
 decisions, and a verification section with at least one realistic end-to-end
 smoke. A reviewer who was not in the chat gets the idea from the top snapshot
@@ -39,11 +43,13 @@ before reading the technical plan.
 The document opens with context and a legend, then repeats recommendation cards:
 title, confidence/category badges, a monospace grid of real file paths, one
 inline two-dimensional before/after or layered architecture diagram, and terse
-Problem/Solution/Why bullets using the codebase's vocabulary. The diagram uses
+Problem/Solution/Why bullets using the repository's vocabulary. The diagram uses
 space to show boundaries, layers, and ownership; it is not a default
 left-to-right chain. The plan ends with a top recommendation and a bottom
 question-form only if the next architecture direction is genuinely open. This is
 better than a top canvas because each diagram is local to the claim it supports.
+
+## Anti-patterns to avoid
 
 **BAD.** A `data.html` with hard-coded hex colors, a `font-family`, or fixed
 pixel width/height; gray placeholder bars "insinuating" text on a non-skeleton
@@ -55,7 +61,7 @@ document with a hero heading and value props that just restates what the canvas
 already shows. Also bad: an architecture-only plan forced into a top canvas of
 labeled boxes with overlapping text, where the actual code evidence and
 recommendations live elsewhere; a product wireframe that mixes a real screen
-with repo names, file-contract arrows, architecture explanations, or a made-up
+with repository names, file-contract arrows, architecture explanations, or a made-up
 permanent inspector; and a plan that describes itself as a revision of a prior
 conversation instead of a standalone proposal. Never produce this.
 

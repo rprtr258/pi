@@ -9,8 +9,7 @@ description: >-
   deployment, compliance, or privacy behavior. Also for setup/configuration
   questions, API references, code examples, or any request naming a specific
   library or framework (e.g. React, Next.js, Prisma). Read current official
-  docs (Context7 MCP when registered, otherwise web search) before assuming
-  from memory.
+  docs from web search before assuming from memory.
 ---
 
 # Read The Damn Docs
@@ -27,7 +26,7 @@ Read docs before proceeding when any of these are true:
 
 - The user asks for "latest", "current", "official", "supported", "best
   practice", "recommended", "today", "now", or "look it up".
-- The needed docs are not already in the repo or supplied by the user. Search
+- The needed docs are not already in the repository or supplied by the user. Search
   the web for the official docs rather than hoping model memory is current.
 - The task adds, upgrades, configures, or imports a package, SDK, framework,
   plugin, CLI, model, cloud resource, or provider integration.
@@ -39,7 +38,7 @@ Read docs before proceeding when any of these are true:
   retries, rate limits, quotas, caching, deploys, or compliance.
 - An error mentions deprecation, unknown options, missing exports, invalid
   config, unsupported fields, changed defaults, or version mismatch.
-- A repo has local docs, ADRs, generated schemas, OpenAPI specs, route/action
+- A repository has local docs, ADRs, generated schemas, OpenAPI specs, route/action
   registries, design-system docs, or package-level READMEs that could define the
   contract.
 - The choice is expensive to reverse: public wire formats, database schema,
@@ -52,7 +51,7 @@ Read docs before proceeding when any of these are true:
 
 Use the most authoritative source available:
 
-- Local repo docs, specs, ADRs, schemas, generated types, package READMEs, and
+- Local repository docs, specs, ADRs, schemas, generated types, package READMEs, and
   tests for project-specific behavior.
 - Official product docs, API references, migration guides, changelogs, release
   notes, and SDK source/types for third-party behavior. Find these with web
@@ -67,29 +66,13 @@ Avoid Stack Overflow, old blog posts, random snippets, and memory as the primary
 source when official docs exist. Use community sources only to debug symptoms
 after the authoritative contract is known.
 
-## Context7 MCP (Preferred When Registered)
-
-If the Context7 MCP is registered (`resolve-library-id` and `query-docs`
-tools), use it before web search for library/framework/API questions:
-
-1. `resolve-library-id` with the library name and the user's full question.
-2. Pick the best result: exact name match, higher benchmark score, official
-   source over forks, version-specific ID if the user named a version.
-3. `query-docs` with the chosen library ID and the specific question.
-4. Answer from the returned docs; cite the library/version when it matters.
-
-Never call `query-docs` without a valid library ID. Limit to 3 calls per
-question — if still unclear, say so rather than guessing. Redact secrets
-(API keys, passwords, tokens) from anything sent to Context7.
-
 ## Required Workflow
 
 1. Identify the exact surface: package name, installed version, target version,
    provider endpoint, CLI command, config file, local helper, schema, or product
    feature.
 2. Fetch current official docs unless the relevant docs are already local or
-   the user supplied a URL. Prefer the Context7 MCP when registered (see
-   above); otherwise search the web with targeted queries such as
+   the user supplied a URL. Search the web with targeted queries such as
    `<product> <feature> official docs`, `<package> migration guide`, or
    `<provider> API reference`.
 3. Open and read the docs closest to that surface. Prefer local docs first for
@@ -116,13 +99,13 @@ question — if still unclear, say so rather than guessing. Redact secrets
   event retry, endpoint secret, and framework body-parsing docs before coding.
 - "Fix this Next.js caching bug." Read the docs for the installed Next.js major
   and router mode before assuming cache invalidation semantics.
-- "Add Drizzle migrations." Read the current Drizzle kit docs and existing repo
+- "Add Drizzle migrations." Read the current Drizzle kit docs and existing repository
   migration conventions before generating files.
 - "Create a GitHub Action." Read official Actions syntax and permissions docs,
   especially for `pull_request`, `workflow_run`, OIDC, tokens, and artifacts.
 - "Why does this OAuth flow fail?" Read the provider's scopes, redirect URI,
   PKCE, token refresh, and app verification docs before changing code.
-- "Use this repo's plan/comment/action system." Read local docs, route/action
+- "Use this repository's plan/comment/action system." Read local docs, route/action
   registries, schemas, and tests before inventing endpoints or props.
 - "Upgrade Vite/Nitro/React." Read the migration guide for the exact target
   major before editing config or imports.
@@ -132,7 +115,7 @@ question — if still unclear, say so rather than guessing. Redact secrets
 ## When A Quick Local Read Is Enough
 
 Do not browse the web for every tiny edit. A docs pass can be local and brief
-when the answer is already in the repo: existing helper usage, nearby tests,
+when the answer is already in the repository: existing helper usage, nearby tests,
 typed interfaces, generated clients, ADRs, or package READMEs. But if the task
 depends on an external tool, package, provider, or current product behavior, web
 search is usually the right first step. For trivial language syntax, typo fixes,

@@ -7,7 +7,7 @@ description: Use when starting feature work that needs isolation from the curren
 
 ## Overview
 
-jj workspaces create isolated working copies under the same repo, each with its own `@` commit — the jj equivalent of git worktrees. Creating them in `mktemp -d` directories means: no directory-selection questions, no .gitignore verification, zero risk of polluting the repo.
+jj workspaces create isolated working copies under the same repository, each with its own `@` commit — the jj equivalent of git worktrees. Creating them in `mktemp -d` directories means: no directory-selection questions, no .gitignore verification, zero risk of polluting the repository.
 
 **Core principle:** mktemp location + auto-detected setup + verified baseline.
 
@@ -28,13 +28,13 @@ Options:
 - `-m "description"` — set the initial change description.
 - The workspace name defaults to the basename of the destination (so `.../auth-refactor` → `auth-refactor`). Name→path mappings: `jj workspace list`.
 
-Pure git repo (no `.jj/`)? Either run `jj git init --colocate` first, or fall back to `git worktree add "$(mktemp -d)/$ws_name" -b <branch>`.
+Pure git repository (no `.jj/`)? Either run `jj git init --colocate` first, or fall back to `git worktree add "$(mktemp -d)/$ws_name" -b <branch>`.
 
 ## Where Things Live
 
 - Workspaces are under `/tmp` (mktemp). They survive reboots on most Linux systems, but systemd-tmpfiles may purge `/tmp` — describe and push changes regularly; never leave unpushed work only in a /tmp workspace.
 - If a directory gets purged while still tracked, `jj workspace forget <name>` cleans up the stale entry.
-- If the repo warns about a stale workspace, `jj workspace update-stale`.
+- If the repository warns about a stale workspace, `jj workspace update-stale`.
 
 ## After Creation
 
@@ -88,10 +88,10 @@ Ready to implement <feature-name>
 | Create isolated workspace | `jj workspace add "$(mktemp -d)/<name>"` |
 | Base on main instead of current @ | add `-r main` |
 | Find a workspace's path | `jj workspace list` |
-| Repo warns workspace is stale | `jj workspace update-stale` |
+| Repository warns workspace is stale | `jj workspace update-stale` |
 | Directory purged by tmp cleanup | `jj workspace forget <name>` |
 | Tests fail during baseline | Report failures + ask |
-| Pure git repo (no .jj/) | `jj git init --colocate` or git worktree fallback |
+| Pure git repository (no .jj/) | `jj git init --colocate` or git worktree fallback |
 | No package.json/Cargo.toml | Skip dependency install |
 
 ## Common Mistakes
@@ -145,13 +145,13 @@ Ready to implement auth feature
 - Proceed with failing tests without asking
 
 **Always:**
-- Create in a mktemp directory (never inside the repo — no .gitignore juggling needed)
+- Create in a mktemp directory (never inside the repository — no .gitignore juggling needed)
 - Auto-detect and run project setup
 - Verify clean test baseline
 
 ## Notes for Agents
 
-- When asked to create a PR: describe the change, push, then use the `gh` skill. Colocated repos push with `jj git push`.
+- When asked to create a pull request: describe the change, push, then use the `gh` skill. Colocated repositories push with `jj git push`.
 - When asked to integrate directly into main, rebase onto main (squash if desired) — a deliberate workflow, not an accidental fast-forward.
 - **`FIX:` comments**: Hans may leave `# FIX: ...` comments directly in source files while reviewing a diff. Always grep for these before starting work: `grep -r "FIX:" .` — address each one, then remove the comment.
 

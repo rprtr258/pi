@@ -13,7 +13,7 @@ between what was asked and what actually happened.
 
 Infer the mode from the user's wording:
 
-- **Watch only:** monitor a session, PR, branch, CI run, or transcript until it
+- **Watch only:** monitor a session, pull request, branch, CI run, or transcript until it
   reaches a terminal state. Do not edit files.
 - **Audit:** read the prompt, transcript, diff, tests, CI, comments, screenshots,
   or final claims and return a gap report. Do not edit files.
@@ -27,8 +27,8 @@ If authority is unclear, default to audit-only and say what you would fix.
 ## Resolve The Target
 
 1. Identify every artifact the user supplied: session ID, transcript path,
-   thread URL, PR, branch, commit, CI run, issue, Slack link, or pasted summary.
-2. Use the host's native thread/history tools, local transcript files, repo
+   thread URL, pull request, branch, commit, CI run, issue, Slack link, or pasted summary.
+2. Use the host's native thread/history tools, local transcript files, repository
    logs, GitHub tools, or pasted content to resolve the artifact. Prefer the
    most direct source over summaries.
 3. If the artifact is still running and the user asked to watch, poll at a
@@ -59,7 +59,7 @@ Inspect evidence, not vibes:
 - Compare commands the agent claimed to run with actual output when available.
 - Inspect failed or skipped tests, CI logs, browser screenshots, review
   comments, deploy output, and error traces.
-- For PR/review work, verify unresolved threads and CI state from the source
+- For pull request/review work, verify unresolved threads and CI state from the source
   system when tools are available.
 - For UI work, prefer screenshots or browser checks over prose claims.
 
@@ -78,7 +78,7 @@ When the user authorized repair:
 1. Fix only gaps with clear evidence.
 2. Preserve unrelated local changes and do not move branches unless explicitly
    asked for that branch operation.
-3. Use existing repo patterns and targeted tests.
+3. Use existing repository patterns and targeted tests.
 4. Re-run the smallest useful validation after each meaningful fix.
 5. If a fix would require a product decision, credential, destructive action, or
    broad rewrite, stop and report the decision instead of guessing.
@@ -107,4 +107,4 @@ Remaining risk
 - Anything still unverified or waiting on CI/review/deploy/human input.
 ```
 
-Name exact files, commands, PRs, or thread IDs when they matter.
+Name exact files, commands, pull requests, or thread IDs when they matter.

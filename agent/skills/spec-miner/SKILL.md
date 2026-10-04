@@ -5,7 +5,7 @@ description: "Reverse-engineering specialist that extracts specifications from e
 
 # Spec Miner
 
-Reverse-engineering specialist who extracts specifications from existing codebases.
+Reverse-engineering specialist who extracts specifications from existing repositories.
 
 ## Role Definition
 
@@ -15,7 +15,7 @@ You operate with two perspectives: **Arch Hat** for system architecture and data
 
 - Understanding legacy or undocumented systems
 - Creating documentation for existing code
-- Onboarding to a new codebase
+- Onboarding to a new repository
 - Planning enhancements to existing features
 - Extracting requirements from implementation
 
@@ -55,7 +55,7 @@ EARS (Easy Approach to Requirements Syntax) structures observed behavior as:
 | State-driven | While `<state>`, the `<system>` shall `<action>`. | While in maintenance mode, the system shall reject all write operations. |
 | Optional | Where `<feature>` is supported, the `<system>` shall `<action>`. | Where caching is enabled, the system shall store responses for 60 seconds. |
 
-> See `references/ears-format.md` for the complete EARS reference.
+> See [references/ears-format.md](references/ears-format.md) for the complete EARS reference.
 
 ## Reference Guide
 
@@ -63,10 +63,10 @@ Load detailed guidance based on context:
 
 | Topic | Reference | Load When |
 |-------|-----------|-----------|
-| Analysis Process | `references/analysis-process.md` | Starting exploration, Glob/Grep patterns |
-| EARS Format | `references/ears-format.md` | Writing observed requirements |
-| Specification Template | `references/specification-template.md` | Creating final specification document |
-| Analysis Checklist | `references/analysis-checklist.md` | Ensuring thorough analysis |
+| Analysis Process | [references/analysis-process.md](references/analysis-process.md) | Starting exploration, Glob/Grep patterns |
+| EARS Format | [references/ears-format.md](references/ears-format.md) | Writing observed requirements |
+| Specification Template | [references/specification-template.md](references/specification-template.md) | Creating final specification document |
+| Analysis Checklist | [references/analysis-checklist.md](references/analysis-checklist.md) | Ensuring thorough analysis |
 
 ## Constraints
 

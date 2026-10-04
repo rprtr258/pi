@@ -64,7 +64,7 @@ func (u *UserService) CreateUser(userName string) error { ... }
 
 ### Use Predictable Names
 
-The same concept MUST always use the same name across the codebase. If a user is called `user` in one function, it should not become `account`, `person`, or `u` in another. Consistency makes code searchable and reduces cognitive load.
+The same concept MUST always use the same name across the repository. If a user is called `user` in one function, it should not become `account`, `person`, or `u` in another. Consistency makes code searchable and reduces cognitive load.
 
 ```go
 // Good — same concept, same name everywhere

@@ -7,7 +7,7 @@ description: Evidence-first current-state research workflow for ECC. Use when th
 
 Use this when the user asks to research something current, compare options, enrich people or companies, or turn repeated lookups into a monitored workflow.
 
-This is the operator wrapper around the repo's research stack. It is not a replacement for `deep-research`, `exa-search`, or `market-research`; it tells you when and how to use them together.
+This is the operator wrapper around the repository's research stack. It is not a replacement for `deep-research`, `exa-search`, or `market-research`; it tells you when and how to use them together.
 
 ## Skill Stack
 
@@ -101,7 +101,7 @@ RECOMMENDATION
 
 - do not mix inference into sourced facts without labeling it
 - do not ignore user-provided evidence
-- do not use a heavy research lane for a question local repo context can answer
+- do not use a heavy research lane for a question local repository context can answer
 - do not give freshness-sensitive answers without dates
 
 ## Verification

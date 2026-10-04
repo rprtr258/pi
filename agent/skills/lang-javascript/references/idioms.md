@@ -110,7 +110,7 @@ const car = { make: "Honda", model: "Accord" };
 
 ### Consistent Vocabulary
 
-Use the same word for the same concept throughout a codebase:
+Use the same word for the same concept throughout a repository:
 
 ```js
 // Bad — three names for the same concept

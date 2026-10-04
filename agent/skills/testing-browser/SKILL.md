@@ -10,7 +10,7 @@ description: Use this skill to automate visual testing and UI interaction verifi
 - After deploying a feature to staging/preview
 - When you need to verify UI behavior across pages
 - Before shipping - confirm layouts, forms, interactions actually work
-- When reviewing PRs that touch frontend code
+- When reviewing pull requests that touch frontend code
 - Accessibility audits and responsive testing
 
 ## How It Works

@@ -22,12 +22,12 @@ Load detailed guidance based on context:
 
 | Topic | Reference | Load When |
 |-------|-----------|-----------|
-| REST Patterns | `references/rest-patterns.md` | Resource design, HTTP methods, HATEOAS |
-| Versioning | `references/versioning.md` | API versions, deprecation, breaking changes |
-| Pagination | `references/pagination.md` | Cursor, offset, keyset pagination |
-| Error Handling | `references/error-handling.md` | Error responses, RFC 7807, status codes |
-| OpenAPI | `references/openapi.md` | OpenAPI 3.1, documentation, code generation |
-| Implementation Patterns | `references/implementation-patterns.md` | Request handling in TypeScript, Python (DRF), Go |
+| REST Patterns | [references/rest-patterns.md](references/rest-patterns.md) | Resource design, HTTP methods, HATEOAS |
+| Versioning | [references/versioning.md](references/versioning.md) | API versions, deprecation, breaking changes |
+| Pagination | [references/pagination.md](references/pagination.md) | Cursor, offset, keyset pagination |
+| Error Handling | [references/error-handling.md](references/error-handling.md) | Error responses, RFC 7807, status codes |
+| OpenAPI | [references/openapi.md](references/openapi.md) | OpenAPI 3.1, documentation, code generation |
+| Implementation Patterns | [references/implementation-patterns.md](references/implementation-patterns.md) | Request handling in TypeScript, Python (DRF), Go |
 
 ## Constraints
 

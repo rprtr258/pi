@@ -12,7 +12,7 @@ reject weak assumptions, and produce a clear handoff instead of a blended mush.
 
 1. Collect the source plans.
 2. Normalize each plan into comparable claims.
-3. Cross-review the plans against each other and the real codebase or task
+3. Cross-review the plans against each other and the real repository or task
    context.
 4. Choose a winner, merge a better hybrid, or send the plans back for revision.
 5. Produce one execution handoff with verification gates and rejected
@@ -23,7 +23,7 @@ decision.
 
 ## Collect Source Plans
 
-Accept plans as pasted text, local files, session IDs, transcript paths, PRs,
+Accept plans as pasted text, local files, session IDs, transcript paths, pull requests,
 comments, visual-plan links, or chat history. Resolve the original artifacts
 when possible so you can see prompt changes and assumptions that may be missing
 from a final summary.
@@ -52,7 +52,7 @@ and honest about tradeoffs.
 Review each plan as if another capable agent wrote it:
 
 - Check whether it satisfies the user's actual request.
-- Verify claims against the repo, docs, tests, screenshots, or external systems
+- Verify claims against the repository, docs, tests, screenshots, or external systems
   when those are relevant and available.
 - Identify hidden dependencies, missing tests, risky sequencing, vague steps,
   unnecessary scope, and hard-to-reverse decisions.
@@ -62,7 +62,7 @@ Review each plan as if another capable agent wrote it:
   be the right choice for implementation even when another model produced the
   best critique.
 
-Use subagents for independent review when the plans are large, the codebase is
+Use subagents for independent review when the plans are large, the repository is
 wide, or the decision would benefit from separate technical and product passes.
 
 ## Decide

@@ -8,6 +8,8 @@ mode.
 
 <!-- SHARED-CORE:document-quality START -->
 
+## Serious standalone plans
+
 **The document is a serious technical plan, not marketing.** Write it the way a
 strong Claude or Codex implementation plan reads: outcome-first, prose-first,
 self-contained, and specific. State the objective and what "done" means, the
@@ -29,6 +31,8 @@ negative framing that only makes sense against absent context ("not the old
 mode", "not just X") unless the contrast is defined in the plan and genuinely
 helps; state the positive model directly.
 
+## Abstraction and legibility
+
 **Make abstract plans instantly legible.** If the idea is broad, strategic, or
 intended for a third-party reviewer, put one concrete product snapshot near the
 top before dense architecture, mode tables, manifests, or roadmaps. For
@@ -44,6 +48,8 @@ apps, providers, customers, scripts, or launch examples. Use the concrete
 example to make the plan understandable, then make clear which parts are core,
 which are app-specific adapters, and which are future examples.
 
+## Documents and visuals
+
 **When top visuals exist, they and the document never duplicate each other.**
 For UI work, the UI story lives in the top visual surface: canvas artboards for
 static inspection, plus prototype tabs when the flow should be functional. The
@@ -58,6 +64,8 @@ comparison. Skip the visual surface entirely for non-visual work and write a
 clean rich document. For a simple binary UI visual choice, show the two
 directions in the canvas only; do not repeat the same options as body
 wireframes or prose. Put the actual choice in the bottom "Open Questions" form.
+
+## Choosing the right block
 
 **Use the right block, and make it carry substance.** For the authoritative,
 machine-checked list of block types and their data schemas, call `get-plan-blocks`
@@ -79,6 +87,8 @@ so you never emit a block the editor cannot render or round-trip:
   the exact code is unknown, show the smallest plausible planned shape or a
   commented stub naming what to fill in. (`code-tabs` and `implementation-map`
   are legacy: their renderers stay for old plans, but do not author new ones.)
+## Decisions and comparisons
+
 - For a decision: if the reviewer must still pick between a genuinely-open
   either/or, put it in the bottom Open Questions `question-form` as a `single`
   question — one option per real alternative, each with a short detail and
@@ -90,6 +100,8 @@ so you never emit a block the editor cannot render or round-trip:
 - `columns` for side-by-side before/after or current/target comparisons where
   each side needs real nested blocks; label the columns clearly and avoid
   stacking comparison blocks vertically when parallel reading is the point.
+## Diagram blocks
+
 - `diagram` for two-dimensional architecture, dependency, data-flow, or state
   relationships, only when it clarifies something real. Prefer standard
   two-dimensional layouts — paired before/after panels, layered diagrams,
@@ -115,10 +127,14 @@ so you never emit a block the editor cannot render or round-trip:
   recommendation title, confidence and category badges, code-path evidence, a
   local before/after or current/target spatial diagram, then concise
   Problem/Solution/Why text.
+## Tabs and structure blocks
+
 - `tabs` for multiple states, directions, or comparisons. A tab that reveals
   only prose usually means the plan is under-specified — include a relevant
   visual unless the tab is intentionally document-only.
 - `table`, `checklist`, `callout` for scannable structure.
+
+## Open questions form
 
 **Open questions live at the bottom as a form when answers would change the
 plan.** Surface answerable unresolved decisions in a final `question-form`
@@ -144,13 +160,17 @@ a choice, either commit to a recommendation with rationale or add it to the
 bottom form with a recommended default. A complex plan with no open questions is
 fine only when every meaningful decision has been explicitly made.
 
+## Verification
+
 **Verification must exercise the real workflow.** The final verification section
 should go beyond typecheck/unit tests when the plan changes UI, local files,
 sync, providers, browser behavior, or multi-app flows. Include at least one
-end-to-end smoke that matches the user journey, such as a fresh repo/folder,
+end-to-end smoke that matches the user journey, such as a fresh repository/directory,
 real manifest or data fixture, browser interaction, save/sync action, and an
 on-disk or database assertion. Name the command or manual browser path when it
 is known.
+
+## Custom HTML escape hatch
 
 **`custom-html` is a bounded escape hatch only** — a single complete fragment
 inside a block, never `html`/`head`/`body`/`script` tags, never a generic
@@ -161,6 +181,8 @@ blocks for normal plans. For architecture/code reviews, use `diagram`
 requested mockup, UI state, or visual comparison. If UI fidelity requires
 HTML/CSS, image capture, or real React/CSS, the product fix is canvas support
 for that artifact type, not moving the mockup into the document.
+
+## Pre-handoff check
 
 **Before handoff, open the plan and check it.** Fix overlap, excessive
 whitespace, clipped fragments, misleading inactive controls, poor contrast, and

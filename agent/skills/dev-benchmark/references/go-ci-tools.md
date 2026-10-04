@@ -36,7 +36,7 @@ benchdiff -clear-cache
 benchdiff -base-ref main -- -benchmem -count=10 -bench='BenchmarkParse|BenchmarkEncode'
 ```
 
-Best for: quick PR-to-base comparisons in git-based workflows. Leverages `benchstat` for statistical rigor and caches non-worktree refs so re-runs only re-measure the worktree.
+Best for: quick comparisons of a pull request against its base in git-based workflows. Leverages `benchstat` for statistical rigor and caches non-worktree refs so re-runs only re-measure the worktree.
 
 ## cob
 
@@ -71,7 +71,7 @@ cob -bench-args "test -run '^$' -bench . -benchmem -benchtime=3s ./..."
 # Skip cob for a specific commit: include [skip cob] in commit message
 ```
 
-**Caution:** `cob` uses `git reset` internally, which can cause data loss if uncommitted changes exist. Always commit your work before running. Additionally, `cob` requires all benchmarks to pass; it skips CI gating if any benchmark fails. For safety, run only in CI pipelines, not locally. Note that `cob` compares single runs without `benchstat`-style statistics, making it more susceptible to noise than `benchdiff`.
+**Caution:** `cob` uses `git reset` internally, which can cause data loss if uncommitted changes exist. Always commit your work before running. Additionally, `cob` requires all benchmarks to pass; it skips CI gating if any benchmark fails. For safety, run only in CI pipelines, not locally. `cob` compares single runs without `benchstat`-style statistics, making it more susceptible to noise than `benchdiff`.
 
 Best for: simple post-commit regression gating in CI where statistical rigor is less critical than fast feedback.
 
@@ -191,7 +191,7 @@ Best for: long-term trend tracking and visualization; complements benchdiff/cob 
 
 | Tool | Statistical rigor | Dashboard | Best for |
 | --- | --- | --- | --- |
-| **benchdiff** | High (uses benchstat) | No | Local dev + CI PR comparisons |
+| **benchdiff** | High (uses benchstat) | No | Local dev + CI pull request comparisons |
 | **cob** | Low (single comparison) | No | Quick CI gate, simple setup |
 | **gobenchdata** | Medium (configurable checks) | Yes (Vue.js on gh-pages) | Long-term trend tracking |
 | **benchstat** (raw) | High | No (CSV export) | Maximum control, custom workflows |

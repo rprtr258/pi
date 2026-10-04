@@ -18,19 +18,19 @@ Surface architectural friction and propose **deepening opportunities** - refacto
 
 ### 1. Explore
 
-Explore the codebase organically and note where you experience friction:
+Explore the repository organically and note where you experience friction:
 
 - Where does understanding one concept require bouncing between many small modules?
 - Where are modules **shallow** - interface nearly as complex as the implementation?
 - Where have pure functions been extracted just for testability, but the real bugs hide in how they're called?
 - Where do tightly-coupled modules leak across their seams?
-- Which parts of the codebase are untested, or hard to test through their current interface?
+- Which parts of the repository are untested, or hard to test through their current interface?
 
 Apply the **deletion test** to anything you suspect is shallow. A useful module concentrates complexity. A shallow module mostly moves complexity around.
 
 ### 2. Present candidates as an HTML report
 
-Write a self-contained HTML file to the OS temp directory so nothing lands in the repo. Resolve the temp dir from `$TMPDIR`, falling back to `/tmp` or `%TEMP%`, and write to `<tmpdir>/architecture-review-<timestamp>.html` so each run gets a fresh file. Open it for the user and tell them the absolute path.
+Write a self-contained HTML file to the OS temp directory so nothing lands in the repository. Resolve the temp dir from `$TMPDIR`, falling back to `/tmp` or `%TEMP%`, and write to `<tmpdir>/architecture-review-<timestamp>.html` so each run gets a fresh file. Open it for the user and tell them the absolute path.
 
 Use [HTML report format](references/html-report.md). The report uses Tailwind via CDN for layout and Mermaid via CDN for diagrams where graph-shaped relationships help. Mix Mermaid with hand-crafted CSS/SVG visuals. Each candidate gets a before/after visualisation.
 

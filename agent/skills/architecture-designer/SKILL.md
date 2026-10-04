@@ -34,11 +34,11 @@ Load detailed guidance based on context:
 
 | Topic | Reference | Load When |
 |-------|-----------|-----------|
-| Architecture Patterns | `references/architecture-patterns.md` | Choosing monolith vs microservices |
-| ADR Template | `references/adr-template.md` | Documenting decisions |
-| System Design | `references/system-design.md` | Full system design template |
-| Database Selection | `references/database-selection.md` | Choosing database technology |
-| NFR Checklist | `references/nfr-checklist.md` | Gathering non-functional requirements |
+| Architecture Patterns | [references/architecture-patterns.md](references/architecture-patterns.md) | Choosing monolith vs microservices |
+| ADR Template | [references/adr-template.md](references/adr-template.md) | Documenting decisions |
+| System Design | [references/system-design.md](references/system-design.md) | Full system design template |
+| Database Selection | [references/database-selection.md](references/database-selection.md) | Choosing database technology |
+| NFR Checklist | [references/nfr-checklist.md](references/nfr-checklist.md) | Gathering non-functional requirements |
 
 ## Constraints
 

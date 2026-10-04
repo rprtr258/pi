@@ -24,10 +24,10 @@ Load and follow the `plan-critique` skill. Do not move to step 4 until scope, se
 
 Pick the plan mode:
 
-- **Single-PR** (default): work completable in one PR. Follow `template.md` for structure; apply `single-pr.md` discipline when a spec exists or a fresh agent will execute the plan.
-- **Multi-session**: work spanning multiple PRs or sessions, parallel workstreams, or high cost of context loss. Follow `multi-session.md` instead of `template.md`.
+- **Single pull request** (default): work completable in one pull request. Follow `template.md` for structure; apply `single-pr.md` discipline when a spec exists or a fresh agent will execute the plan.
+- **Multi-session**: work spanning multiple pull requests or sessions, parallel workstreams, or high cost of context loss. Follow `multi-session.md` instead of `template.md`.
 
-Prefer 3–8 checkbox tasks (single-PR; the validator requires at least 3) or 3–12 PR-sized steps (multi-session). Use more than 8 single-PR tasks only when the work clearly breaks into several independently shippable phases.
+Prefer 3–8 checkbox tasks (single pull request; the validator requires at least 3) or 3–12 steps sized to one pull request (multi-session). Use more than 8 tasks in a single pull request plan only when the work clearly breaks into several independently shippable phases.
 
 Each step should represent a coherent unit of work with a clear, verifiable outcome. Avoid mixing unrelated concerns in a single step.
 
@@ -35,13 +35,13 @@ If the user gives structural feedback, rewrite the step layout cleanly instead o
 
 ## 5. Write the final plan
 
-Save to `./plans/YYYY-MM-DD-<task-name>-vN.md` (lowercase and hyphens only) using the template in `references/template.md` (single-PR) or the format in `references/multi-session.md` (multi-session).
+Save to `./plans/YYYY-MM-DD-<task-name>-vN.md` (lowercase and hyphens only) using the template in `references/template.md` (single pull request) or the format in `references/multi-session.md` (multi-session).
 
 The saved plan is the clean result — not a transcript of your exploration. Keep background short.
 
 ## 6. Validate before finishing
 
-Single-PR plans — run the validator and fix every error:
+Single pull request plans — run the validator and fix every error:
 
 ```bash
 ~/.pi/agent/skills/plan/validate-plan.sh plans/YYYY-MM-DD-<task-name>-vN.md

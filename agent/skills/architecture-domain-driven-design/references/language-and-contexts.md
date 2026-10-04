@@ -49,7 +49,7 @@ Use these most often:
 | Anti-Corruption Layer | External, legacy, or upstream model would pollute your domain | Translate at the boundary; never leak foreign names inward. |
 | Open Host Service / Published Language | Other contexts need a stable API from you | Publish clear contracts in your terms. |
 | Customer-Supplier | One team consumes another team's model/API | Make dependency and influence explicit. |
-| Conformist | You cannot influence upstream and translation is not worth it | Accept the upstream model locally; keep it away from core domain if possible. |
+| Conformist | You cannot influence upstream and translation is not worth it | Accept the upstream model locally; keep it away from the core domain. |
 | Shared Kernel | Two teams truly share a small model subset | Keep it tiny, governed, and tested by both teams. |
 
 Avoid a Shared Kernel for entities and aggregates; value objects like `Money` or `DateRange` are safer.

@@ -30,7 +30,7 @@ From simplest to most sophisticated:
 | [Sequential Pipeline](#1-sequential-pipeline-claude--p) | Low | Daily dev steps, scripted workflows |
 | [NanoClaw REPL](#2-nanoclaw-repl) | Low | Interactive persistent sessions |
 | [Infinite Agentic Loop](#3-infinite-agentic-loop) | Medium | Parallel content generation, spec-driven work |
-| [Continuous Claude PR Loop](#4-continuous-claude-pr-loop) | Medium | Multi-day iterative projects with CI gates |
+| [Continuous Claude pull request Loop](#4-continuous-claude-pr-loop) | Medium | Multi-day iterative projects with CI gates |
 | [De-Sloppify Pattern](#5-the-de-sloppify-pattern) | Add-on | Quality cleanup after any Implementer step |
 | [Ralphinho / RFC-Driven DAG](#6-ralphinho--rfc-driven-dag-orchestration) | High | Large features, multi-unit parallel work with merge queue |
 
@@ -209,7 +209,7 @@ Don't rely on agents to self-differentiate. The orchestrator **assigns** each ag
 
 ## 4. Continuous Claude PR Loop
 
-**A production-grade shell script** that runs Claude Code in a continuous loop, creating PRs, waiting for CI, and merging automatically. Created by AnandChowdhary (credit: @AnandChowdhary).
+**A production-grade shell script** that runs Claude Code in a continuous loop, creating pull requests, waiting for CI, and merging automatically. Created by AnandChowdhary (credit: @AnandChowdhary).
 
 ### Core Loop
 
@@ -279,7 +279,7 @@ Claude reads this file at iteration start and updates it at iteration end. This 
 
 ### CI Failure Recovery
 
-When PR checks fail, Continuous Claude automatically:
+When pull request checks fail, Continuous Claude automatically:
 1. Fetches the failed run ID via `gh run list`
 2. Spawns a new `claude -p` with CI fix context
 3. Claude inspects logs via `gh run view`, fixes code, commits, pushes
@@ -456,7 +456,7 @@ Each stage runs in its own agent process with its own context window:
 
 | Stage | Model | Purpose |
 |-------|-------|---------|
-| Research | Sonnet | Read codebase + RFC, produce context doc |
+| Research | Sonnet | Read repository + RFC, produce context doc |
 | Plan | Opus | Design implementation steps |
 | Implement | Codex | Write code following the plan |
 | Test | Sonnet | Run build + test suite |

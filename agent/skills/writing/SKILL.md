@@ -161,7 +161,7 @@ For LinkedIn / X / short promo copy:
 - Be honest, not clickbaity.
 - Do not invent controversy.
 - Summarize the main claim plainly.
-- Keep Hans's voice. Direct, slightly opinionated, a little playful when appropriate.
+- Keep Hans's voice: direct, slightly opinionated, playful when the topic allows.
 - Avoid hype words and engagement bait.
 
 ## Quick self-check before returning text

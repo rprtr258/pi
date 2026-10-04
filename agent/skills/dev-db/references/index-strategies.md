@@ -295,5 +295,5 @@ ORDER BY count_star DESC;
 4. **Create concurrently**: Avoid locking (PostgreSQL)
 5. **Validate improvement**: Compare before/after EXPLAIN
 6. **Monitor usage**: Remove unused indexes after 30 days
-7. **Maintain regularly**: VACUUM, ANALYZE, REINDEX as needed
+7. **Maintain regularly**: VACUUM after bulk writes, ANALYZE after data changes, REINDEX when index bloat grows
 

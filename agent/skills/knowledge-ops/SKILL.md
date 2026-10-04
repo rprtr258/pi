@@ -8,16 +8,16 @@ description: Knowledge base management, ingestion, sync, and retrieval across mu
 Manage a multi-layered knowledge system for ingesting, organizing, syncing, and retrieving knowledge across multiple stores.
 
 Prefer the live workspace model:
-- code work lives in the real cloned repos
-- active execution context lives in GitHub, Linear, and repo-local working-context files
-- broader human-facing notes can live in a non-repo context/archive folder
-- durable cross-machine memory belongs in the knowledge base, not in a shadow repo workspace
+- code work lives in the real cloned repositories
+- active execution context lives in GitHub, Linear, and repository-local working-context files
+- broader human-facing notes can live in a non-repository context/archive directory
+- durable cross-machine memory belongs in the knowledge base, not in a shadow repository workspace
 
 ## When to Activate
 
 - User wants to save information to their knowledge base
 - Ingesting documents, conversations, or data into structured storage
-- Syncing knowledge across systems (local files, MCP memory, Supabase, Git repos)
+- Syncing knowledge across systems (local files, MCP memory, Supabase, Git repositories)
 - Deduplicating or organizing existing knowledge
 - User says "save this to KB", "sync knowledge", "what do I know about X", "ingest this", "update the knowledge base"
 - Any knowledge management task beyond simple memory recall
@@ -25,7 +25,7 @@ Prefer the live workspace model:
 ## Knowledge Architecture
 
 ### Layer 1: Active execution truth
-- **Sources:** GitHub issues, PRs, discussions, release notes, Linear issues/projects/docs
+- **Sources:** GitHub issues, pull requests, discussions, release notes, Linear issues/projects/docs
 - **Use for:** the current operational state of the work
 - **Rule:** if something affects an active engineering plan, roadmap, rollout, or release, prefer putting it here first
 
@@ -43,7 +43,7 @@ Prefer the live workspace model:
 
 ### Layer 4: Knowledge base repo / durable document store
 - **Use for:** curated durable notes, session exports, synthesized research, operator memory, long-form docs
-- **Rule:** this is the preferred durable store for cross-machine context when the content is not repo-owned code
+- **Rule:** this is the preferred durable store for cross-machine context when the content is not repository-owned code
 
 ### Layer 5: External Data Store (Supabase, PostgreSQL, etc.)
 - **Use for:** Structured data, large document storage, full-text search
@@ -52,7 +52,7 @@ Prefer the live workspace model:
 ### Layer 6: Local context/archive folder
 - **Use for:** human-facing notes, archived gameplans, local media organization, temporary non-code docs
 - **Rule:** writable for information storage, but not a shadow code workspace
-- **Do not use for:** active code changes or repo truth that should live upstream
+- **Do not use for:** active code changes or repository truth that should live upstream
 
 ## Ingestion Workflow
 
@@ -65,7 +65,7 @@ What type of knowledge is it?
 - Personal preference -> memory file (user/feedback type)
 - Reference info -> memory file (reference type) + MCP memory
 - Large document -> external data store + summary in memory
-- Conversation/session -> knowledge base repo + short summary in memory
+- Conversation/session -> knowledge base repository + short summary in memory
 
 ### 2. Deduplicate
 Check if this knowledge already exists:
@@ -79,7 +79,7 @@ Write to appropriate layer(s):
 - Always update Claude Code memory for quick access
 - Use MCP memory for semantic searchability and relationship mapping
 - Update GitHub / Linear first when the information changes live project truth
-- Commit to the knowledge base repo for durable long-form additions
+- Commit to the knowledge base repository for durable long-form additions
 
 ### 4. Index
 Update any relevant indexes or summary files.
@@ -89,7 +89,7 @@ Update any relevant indexes or summary files.
 ### Conversation Sync
 Periodically sync conversation history into the knowledge base:
 - Sources: Claude session files, Codex sessions, other agent sessions
-- Destination: knowledge base repo
+- Destination: knowledge base repository
 - Generate a session index for quick browsing
 - Commit and push
 
@@ -98,11 +98,11 @@ Mirror important workspace configuration and scripts to the knowledge base:
 - Generate directory maps
 - Redact sensitive config before committing
 - Track changes over time
-- Do not treat the knowledge base or archive folder as the live code workspace
+- Do not treat the knowledge base or archive directory as the live code workspace
 
 ### GitHub / Linear Sync
 When the information affects active execution:
-- update the relevant GitHub issue, PR, discussion, release notes, or roadmap thread
+- update the relevant GitHub issue, pull request, discussion, release notes, or roadmap thread
 - attach supporting docs to Linear when the work needs durable planning context
 - only mirror a local note afterwards if it still adds value
 
@@ -138,7 +138,7 @@ Use mcp__memory__search_nodes to find existing knowledge
 - Keep memory files concise. Archive old data rather than letting files grow unbounded.
 - Use frontmatter (YAML) for metadata on all knowledge files.
 - Deduplicate before storing. Search first, then create or update.
-- Prefer one canonical home per fact set. Avoid parallel copies of the same plan across local notes, repo files, and tracker docs.
+- Prefer one canonical home per fact set. Avoid parallel copies of the same plan across local notes, repository files, and tracker docs.
 - Redact sensitive information (API keys, passwords) before committing to Git.
 - Use consistent naming conventions for knowledge files (lowercase-kebab-case).
 - Tag entries with topics/categories for easier retrieval.

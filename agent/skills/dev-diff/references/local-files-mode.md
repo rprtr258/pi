@@ -4,6 +4,8 @@ Full rules for local-files privacy mode, linked from the skill. Read this whenev
 
 ## Local-Files Privacy Mode Exception
 
+### Mode Trigger And Local Reads
+
 Use local-files privacy mode when the user explicitly asks for no DB writes,
 no hosted Plan database writes, no Plan MCP publish, fully local files, offline/private
 recaps, or when `AGENT_NATIVE_PLANS_MODE=local-files` is set. This is the only
@@ -25,10 +27,13 @@ In local-files mode:
   question-form questions need `id`, `title`, and `mode`; and each option needs
   `id` and `label`. `plan local check` validates these required fields against
   the renderer schema.
-- Write the recap as a local MDX folder: use `plans/<slug>/` when the user
-  wants the artifact checked into the repo, or use a repo-ignored/temporary
-  folder such as `.agent-native/plans/<slug>/` or `/tmp/agent-native-plans/<slug>/`
-  when it should not be checked in. The folder contains `plan.mdx`, optional
+
+### Authoring And Serving Recaps
+
+- Write the recap as a local MDX directory: use `plans/<slug>/` when the user
+  wants the artifact checked into the repository, or use a repository-ignored/temporary
+  Directory such as `.agent-native/plans/<slug>/` or `/tmp/agent-native-plans/<slug>/`
+  when it should not be checked in. The directory contains `plan.mdx`, optional
   `canvas.mdx`, optional `prototype.mdx`, and optional `.plan-state.json`. Set
   `kind: "recap"` and `localOnly: true` in frontmatter/state when authoring
   the source.
@@ -49,6 +54,9 @@ In local-files mode:
   prints diagnostics, and exits. If the browser hangs on "Loading plan", fetch
   the `bridgeUrl` from the verify/serve JSON to read the concrete validation
   error.
+
+### Hosted Tool Restrictions
+
 - Do **not** call `create-visual-recap`, `create-visual-plan`,
   `import-visual-plan-source`, `update-visual-plan`,
   `patch-visual-plan-source`, `get-plan-feedback`, `export-visual-plan`,
@@ -56,7 +64,7 @@ In local-files mode:
   schema-only block catalog lookup above.
 - Treat review feedback as file or chat feedback: update the MDX files directly,
   rerun the local bridge command, and summarize the new local bridge URL.
-  Hosted comments, sharing, screenshots, usage attachment, and PR sticky comment
+  Hosted comments, sharing, screenshots, usage attachment, and pull request sticky comment
   publishing are unavailable until the user explicitly opts into publishing.
 
 Local-files mode prevents recap content from going to the Agent-Native Plan

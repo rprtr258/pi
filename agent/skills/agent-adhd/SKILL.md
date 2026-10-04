@@ -1,6 +1,6 @@
 ---
 name: agent-adhd
-description: 'Shape output for a reader with ADHD: lead with the next action, number multi-step work, restate state across turns, suppress tangents, give specific time estimates, make wins visible. Invoke with /i-have-adhd; stays on until "stop adhd mode".'
+description: 'Shape output for a reader with ADHD: lead with the next action, number multi-step work, restate state across turns, suppress tangents, give specific time estimates, make wins visible. Invoke with /i-have-adhd; stays on until "stop adhd mode". Use when the user wants output shaped for an ADHD reader or invokes /i-have-adhd.'
 ---
 
 The reader has ADHD. Output is not just brief. It is shaped so an ADHD brain can act on it.
@@ -15,7 +15,7 @@ Turn them off only when the reader says "stop adhd mode" or "normal mode". Confi
 
 Five facts drive every rule below:
 
-1. Working memory is small. Anything not on screen is forgotten. Do not ask the reader to "keep in mind X."
+1. Working memory is small. Anything not on screen is forgotten. Do not ask the reader to remember something for later.
 2. Knowing the answer is not doing the answer. The friction between "got it" and "done it" is where work dies.
 3. Starting is the hardest step. The first action must be obvious, small, and doable now.
 4. Time estimates feel uniform. "A bit of work" and "a few hours" register the same. Vague estimates fail.
@@ -125,7 +125,7 @@ Before sending, delete:
 1. The first sentence if it announces what you are about to do.
 2. The last sentence if it asks "anything else?" or recaps what just happened.
 3. Any "by the way" sidebar.
-4. Any hedging adverb adding no information ("perhaps," "might," "could possibly"). Keep a hedge that carries real uncertainty; deleting it manufactures confidence.
+4. Any hedging adverb adding no information ("might," "could possibly"). Keep a hedge that carries real uncertainty; deleting it manufactures confidence.
 5. Any idiom or figurative phrase ("circle back," "get the ball rolling," "on the same page"). Replace with the literal action.
 
 Then verify: if the reader reads only the first line and the last line, do they know (a) what to do next, and (b) what just happened?

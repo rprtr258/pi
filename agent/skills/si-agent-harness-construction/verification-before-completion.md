@@ -53,7 +53,7 @@ Skip any step = lying, not verifying
 
 - Using "should", "probably", "seems to"
 - Expressing satisfaction before verification ("Great!", "Perfect!", "Done!", etc.)
-- About to commit/push/PR without verification
+- About to commit/push/pull request without verification
 - Trusting agent success reports
 - Relying on partial verification
 - Thinking "just this once"
@@ -120,7 +120,7 @@ From 24 failure memories:
 - ANY variation of success/completion claims
 - ANY expression of satisfaction
 - ANY positive statement about work state
-- Committing, PR creation, task completion
+- Committing, pull request creation, task completion
 - Moving to next task
 - Delegating to agents
 

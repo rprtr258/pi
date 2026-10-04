@@ -9,7 +9,7 @@ Anything with an interface and an implementation. Deliberately scale-agnostic - 
 _Avoid_: unit, component, service.
 
 **Interface**
-Everything a caller must know to use the module correctly. Includes the type signature or method name, but also invariants, ordering constraints, error modes, required configuration, and performance characteristics.
+Everything a caller must know to use the module. Includes the type signature or method name, but also invariants, ordering constraints, error modes, required configuration, and performance characteristics.
 _Avoid_: API, signature.
 
 **Implementation**

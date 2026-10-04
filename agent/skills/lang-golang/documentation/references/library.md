@@ -192,6 +192,6 @@ This is an emerging convention for making projects AI-friendly. Place it alongsi
 Make your library findable by AI agents and documentation aggregators:
 
 - **Context7** — <https://context7.com> — submit your library for inclusion in AI-accessible documentation
-- **DeepWiki** — <https://deepwiki.com> — auto-generates wiki-style docs from GitHub repos
+- **DeepWiki** — <https://deepwiki.com> — auto-generates wiki-style docs from GitHub repositories
 - **OpenDeep** — <https://opendeep.wiki> — open documentation platform for AI consumption
 - **zRead** — <https://zread.ai> — developer documentation reader

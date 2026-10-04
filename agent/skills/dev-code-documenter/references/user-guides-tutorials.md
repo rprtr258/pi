@@ -44,9 +44,9 @@ Run the code and you should see a list of users.
 ```
 
 ## Next Steps
-- [Authentication Guide](/docs/auth) - Learn about OAuth and API keys
-- [Advanced Queries](/docs/queries) - Filtering, sorting, pagination
-- [Error Handling](/docs/errors) - Handle errors gracefully
+- [Authentication Guide](./interactive-api-docs.md) - Learn about OAuth and API keys
+- [Advanced Queries](./api-docs-nestjs-express.md) - Filtering, sorting, pagination
+- [Error Handling](./api-docs-fastapi-django.md) - Handle errors with clear messages
 ```
 
 ### Step-by-Step Tutorial
@@ -154,7 +154,7 @@ At this point, you have:
 
 ## Next: Adding Pagination
 
-[Continue to Step 5 →](/docs/tutorial/step-5)
+[Continue to Step 5 →](./documentation-systems.md)
 ```
 
 ## Information Architecture
@@ -220,7 +220,7 @@ const file = document.querySelector('input[type="file"]').files[0];
 ```typescript
 const formData = new FormData();
 formData.append('file', file);
-formData.append('folder', 'avatars');
+formData.append('directory', 'avatars');
 ```
 
 ### 3. Upload with the SDK
@@ -238,8 +238,8 @@ Maximum file size is 10MB. Compress images before uploading.
 Only .jpg, .png, .gif are allowed. Check the file extension.
 
 ## Related
-- [File API Reference](/api/files)
-- [Handling Upload Progress](/guides/upload-progress)
+- [File API Reference](./api-docs-nestjs-express.md)
+- [Handling Upload Progress](./api-docs-fastapi-django.md)
 ```
 
 ### Progressive Disclosure
@@ -257,7 +257,7 @@ const client = new Client({ apiKey: 'your_key' });
 
 **When to use:** Scripts, internal tools, testing
 
-[Generate an API key →](/dashboard/api-keys)
+[Generate an API key →](./interactive-api-docs.md)
 
 <details>
 <summary>Advanced: OAuth 2.0</summary>
@@ -286,7 +286,7 @@ const tokens = await client.oauth.exchangeCode(code);
 const client = new Client({ accessToken: tokens.access_token });
 ```
 
-[Full OAuth guide →](/guides/oauth)
+[Full OAuth guide →](./interactive-api-docs.md)
 </details>
 
 <details>
@@ -304,7 +304,7 @@ const jwt = createJWT({
 const client = new Client({ jwt });
 ```
 
-[JWT setup guide →](/guides/jwt)
+[JWT setup guide →](./interactive-api-docs.md)
 </details>
 ```
 
@@ -412,7 +412,7 @@ echo -n "$API_KEY" | wc -c  # Should be exactly 32 characters
 ```
 
 **2. Regenerate the key:**
-- Go to [dashboard](/dashboard)
+- Go to [dashboard](./documentation-systems.md)
 - Click "Revoke & Regenerate"
 - Update your environment variables
 
@@ -423,7 +423,7 @@ console.log('API URL:', client.baseUrl);
 ```
 
 **Still not working?**
-[Contact support](/support) with your request ID from the error response.
+[Contact support](./documentation-systems.md) with your request ID from the error response.
 
 ---
 
@@ -459,7 +459,7 @@ async function retryWithBackoff(fn, maxRetries = 3) {
 Instead of 100 individual requests, use batch endpoints.
 
 **3. Upgrade your plan:**
-[View plans](/pricing) - Higher tiers have increased limits.
+[View plans](./documentation-systems.md) - Higher tiers have increased limits.
 ```
 
 ## FAQ Section
@@ -476,7 +476,7 @@ Instead of 100 individual requests, use batch endpoints.
 - All core features
 
 ### How do I upgrade?
-Click "Upgrade" in your [dashboard](/dashboard) and select a plan.
+Click "Upgrade" in your [dashboard](./documentation-systems.md) and select a plan.
 
 ## Technical
 
@@ -489,7 +489,7 @@ Yes, the API is production-ready with 99.9% SLA on paid plans.
 - Enterprise: Custom limits
 
 ### Do you support webhooks?
-Yes! See [Webhooks Guide](/guides/webhooks) for setup.
+Yes! See [Webhooks Guide](./api-docs-nestjs-express.md) for setup.
 
 ### Which regions are available?
 Currently: US East, US West, EU Central, Asia Pacific.
@@ -507,9 +507,9 @@ Credit card, PayPal, wire transfer (annual plans only).
 ---
 
 **Can't find your answer?**
-- [Browse all docs](/docs)
+- [Browse all docs](./documentation-systems.md)
 - [Ask the community](https://community.example.com)
-- [Contact support](/support)
+- [Contact support](./documentation-systems.md)
 ```
 
 ## Quick Reference

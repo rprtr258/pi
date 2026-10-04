@@ -18,7 +18,7 @@ Automate minor/patch dependency updates to reduce maintenance burden and stay cu
 ## Auto-Merge Strategy
 
 - **Minor and patch updates**: Auto-merge after CI passes (tests + lint + govulncheck)
-- **Major updates**: Create PR for manual review (may contain breaking changes)
+- **Major updates**: Create pull request for manual review (may contain breaking changes)
 - **Security updates**: Auto-merge regardless of version bump type
 
 For workflow configuration files (dependabot.yml, renovate.json, auto-merge workflows), see the [continuous-integration](../../continuous-integration/continuous-integration.md).
@@ -31,4 +31,4 @@ Before committing a dependency update:
 1. Run `go test ./...` and `go build ./...`
 2. Scan with `govulncheck ./...`
 3. Major version upgrades may contain breaking changes — the package's changelog documents them
-4. Adopt new APIs or patterns introduced in the updated version where they improve the codebase
+4. Adopt new APIs or patterns introduced in the updated version where they improve the repository

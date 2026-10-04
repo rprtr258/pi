@@ -48,9 +48,9 @@ _Avoid_: Client, buyer, account
 
 ## Single vs multi-context repos
 
-**Single context (most repos):** One `CONTEXT.md` at the repo root.
+**Single context (most repositories):** One `CONTEXT.md` at the repository root.
 
-**Multiple contexts:** A `CONTEXT-MAP.md` at the repo root lists the contexts, where they live, and how they relate to each other:
+**Multiple contexts:** A `CONTEXT-MAP.md` at the repository root lists the contexts, where they live, and how they relate to each other:
 
 ```md
 # Context Map

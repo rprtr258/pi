@@ -111,6 +111,8 @@ Each skill is evaluated against this checklist:
 - [ ] Usage frequency considered
 ```
 
+#### Verdicts and dimensions
+
 Verdict criteria:
 
 | Verdict | Meaning |
@@ -126,6 +128,8 @@ Evaluation is **holistic AI judgment** — not a numeric rubric. Guiding dimensi
 - **Scope fit**: name, trigger, and content are aligned; not too broad or narrow
 - **Uniqueness**: value not replaceable by MEMORY.md / CLAUDE.md / another skill
 - **Currency**: technical references work in the current environment
+
+#### Writing good reasons
 
 **Reason quality requirements** — the `reason` field must be self-contained and decision-enabling:
 - Do NOT write "unchanged" alone — always restate the core evidence

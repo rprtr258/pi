@@ -323,7 +323,7 @@ pci_dss:
 - Test recovery procedures
 - Document all incidents
 - Improve detection continuously
-- Preserve evidence chain properly
+- Preserve evidence with a documented chain of custody
 - Coordinate communication clearly
 - Escalate security incidents immediately
 - Understand compliance obligations

@@ -1,27 +1,27 @@
 # Multi-Session Plan Format — Construction Plan
 
-Turn a one-line objective into a step-by-step construction plan that any coding agent can execute cold. This is the plan skill's mode for work that spans multiple PRs or sessions.
+Turn a one-line objective into a step-by-step construction plan that any coding agent can execute cold. This is the plan skill's mode for work that spans multiple pull requests or sessions.
 
 ## When to Use
 
-- Breaking a large feature into multiple PRs with clear dependency order
+- Breaking a large feature into multiple pull requests with clear dependency order
 - Planning a refactor or migration that spans multiple sessions
 - Coordinating parallel workstreams across sub-agents
 - Any task where context loss between sessions would cause rework
 
-**Do not use** for tasks completable in a single PR, fewer than 3 tool calls, or when the user says "just do it" — use the single-PR mode (or no plan) instead.
+**Do not use** for tasks completable in a single pull request, fewer than 3 tool calls, or when the user says "just do it" — use the single pull request mode (or no plan) instead.
 
 ## Pipeline
 
 Run a 5-phase pipeline:
 
 1. **Research** - Read project structure, existing plans, and memory/docs files to gather context.
-2. **Design** - Break the objective into one-PR-sized steps (3-12 typical). Assign dependency edges, parallel/serial ordering, model tier (strongest vs default), and rollback strategy per step.
+2. **Design** - Break the objective into steps sized to one pull request (3-12 typical). Assign dependency edges, parallel/serial ordering, model tier (strongest vs default), and rollback strategy per step.
 3. **Draft** - Write a self-contained Markdown plan file to `./plans/YYYY-MM-DD-<task-name>-vN.md`. Every step includes a context brief, task list, verification commands, and exit criteria - so a fresh agent can execute any step without reading prior steps.
 4. **Review** - Delegate adversarial review to a strongest-available-model sub-agent against a checklist and anti-pattern catalog. Fix all critical findings before finalizing.
 5. **Register** - Save the plan and present the step count and parallelism summary to the user.
 
-Detect git/gh availability automatically. With git + GitHub CLI, generate full branch/PR/CI workflow plans. Without them, switch to direct mode (edit-in-place, no branches).
+Detect git/gh availability automatically. With git + GitHub CLI, generate full branch/pull request/CI workflow plans. Without them, switch to direct mode (edit-in-place, no branches).
 
 ## Example
 
@@ -34,7 +34,7 @@ Produces `plans/YYYY-MM-DD-migrate-database-to-postgresql-v1.md` with steps like
 - Step 4: Add integration tests against PostgreSQL
 - Step 5: Remove old database code and config
 
-For an extraction-type request (e.g. "extract LLM providers into a plugin system"), produce parallel steps where possible ("implement Anthropic plugin" and "implement OpenAI plugin" run in parallel after the plugin interface step is done), model tier assignments (strongest for the interface design step, default for implementation), and invariants verified after every step (e.g., "all existing tests pass", "no provider imports in core").
+For an extraction-type request (e.g. "extract LLM providers into a plugin system"), produce parallel steps where the steps share no files ("implement Anthropic plugin" and "implement OpenAI plugin" run in parallel after the plugin interface step is done), model tier assignments (strongest for the interface design step, default for implementation), and invariants verified after every step (e.g., "all existing tests pass", "no provider imports in core").
 
 ## Step Anatomy
 
@@ -49,6 +49,6 @@ Every step is self-contained (cold-start execution):
 
 - **Cold-start execution** - Every step includes a self-contained context brief. No prior context needed.
 - **Adversarial review gate** - Review the plan (or dispatch a strongest-available-model sub-agent) against a checklist covering completeness, dependency correctness, and anti-pattern detection. Fix critical findings before finalizing.
-- **Branch/PR/CI workflow** - Built into every step. Degrades gracefully to direct mode when git/gh is absent.
+- **Branch/pull request/CI workflow** - Built into every step. Falls back to direct mode when git/gh is absent.
 - **Parallel step detection** - The dependency graph identifies steps with no shared files or output dependencies; those can run concurrently.
 - **Plan mutation protocol** - Steps can be split, inserted, skipped, reordered, or abandoned with formal protocols and an audit trail in the plan file.

@@ -20,11 +20,11 @@ Load detailed guidance based on context:
 
 | Topic | Reference | Load When |
 |-------|-----------|-----------|
-| SLO/SLI | `references/slo-sli-management.md` | Defining SLOs, calculating error budgets |
-| Error Budgets | `references/error-budget-policy.md` | Managing budgets, burn rates, policies |
-| Monitoring | `references/monitoring-alerting.md` | Golden signals, alert design, dashboards |
-| Automation | `references/automation-toil.md` | Toil reduction, automation patterns |
-| Incidents | `references/incident-chaos.md` | Incident response, chaos engineering |
+| SLO/SLI | [references/slo-sli-management.md](references/slo-sli-management.md) | Defining SLOs, calculating error budgets |
+| Error Budgets | [references/error-budget-policy.md](references/error-budget-policy.md) | Managing budgets, burn rates, policies |
+| Monitoring | [references/monitoring-alerting.md](references/monitoring-alerting.md) | Golden signals, alert design, dashboards |
+| Automation | [references/automation-toil.md](references/automation-toil.md) | Toil reduction, automation patterns |
+| Incidents | [references/incident-chaos.md](references/incident-chaos.md) | Incident response, chaos engineering |
 
 ## Constraints
 
@@ -46,7 +46,7 @@ Load detailed guidance based on context:
 - Implement manual processes for recurring tasks
 - Deploy without capacity planning
 - Ignore error budget exhaustion
-- Build systems that can't degrade gracefully
+- Build systems with no degraded-mode fallback
 
 ## Output Templates
 

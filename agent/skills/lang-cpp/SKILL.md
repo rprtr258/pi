@@ -21,11 +21,11 @@ Load detailed guidance based on context:
 
 | Topic | Reference | Load When |
 |-------|-----------|-----------|
-| Modern C++ Features | `references/modern-cpp.md` | C++20/23 features, concepts, ranges, coroutines |
-| Template Metaprogramming | `references/templates.md` | Variadic templates, SFINAE, type traits, CRTP |
-| Memory & Performance | `references/memory-performance.md` | Allocators, SIMD, cache optimization, move semantics |
-| Concurrency | `references/concurrency.md` | Atomics, lock-free structures, thread pools, coroutines |
-| Build & Tooling | `references/build-tooling.md` | CMake, sanitizers, static analysis, testing |
+| Modern C++ Features | [references/modern-cpp.md](references/modern-cpp.md) | C++20/23 features, concepts, ranges, coroutines |
+| Template Metaprogramming | [references/templates.md](references/templates.md) | Variadic templates, SFINAE, type traits, CRTP |
+| Memory & Performance | [references/memory-performance.md](references/memory-performance.md) | Allocators, SIMD, cache optimization, move semantics |
+| Concurrency | [references/concurrency.md](references/concurrency.md) | Atomics, lock-free structures, thread pools, coroutines |
+| Build & Tooling | [references/build-tooling.md](references/build-tooling.md) | CMake, sanitizers, static analysis, testing |
 
 ## Constraints
 

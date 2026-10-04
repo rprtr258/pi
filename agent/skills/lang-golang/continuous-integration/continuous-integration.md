@@ -58,7 +58,7 @@ Test flags:
 
 ### Coverage Configuration
 
-CI SHOULD enforce code coverage thresholds. Configure thresholds in `codecov.yml` at the repo root - see [codecov.yml](./assets/codecov.yml)
+CI SHOULD enforce code coverage thresholds. Configure thresholds in `codecov.yml` at the repository root - see [codecov.yml](./assets/codecov.yml)
 
 ---
 
@@ -72,7 +72,7 @@ Use `-count=1` to disable test caching - cached results can hide flaky service i
 
 ## Linting
 
-`golangci-lint` MUST be run in CI on every PR. `.github/workflows/lint.yml` - see [lint.yml](./assets/lint.yml)
+`golangci-lint` MUST be run in CI on every pull request. `.github/workflows/lint.yml` - see [lint.yml](./assets/lint.yml)
 
 ### golangci-lint Configuration
 
@@ -108,27 +108,27 @@ If the project produces Docker images, Trivy container scanning is included in t
 
 `.github/dependabot.yml` - see [dependabot.yml](./assets/dependabot.yml)
 
-Minor/patch updates are grouped into a single PR. Major updates get individual PRs since they may have breaking changes.
+Minor/patch updates are grouped into a single pull request. Major updates get individual pull requests since they may have breaking changes.
 
 #### Auto-Merge for Dependabot
 
 `.github/workflows/dependabot-auto-merge.yml` - see [dependabot-auto-merge.yml](./assets/dependabot-auto-merge.yml)
 
-> **Security warning:** This workflow requires `contents: write` and `pull-requests: write` - these are elevated permissions that allow merging PRs and modifying repository content. The `if: github.actor == 'dependabot[bot]'` guard restricts execution to Dependabot only. Do not remove this guard. Note that `github.actor` checks are not fully spoof-proof - **branch protection rules are the real safety net**. Ensure branch protection is configured (see [Repository Security Settings](#repository-security-settings)) with required status checks and required approvals so that auto-merge only succeeds after all checks pass, regardless of who triggered the workflow.
+> **Security warning:** This workflow requires `contents: write` and `pull-requests: write` - these are elevated permissions that allow merging pull requests and modifying repository content. The `if: github.actor == 'dependabot[bot]'` guard restricts execution to Dependabot only. Do not remove this guard. Note that `github.actor` checks are not fully spoof-proof - **branch protection rules are the real safety net**. Ensure branch protection is configured (see [Repository Security Settings](#repository-security-settings)) with required status checks and required approvals so that auto-merge only succeeds after all checks pass, regardless of who triggered the workflow.
 
 ### Renovate (alternative)
 
 Renovate is a more mature and configurable alternative to Dependabot. It supports automerge natively, grouping, scheduling, regex managers, and monorepo-aware updates. If Dependabot feels too limited, Renovate is the go-to choice.
 
-Install the [Renovate GitHub App](https://github.com/apps/renovate), then create `renovate.json` at the repo root - see [renovate.json](./assets/renovate.json)
+Install the [Renovate GitHub App](https://github.com/apps/renovate), then create `renovate.json` at the repository root - see [renovate.json](./assets/renovate.json)
 
 Key advantages over Dependabot:
 
 - **`gomodTidy`**: Automatically runs `go mod tidy` after updates
 - **Native automerge**: No separate workflow needed
-- **Better grouping**: More flexible rules for grouping PRs
+- **Better grouping**: More flexible rules for grouping pull requests
 - **Regex managers**: Can update versions in Dockerfiles, Makefiles, etc.
-- **Monorepo support**: Handles Go workspaces and multi-module repos
+- **Monorepo support**: Handles Go workspaces and multi-module repositories
 
 ---
 
@@ -173,7 +173,7 @@ For projects that produce Docker images. This workflow builds multi-platform ima
 Key details:
 
 - **QEMU + Buildx**: Required for multi-platform builds (`linux/amd64,linux/arm64`). Remove platforms you don't need.
-- **`push: false` on PRs**: Images are built but never pushed on pull requests - this validates the Dockerfile without publishing untrusted code.
+- **`push: false` on pull requests**: Images are built but never pushed on pull requests - this validates the Dockerfile without publishing untrusted code.
 - **Metadata action**: Automatically generates semver tags (`v1.2.3` → `1.2.3`, `1.2`, `1`), branch tags (`main`), and SHA tags.
 - **Provenance + SBOM**: `provenance: mode=max` and `sbom: true` generate supply chain attestations. These require `attestations: write` and `id-token: write` permissions.
 - **Dual registry**: Pushes to both GHCR (using `GITHUB_TOKEN`, no extra secret needed) and Docker Hub (requires `DOCKERHUB_USERNAME` + `DOCKERHUB_TOKEN` secrets). Remove the Docker Hub login and image line if not needed.

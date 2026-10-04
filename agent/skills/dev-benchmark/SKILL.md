@@ -7,7 +7,7 @@ description: Use this skill to measure performance baselines, detect regressions
 
 ## When to Use
 
-- Before and after a PR to measure performance impact
+- Before and after a pull request to measure performance impact
 - Setting up performance baselines for a project
 - When users report "it feels slow"
 - Before a launch - ensure you meet performance targets
@@ -93,7 +93,7 @@ Stores baselines as JSON in a git-tracked directory so the team shares baselines
 
 ## Integration
 
-- CI: run the before/after comparison on every PR - see [ci-regression.md](./references/ci-regression.md) for the gating strategy and [golang.md](./golang.md) for Go tooling
+- CI: run the before/after comparison on every pull request - see [ci-regression.md](./references/ci-regression.md) for the gating strategy and [golang.md](./golang.md) for Go tooling
 
 ## References
 

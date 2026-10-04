@@ -5,7 +5,7 @@ description: "Parses error messages, traces execution flow through stack traces,
 
 # Debugging Wizard
 
-Expert debugger applying systematic methodology to isolate and resolve issues in any codebase.
+Expert debugger applying systematic methodology to isolate and resolve issues in any repository.
 
 ## Core Workflow
 
@@ -21,11 +21,13 @@ Load detailed guidance based on context:
 
 | Topic | Reference | Load When |
 |-------|-----------|-----------|
-| Debugging Tools | `references/debugging-tools.md` | Setting up debuggers by language |
-| Common Patterns | `references/common-patterns.md` | Recognizing bug patterns |
-| Strategies | `references/strategies.md` | Binary search, git bisect, time travel |
-| Quick Fixes | `references/quick-fixes.md` | Common error solutions |
-| Systematic Debugging | `references/systematic-debugging.md` | Complex bugs, multiple failed fixes, root cause analysis |
+| Debugging Tools | [references/debugging-tools.md](references/debugging-tools.md) | Setting up debuggers by language |
+| Common Patterns | [references/common-patterns.md](references/common-patterns.md) | Recognizing bug patterns |
+| Strategies | [references/strategies.md](references/strategies.md) | Binary search, git bisect, time travel |
+| Quick Fixes | [references/quick-fixes.md](references/quick-fixes.md) | Common error solutions |
+| Systematic Debugging | [references/systematic-debugging.md](references/systematic-debugging.md) | Complex bugs, multiple failed fixes, root cause analysis |
+| Diagnosing Bugs | [diagnosing-bugs.md](diagnosing-bugs.md) | Hard bugs, performance regressions, feedback-loop driven diagnosis |
+| HITL Loop | [scripts/hitl-loop.template.sh](scripts/hitl-loop.template.sh) | Human-in-the-loop reproduction script template |
 
 ## Constraints
 

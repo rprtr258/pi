@@ -11,7 +11,7 @@ A comprehensive verification system for Claude Code sessions.
 
 Invoke this skill:
 - After completing a feature or significant code change
-- Before creating a PR
+- Before creating a pull request
 - When you want to ensure quality gates pass
 - After refactoring
 

@@ -1,14 +1,16 @@
 ---
 name: engineer-prompt
 description: >-
-  Writes, refactors, and evaluates prompts for LLMs — optimized prompt templates,
-  structured output schemas, evaluation rubrics, and test suites. Also analyzes raw
-  coding-agent prompts and outputs a ready-to-paste optimized prompt. Advisory only
-  — never executes the task itself. Use when designing system prompts, chain-of-thought
-  or few-shot learning, personas and guardrails, function-calling schemas, or prompt
-  evaluation; or when the user asks to optimize, improve, or rewrite a prompt.
-  Not when the user wants the task executed directly ("just do it") or code/performance
-  optimized — those are refactoring tasks. triggers: prompt engineering, prompt optimization, rewrite this prompt, improve my prompt, chain-of-thought, few-shot learning, prompt testing, LLM prompts, prompt evaluation, system prompts, structured outputs, prompt design, context management, lost-in-the-middle, context degradation, token optimization, attention budget, ECC components
+  Writes, refactors, and evaluates LLM prompts — prompt templates, structured
+  output schemas, evaluation rubrics, test suites. Also analyzes raw
+  coding-agent prompts and returns a ready-to-paste optimized prompt. Advisory
+  only — never executes the task. Use when designing system prompts,
+  chain-of-thought, few-shot learning, personas/guardrails, function-calling
+  schemas, or prompt evaluation; or when the user asks to optimize, improve,
+  or rewrite a prompt. Not when the user wants the task executed ("just do
+  it") or code optimized — that's refactoring. triggers: prompt engineering,
+  prompt optimization, rewrite this prompt, prompt testing, context
+  management, lost-in-the-middle, token optimization, attention budget
 ---
 
 # Prompt Engineer
@@ -59,7 +61,7 @@ analysis plus an optimized prompt. If the user says "just do it", tell them this
 skill only produces optimized prompts and they should make a normal task request.
 
 Run this 6-phase pipeline sequentially. Present results in the Mode B Output
-Format defined in `references/mode-b.md`.
+Format defined in [references/mode-b.md](references/mode-b.md).
 
 ### Analysis Pipeline
 
@@ -96,14 +98,14 @@ Classify the user's task into one or more categories:
 | Refactor | refactor, clean up, restructure | "Refactor the API layer" |
 | Research | how to, what is, explore, investigate | "How to add SSO" |
 | Testing | test, coverage, verify | "Add tests for the cart" |
-| Review | review, audit, check | "Review my PR" |
+| Review | review, audit, check | "Review my pull request" |
 | Documentation | document, update docs | "Update the API docs" |
 | Infrastructure | deploy, CI, docker, database | "Set up CI/CD pipeline" |
 | Design | design, architecture, plan | "Design the data model" |
 
 ### Phase 2: Scope Assessment
 
-If Phase 0 detected a project, use codebase size as a signal. Otherwise, estimate
+If Phase 0 detected a project, use repository size as a signal. Otherwise, estimate
 from the prompt description alone and mark the estimate as uncertain.
 
 | Scope | Heuristic | Orchestration |
@@ -112,12 +114,12 @@ from the prompt description alone and mark the estimate as uncertain.
 | LOW | Single component or module | Single command or skill |
 | MEDIUM | Multiple components, same domain | Command chain + /verify |
 | HIGH | Cross-domain, 5+ files | /plan first, then phased execution |
-| EPIC | Multi-session, multi-PR, architectural shift | Use plan skill (multi-session mode) for the plan |
+| EPIC | Multi-session, spanning multiple pull requests, architectural shift | Use plan skill (multi-session mode) for the plan |
 
 ### Phase 3: ECC Component Matching
 
 Map intent + scope + tech stack (from Phase 0) to ECC commands, skills, and
-agents using the matching tables in `references/mode-b.md`. Recommend only
+agents using the matching tables in [references/mode-b.md](references/mode-b.md). Recommend only
 components detected on the user's system; if a match isn't installed, say so
 and recommend installing it instead of pretending it ran.
 
@@ -153,11 +155,11 @@ Research → Plan → Implement (TDD) → Review → Verify → Commit
 For MEDIUM+ tasks, always start with /plan. For EPIC tasks, use the plan skill (multi-session mode).
 
 **Model recommendation** and **multi-prompt splitting** guidance for HIGH/EPIC
-tasks: load `references/mode-b.md` (§ Model Recommendation & Multi-Prompt
+tasks: load [references/mode-b.md](references/mode-b.md) (§ Model Recommendation & Multi-Prompt
 Splitting) and include both in the output.
 ### Mode B Output Format & Examples
 
-Load `references/mode-b.md` for the required 5-section + footer output format,
+Load [references/mode-b.md](references/mode-b.md) for the required 5-section + footer output format,
 the ECC component matching tables, model recommendation, multi-prompt
 splitting, and three worked examples (login page, Go API, microservices
 migration).
@@ -179,13 +181,13 @@ Load detailed guidance based on context:
 
 | Topic | Reference | Load When |
 |-------|-----------|-----------|
-| Prompt Patterns | `references/prompt-patterns.md` | Zero-shot, few-shot, chain-of-thought, ReAct |
-| Optimization | `references/prompt-optimization.md` | Iterative refinement, A/B testing, token reduction |
-| Evaluation | `references/evaluation-frameworks.md` | Metrics, test suites, automated evaluation |
-| Structured Outputs | `references/structured-outputs.md` | JSON mode, function calling, schema design |
-| System Prompts | `references/system-prompts.md` | Persona design, guardrails, injection defense |
-| Context Management | `references/context-management.md` | Attention budget, degradation patterns, context optimization |
-| Mode B (coding-agent prompts) | `references/mode-b.md` | Running Mode B: output format, component tables, model recs, examples |
+| Prompt Patterns | [references/prompt-patterns.md](references/prompt-patterns.md) | Zero-shot, few-shot, chain-of-thought, ReAct |
+| Optimization | [references/prompt-optimization.md](references/prompt-optimization.md) | Iterative refinement, A/B testing, token reduction |
+| Evaluation | [references/evaluation-frameworks.md](references/evaluation-frameworks.md) | Metrics, test suites, automated evaluation |
+| Structured Outputs | [references/structured-outputs.md](references/structured-outputs.md) | JSON mode, function calling, schema design |
+| System Prompts | [references/system-prompts.md](references/system-prompts.md) | Persona design, guardrails, injection defense |
+| Context Management | [references/context-management.md](references/context-management.md) | Attention budget, degradation patterns, context optimization |
+| Mode B (coding-agent prompts) | [references/mode-b.md](references/mode-b.md) | Running Mode B: output format, component tables, model recs, examples |
 
 ## Constraints
 

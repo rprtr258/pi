@@ -12,7 +12,7 @@ metadata:
     homepage: https://github.com/samber/cc-skills
     install:
       - kind: go
-        package: github.com/nalbury/promql-cli
+        module: github.com/nalbury/promql-cli
         bins: [promql]
       - kind: brew
         formula: jq
@@ -35,13 +35,13 @@ Read the relevant reference file(s) before executing tasks:
 
 | File | When to read |
 | --- | --- |
-| `references/installation.md` | User needs to install promql-cli or set up configuration (hosts, auth, token, password, multi-host) |
-| `references/usage.md` | User wants to discover metrics/exporters/labels, run queries, or choose output formats |
-| `references/graphing.md` | User wants to visualize Prometheus data as an ASCII chart in the terminal |
-| `references/debugging.md` | User is investigating a performance issue, latency, errors, saturation, data gaps, or query cost issues |
-| `references/promql-reference.md` | User needs help writing PromQL, understanding metric types, functions, or aggregations |
+| [references/installation.md](references/installation.md) | User needs to install promql-cli or set up configuration (hosts, auth, token, password, multi-host) |
+| [references/usage.md](references/usage.md) | User wants to discover metrics/exporters/labels, run queries, or choose output formats |
+| [references/graphing.md](references/graphing.md) | User wants to visualize Prometheus data as an ASCII chart in the terminal |
+| [references/debugging.md](references/debugging.md) | User is investigating a performance issue, latency, errors, saturation, data gaps, or query cost issues |
+| [references/promql-reference.md](references/promql-reference.md) | User needs help writing PromQL, understanding metric types, functions, or aggregations |
 
-For most tasks, read `references/usage.md`. For PromQL help, read `references/promql-reference.md`. When debugging, read both `references/debugging.md` and `references/promql-reference.md`.
+For most tasks, read [references/usage.md](references/usage.md). For PromQL help, read [references/promql-reference.md](references/promql-reference.md). When debugging, read both [references/debugging.md](references/debugging.md) and [references/promql-reference.md](references/promql-reference.md).
 
 ## Setup Check
 
@@ -53,7 +53,7 @@ promql 'up'   # succeeds if host is reachable; fails with connection error if no
 promql --host xxx 'up'
 ```
 
-Recognize these errors as a configuration/auth problem and refer to `references/installation.md`:
+Recognize these errors as a configuration/auth problem and refer to [references/installation.md](references/installation.md):
 
 | Error | Cause |
 | --- | --- |
@@ -65,7 +65,7 @@ Recognize these errors as a configuration/auth problem and refer to `references/
 
 If any of these appear, **do not create config files on behalf of the user** — config files may contain credentials (tokens, passwords) that must never pass through an LLM. Instead, guide the user to set it up themselves:
 
-> "Please create `~/.promql-cli.yaml` manually with your Prometheus host (and credentials if needed). See `references/installation.md` for the exact format. Let me know once it's ready."
+> "Please create `~/.promql-cli.yaml` manually with your Prometheus host (and credentials if needed). See [references/installation.md](references/installation.md) for the exact format. Let me know once it's ready."
 
 Only after the user confirms the config is in place should you proceed with queries.
 
@@ -96,12 +96,14 @@ promql --config ~/.promql-cli-prod.yaml 'up'         # target a specific host
 Always apply these before and during any query session:
 
 0. **Always use the promql CLI** — never call the Prometheus HTTP API from Python scripts or shell `curl`. The CLI handles auth, formatting, and output consistently; Python API calls bypass all of that and produce raw JSON that must be parsed, inflating context and masking the graph output that models interpret best.
-1. **Check cardinality first** — before querying an unfamiliar metric, count its time series (`count(metric_name)`). High-cardinality metrics without label filters time out or flood the output. See `references/debugging.md` for patterns.
+1. **Check cardinality first** — before querying an unfamiliar metric, count its time series (`count(metric_name)`). High-cardinality metrics without label filters time out or flood the output. See [references/debugging.md](references/debugging.md) for patterns.
 2. **Confirm the time window upfront** — always ask before running range queries. Large intervals are expensive; prefer multiple short-interval queries over one long one.
 3. **Clarify past vs. recent** — for new investigations, ask whether the user wants a past event (specific timestamp) or a recent trend. If recent, offer concrete choices: last hour, last day, last week, last month.
 4. **Aggregate in Prometheus** — never pull raw series to aggregate in Python or shell. Push `sum by(...)`, `avg by(...)`, or `topk()` into the PromQL expression — Prometheus collapses series server-side.
 5. **Timeout = query too broad** — if a query takes >15s, reduce scope: add label filters, shorten `--start`, or add an aggregation wrapper. Apply the same narrowed scope to all subsequent queries in the session.
-6. **Data gaps → check `up`** — when a metric shows missing data, run `up{job="...", instance="..."}` before diagnosing the application. A `0` value confirms the exporter was down. See `references/debugging.md`.
+6. **Data gaps → check `up`** — when a metric shows missing data, run `up{job="...", instance="..."}` before diagnosing the application. A `0` value confirms the exporter was down. See [references/debugging.md](references/debugging.md).
+
+### Further Reading
 
 This skill is not exhaustive. Please refer to the [official promql-cli documentation](https://github.com/nalbury/promql-cli) and examples for up-to-date information. Context7 can help as a discoverability platform.
 

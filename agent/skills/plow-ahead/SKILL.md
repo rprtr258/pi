@@ -23,7 +23,7 @@ uncertainty:
 
 - Turn routine questions into explicit assumptions.
 - Prefer the smallest reversible choice that satisfies the request.
-- Use repo conventions, nearby patterns, local docs, tests, and existing product
+- Use repository conventions, nearby patterns, local docs, tests, and existing product
   behavior as the decision source.
 - Keep working through normal test failures, missing context, implementation
   choices, and minor ambiguity.
@@ -64,13 +64,13 @@ When choosing without the user:
    reviewer to understand later.
 
 Maintain a lightweight decision log while working. It can live in notes, the
-plan, or your final answer, but do not create a new repo artifact unless the task
+plan, or your final answer, but do not create a new repository artifact unless the task
 needs one.
 
 ## Work Loop
 
 1. Restate the goal internally and identify likely acceptance criteria.
-2. Inspect the real files, docs, issue, PR, screenshots, or runtime behavior
+2. Inspect the real files, docs, issue, pull request, screenshots, or runtime behavior
    before editing.
 3. Make assumptions explicit, then act on them.
 4. Implement in small coherent steps.

@@ -253,7 +253,7 @@ func processOne(path string) error {
 
 ## Parallelizing Code Style Reviews
 
-When reviewing code style across a large codebase, use up to 5 parallel sub-agents, each targeting an independent style concern (e.g. control flow, function design, variable declarations, string handling, code organization).
+When reviewing code style across a large repository, use up to 5 parallel sub-agents, each targeting an independent style concern (e.g. control flow, function design, variable declarations, string handling, code organization).
 
 ## Enforce with Linters
 

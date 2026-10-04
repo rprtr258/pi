@@ -1,6 +1,6 @@
 ---
 name: si-skill-comply
-description: Visualize whether skills, rules, and agent definitions are actually followed — auto-generates scenarios at 3 prompt strictness levels, runs agents, classifies behavioral sequences, and reports compliance rates with full tool call timelines
+description: Visualize whether skills, rules, and agent definitions are actually followed — auto-generates scenarios at 3 prompt strictness levels, runs agents, classifies behavioral sequences, and reports compliance rates with full tool call timelines. Use when measuring whether skills, rules, and agent definitions are actually followed.
 tools: Read, Bash
 ---
 
@@ -39,6 +39,14 @@ uv run python -m scripts.run --dry-run <skill-path>
 # Custom models (pi model ids)
 uv run python -m scripts.run --gen-model haiku --model sonnet <path>
 ```
+
+## Package Layout
+
+- `scripts/` - spec generation, scenario generation, runner, classifier, grader, report writer
+- `prompts/` - prompt templates for the spec/scenario generators and the LLM classifier
+- `fixtures/` - sample traces and specs used by tests
+- `results/` - generated compliance reports, one per run
+- `pyproject.toml`, `uv.lock` - dependencies
 
 ## Key Concept: Prompt Independence
 

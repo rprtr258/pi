@@ -1,11 +1,9 @@
 ---
 name: dev-backend-patterns
-description: Backend architecture patterns, API design, database optimization, and server-side best practices for Node.js, Express, and Next.js API routes. Also covers authentication/authorization and security hardening — JWT, OAuth, RBAC, password hashing, input validation, XSS/CSRF, OWASP Top 10, and security headers.
+description: Backend architecture patterns, API design, database optimization, and server-side best practices for Node.js, Express, and Next.js API routes. Also covers authentication/authorization and security hardening — JWT, OAuth, RBAC, password hashing, input validation, XSS/CSRF, OWASP Top 10, and security headers. Use when building backend APIs, designing databases, or hardening server-side auth and security.
 ---
 
 # Backend Development Patterns
-
-Backend architecture patterns and best practices for scalable server-side applications.
 
 ## When to Activate
 
@@ -24,19 +22,19 @@ Load detailed security guidance on demand — backend patterns are in this file:
 
 | Topic | Reference | Load When |
 |-------|-----------|----------|
-| Security overview | `references/security.md` | Auth flows, JWT, RBAC, security workflow |
-| OWASP Top 10 | `references/security/owasp-prevention.md` | OWASP vulnerability patterns |
-| Password & JWT details | `references/security/authentication.md` | bcrypt/argon2 hashing, token flows |
-| Input Validation | `references/security/input-validation.md` | Zod schemas, SQL injection prevention |
-| XSS / CSRF | `references/security/xss-csrf.md` | XSS prevention, CSRF tokens |
-| Security Headers | `references/security/security-headers.md` | Helmet, CSP, CORS, rate limiting |
+| Security overview | [references/security.md](references/security.md) | Auth flows, JWT, RBAC, security workflow |
+| OWASP Top 10 | [references/security/owasp-prevention.md](references/security/owasp-prevention.md) | OWASP vulnerability patterns |
+| Password & JWT details | [references/security/authentication.md](references/security/authentication.md) | bcrypt/argon2 hashing, token flows |
+| Input Validation | [references/security/input-validation.md](references/security/input-validation.md) | Zod schemas, SQL injection prevention |
+| XSS / CSRF | [references/security/xss-csrf.md](references/security/xss-csrf.md) | XSS prevention, CSRF tokens |
+| Security Headers | [references/security/security-headers.md](references/security/security-headers.md) | Helmet, CSP, CORS, rate limiting |
 
 ## API Design Patterns
 
 ### RESTful API Structure
 
 ```typescript
-// PASS: Resource-based URLs
+// PASS: Resource-based URLs, query parameters for filtering/sorting/pagination
 GET    /api/markets                 # List resources
 GET    /api/markets/:id             # Get single resource
 POST   /api/markets                 # Create resource
@@ -44,14 +42,12 @@ PUT    /api/markets/:id             # Replace resource
 PATCH  /api/markets/:id             # Update resource
 DELETE /api/markets/:id             # Delete resource
 
-// PASS: Query parameters for filtering, sorting, pagination
 GET /api/markets?status=active&sort=volume&limit=20&offset=0
 ```
 
 ### Repository Pattern
 
 ```typescript
-// Abstract data access logic
 interface MarketRepository {
   findAll(filters?: MarketFilters): Promise<Market[]>
   findById(id: string): Promise<Market | null>
@@ -63,17 +59,10 @@ interface MarketRepository {
 class SupabaseMarketRepository implements MarketRepository {
   async findAll(filters?: MarketFilters): Promise<Market[]> {
     let query = supabase.from('markets').select('*')
-
-    if (filters?.status) {
-      query = query.eq('status', filters.status)
-    }
-
-    if (filters?.limit) {
-      query = query.limit(filters.limit)
-    }
+    if (filters?.status) query = query.eq('status', filters.status)
+    if (filters?.limit) query = query.limit(filters.limit)
 
     const { data, error } = await query
-
     if (error) throw new Error(error.message)
     return data
   }
@@ -89,32 +78,24 @@ class SupabaseMarketRepository implements MarketRepository {
 class MarketService {
   constructor(private marketRepo: MarketRepository) {}
 
-  async searchMarkets(query: string, limit: number = 10): Promise<Market[]> {
-    // Business logic
+  async searchMarkets(query: string, limit = 10): Promise<Market[]> {
+    // Embed the query, vector-search, hydrate full records, sort by similarity
     const embedding = await generateEmbedding(query)
     const results = await this.vectorSearch(embedding, limit)
-
-    // Fetch full data
     const markets = await this.marketRepo.findByIds(results.map(r => r.id))
-
-    // Sort by similarity
-    return markets.sort((a, b) => {
-      const scoreA = results.find(r => r.id === a.id)?.score || 0
-      const scoreB = results.find(r => r.id === b.id)?.score || 0
-      return scoreA - scoreB
-    })
+    return markets.sort((a, b) =>
+      (results.find(r => r.id === a.id)?.score ?? 0) -
+      (results.find(r => r.id === b.id)?.score ?? 0)
+    )
   }
 
-  private async vectorSearch(embedding: number[], limit: number) {
-    // Vector search implementation
-  }
+  private async vectorSearch(embedding: number[], limit: number) {}
 }
 ```
 
 ### Middleware Pattern
 
 ```typescript
-// Request/response processing pipeline
 export function withAuth(handler: NextApiHandler): NextApiHandler {
   return async (req, res) => {
     const token = req.headers.authorization?.replace('Bearer ', '')
@@ -133,10 +114,7 @@ export function withAuth(handler: NextApiHandler): NextApiHandler {
   }
 }
 
-// Usage
-export default withAuth(async (req, res) => {
-  // Handler has access to req.user
-})
+// Usage: export default withAuth(handler) — handler gets req.user
 ```
 
 ## Database Patterns
@@ -152,10 +130,7 @@ const { data } = await supabase
   .order('volume', { ascending: false })
   .limit(10)
 
-// FAIL: BAD: Select everything
-const { data } = await supabase
-  .from('markets')
-  .select('*')
+// FAIL: BAD: Select everything — .select('*')
 ```
 
 ### N+1 Query Prevention
@@ -185,7 +160,6 @@ async function createMarketWithPosition(
   marketData: CreateMarketDto,
   positionData: CreatePositionDto
 ) {
-  // Use Supabase transaction
   const { data, error } = await supabase.rpc('create_market_with_position', {
     market_data: marketData,
     position_data: positionData
@@ -194,23 +168,19 @@ async function createMarketWithPosition(
   if (error) throw new Error('Transaction failed')
   return data
 }
+```
 
-// SQL function in Supabase
+```sql
 CREATE OR REPLACE FUNCTION create_market_with_position(
-  market_data jsonb,
-  position_data jsonb
-)
-RETURNS jsonb
-LANGUAGE plpgsql
-AS $$
+  market_data jsonb, position_data jsonb
+) RETURNS jsonb LANGUAGE plpgsql AS $$
 BEGIN
-  -- Start transaction automatically
+  -- Implicit transaction: both inserts commit or roll back together
   INSERT INTO markets VALUES (market_data);
   INSERT INTO positions VALUES (position_data);
   RETURN jsonb_build_object('success', true);
 EXCEPTION
   WHEN OTHERS THEN
-    -- Rollback happens automatically
     RETURN jsonb_build_object('success', false, 'error', SQLERRM);
 END;
 $$;
@@ -218,7 +188,9 @@ $$;
 
 ## Caching Strategies
 
-### Redis Caching Layer
+### Redis Caching Layer (cache-aside)
+
+Check cache first; on miss fetch from the database and store with a TTL:
 
 ```typescript
 class CachedMarketRepository implements MarketRepository {
@@ -249,28 +221,6 @@ class CachedMarketRepository implements MarketRepository {
   async invalidateCache(id: string): Promise<void> {
     await this.redis.del(`market:${id}`)
   }
-}
-```
-
-### Cache-Aside Pattern
-
-```typescript
-async function getMarketWithCache(id: string): Promise<Market> {
-  const cacheKey = `market:${id}`
-
-  // Try cache
-  const cached = await redis.get(cacheKey)
-  if (cached) return JSON.parse(cached)
-
-  // Cache miss - fetch from DB
-  const market = await db.markets.findUnique({ where: { id } })
-
-  if (!market) throw new Error('Market not found')
-
-  // Update cache
-  await redis.setex(cacheKey, 300, JSON.stringify(market))
-
-  return market
 }
 ```
 
@@ -315,15 +265,7 @@ export function errorHandler(error: unknown, req: Request): Response {
   }, { status: 500 })
 }
 
-// Usage
-export async function GET(request: Request) {
-  try {
-    const data = await fetchData()
-    return NextResponse.json({ success: true, data })
-  } catch (error) {
-    return errorHandler(error, request)
-  }
-}
+// Usage: wrap route handlers in try/catch and delegate to errorHandler(error, request)
 ```
 
 ### Retry with Exponential Backoff
@@ -352,13 +294,12 @@ async function fetchWithRetry<T>(
   throw lastError!
 }
 
-// Usage
-const data = await fetchWithRetry(() => fetchFromAPI())
+// Usage: const data = await fetchWithRetry(() => fetchFromAPI())
 ```
 
 ## Authentication & Authorization
 
-Authentication, authorization, and OWASP hardening live in `references/security.md` — JWT validation, requireAuth/RBAC permission gates, password hashing, input validation, XSS/CSRF, security headers. Load it (or a topic file under `references/security/`) before implementing any auth or security code.
+Authentication, authorization, and OWASP hardening live in [references/security.md](references/security.md) — JWT validation, requireAuth/RBAC permission gates, password hashing, input validation, XSS/CSRF, security headers. Load it (or a topic file under `references/security/`) before implementing any auth or security code.
 
 ## Rate Limiting
 
@@ -368,44 +309,19 @@ Authentication, authorization, and OWASP hardening live in `references/security.
 class RateLimiter {
   private requests = new Map<string, number[]>()
 
-  async checkLimit(
-    identifier: string,
-    maxRequests: number,
-    windowMs: number
-  ): Promise<boolean> {
+  async checkLimit(identifier: string, maxRequests: number, windowMs: number): Promise<boolean> {
     const now = Date.now()
-    const requests = this.requests.get(identifier) || []
+    const recent = (this.requests.get(identifier) || []).filter(t => now - t < windowMs)
 
-    // Remove old requests outside window
-    const recentRequests = requests.filter(time => now - time < windowMs)
+    if (recent.length >= maxRequests) return false  // Rate limit exceeded
 
-    if (recentRequests.length >= maxRequests) {
-      return false  // Rate limit exceeded
-    }
-
-    // Add current request
-    recentRequests.push(now)
-    this.requests.set(identifier, recentRequests)
-
+    recent.push(now)
+    this.requests.set(identifier, recent)
     return true
   }
 }
 
-const limiter = new RateLimiter()
-
-export async function GET(request: Request) {
-  const ip = request.headers.get('x-forwarded-for') || 'unknown'
-
-  const allowed = await limiter.checkLimit(ip, 100, 60000)  // 100 req/min
-
-  if (!allowed) {
-    return NextResponse.json({
-      error: 'Rate limit exceeded'
-    }, { status: 429 })
-  }
-
-  // Continue with request
-}
+// Usage: per-IP limit of 100 req/min; return 429 when !limiter.checkLimit(ip, 100, 60000)
 ```
 
 ## Background Jobs & Queues
@@ -419,25 +335,18 @@ class JobQueue<T> {
 
   async add(job: T): Promise<void> {
     this.queue.push(job)
-
-    if (!this.processing) {
-      this.process()
-    }
+    if (!this.processing) this.process()
   }
 
   private async process(): Promise<void> {
     this.processing = true
-
     while (this.queue.length > 0) {
-      const job = this.queue.shift()!
-
       try {
-        await this.execute(job)
+        await this.execute(this.queue.shift()!)
       } catch (error) {
         console.error('Job failed:', error)
       }
     }
-
     this.processing = false
   }
 
@@ -446,21 +355,7 @@ class JobQueue<T> {
   }
 }
 
-// Usage for indexing markets
-interface IndexJob {
-  marketId: string
-}
-
-const indexQueue = new JobQueue<IndexJob>()
-
-export async function POST(request: Request) {
-  const { marketId } = await request.json()
-
-  // Add to queue instead of blocking
-  await indexQueue.add({ marketId })
-
-  return NextResponse.json({ success: true, message: 'Job queued' })
-}
+// Usage: in a POST handler, `await indexQueue.add({ marketId })` instead of blocking on the work
 ```
 
 ## Logging & Monitoring
@@ -468,40 +363,15 @@ export async function POST(request: Request) {
 ### Structured Logging
 
 ```typescript
-interface LogContext {
-  userId?: string
-  requestId?: string
-  method?: string
-  path?: string
-  [key: string]: unknown
-}
-
 class Logger {
-  log(level: 'info' | 'warn' | 'error', message: string, context?: LogContext) {
-    const entry = {
-      timestamp: new Date().toISOString(),
-      level,
-      message,
-      ...context
-    }
-
-    console.log(JSON.stringify(entry))
+  private log(level: 'info' | 'warn' | 'error', message: string, context?: Record<string, unknown>) {
+    console.log(JSON.stringify({ timestamp: new Date().toISOString(), level, message, ...context }))
   }
 
-  info(message: string, context?: LogContext) {
-    this.log('info', message, context)
-  }
-
-  warn(message: string, context?: LogContext) {
-    this.log('warn', message, context)
-  }
-
-  error(message: string, error: Error, context?: LogContext) {
-    this.log('error', message, {
-      ...context,
-      error: error.message,
-      stack: error.stack
-    })
+  info(message: string, context?: Record<string, unknown>) { this.log('info', message, context) }
+  warn(message: string, context?: Record<string, unknown>) { this.log('warn', message, context) }
+  error(message: string, error: Error, context?: Record<string, unknown>) {
+    this.log('error', message, { ...context, error: error.message, stack: error.stack })
   }
 }
 
@@ -510,12 +380,7 @@ const logger = new Logger()
 // Usage
 export async function GET(request: Request) {
   const requestId = crypto.randomUUID()
-
-  logger.info('Fetching markets', {
-    requestId,
-    method: 'GET',
-    path: '/api/markets'
-  })
+  logger.info('Fetching markets', { requestId, method: 'GET', path: '/api/markets' })
 
   try {
     const markets = await fetchMarkets()
@@ -526,5 +391,3 @@ export async function GET(request: Request) {
   }
 }
 ```
-
-**Remember**: Backend patterns enable scalable, maintainable server-side applications. Choose patterns that fit your complexity level.

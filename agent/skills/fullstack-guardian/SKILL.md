@@ -1,6 +1,6 @@
 ---
 name: fullstack-guardian
-description: "Builds security-focused full-stack web applications with layered security across frontend, backend, and database: auth, input validation, output encoding, parameterized queries. Use when implementing features spanning frontend and backend, building REST APIs with UI, connecting frontend components to backend endpoints, creating end-to-end data flows from database to UI, or implementing CRUD operations with UI forms. Distinct from frontend-only, backend-only, or API-only skills in that it covers Frontend, Backend, and Security within a single workflow. Invoke for full-stack feature work, web app development, authenticated API routes with views, microservices, real-time features, monorepo architecture, or technology selection decisions. triggers: fullstack, implement feature, build feature, create API, frontend and backend, new feature, websocket, real-time, monorepo, end-to-end"
+description: "Builds security-focused full-stack web applications with layered security across frontend, backend, and database: auth, input validation, output encoding, parameterized queries. Use for features spanning frontend and backend — REST APIs with UI, end-to-end data flows, CRUD with UI forms — covering Frontend, Backend, and Security in one workflow, not frontend-only or API-only work. Invoke for full-stack feature work, authenticated API routes with views, microservices, real-time, monorepo, or technology selection. triggers: fullstack, implement feature, build feature, create API, new feature, websocket, real-time, monorepo, end-to-end"
 ---
 
 # Fullstack Guardian
@@ -12,7 +12,7 @@ Security-focused full-stack developer implementing features across the entire ap
 1. **Gather requirements** - Understand feature scope and acceptance criteria
 2. **Design solution** - Consider all three perspectives (Frontend/Backend/Security)
 3. **Write technical design** - Document approach in `specs/{feature}_design.md`
-4. **Security checkpoint** - Run through `references/security-checklist.md` before writing any code; confirm auth, authz, validation, and output encoding are addressed
+4. **Security checkpoint** - Run through [references/security-checklist.md](references/security-checklist.md) before writing any code; confirm auth, authz, validation, and output encoding are addressed
 5. **Implement** - Build incrementally, testing each component as you go
 6. **Hand off** - Pass to Test Master for QA, DevOps for deployment
 
@@ -22,16 +22,16 @@ Load detailed guidance based on context:
 
 | Topic | Reference | Load When |
 |-------|-----------|-----------|
-| Design Template | `references/design-template.md` | Starting feature, three-perspective design |
-| Security Checklist | `references/security-checklist.md` | Every feature - auth, authz, validation |
-| Error Handling | `references/error-handling.md` | Implementing error flows |
-| Common Patterns | `references/common-patterns.md` | CRUD, forms, API flows |
-| Backend Patterns | `references/backend-patterns.md` | Microservices, queues, observability, Docker |
-| Frontend Patterns | `references/frontend-patterns.md` | Real-time, optimization, accessibility, testing |
-| Integration Patterns | `references/integration-patterns.md` | Type sharing, deployment, architecture decisions |
-| API Design | `references/api-design-standards.md` | REST/GraphQL APIs, versioning, CORS, validation |
-| Architecture Decisions | `references/architecture-decisions.md` | Tech selection, monolith vs microservices |
-| Deliverables Checklist | `references/deliverables-checklist.md` | Completing features, preparing handoff |
+| Design Template | [references/design-template.md](references/design-template.md) | Starting feature, three-perspective design |
+| Security Checklist | [references/security-checklist.md](references/security-checklist.md) | Every feature - auth, authz, validation |
+| Error Handling | [references/error-handling.md](references/error-handling.md) | Implementing error flows |
+| Common Patterns | [references/common-patterns.md](references/common-patterns.md) | CRUD, forms, API flows |
+| Backend Patterns | [references/backend-patterns.md](references/backend-patterns.md) | Microservices, queues, observability, Docker |
+| Frontend Patterns | [references/frontend-patterns.md](references/frontend-patterns.md) | Real-time, optimization, accessibility, testing |
+| Integration Patterns | [references/integration-patterns.md](references/integration-patterns.md) | Type sharing, deployment, architecture decisions |
+| API Design | [references/api-design-standards.md](references/api-design-standards.md) | REST/GraphQL APIs, versioning, CORS, validation |
+| Architecture Decisions | [references/architecture-decisions.md](references/architecture-decisions.md) | Tech selection, monolith vs microservices |
+| Deliverables Checklist | [references/deliverables-checklist.md](references/deliverables-checklist.md) | Completing features, preparing handoff |
 
 ## Constraints
 
@@ -70,7 +70,7 @@ async def get_profile(user_id: int, current_user: User = Depends(get_current_use
   return ProfileResponse(**row)   # explicit schema — no password/token leakage
 ```
 
-**[Frontend]** — Component calls the endpoint and handles errors gracefully:
+**[Frontend]** — Component calls the endpoint and surfaces server errors:
 ```typescript
 async function fetchProfile(userId: number): Promise<Profile> {
   const res = await apiFetch(`/users/${userId}/profile`);   // apiFetch attaches auth header

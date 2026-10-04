@@ -17,7 +17,7 @@ A summary should contain:
 - Code snippets worth keeping (if any)
 - Resources and research that were used (if any)
 
-Session summaries must follow the wiki location rules and ALWAYS be put in the relevant `memory/` folder.
+Session summaries must follow the wiki location rules and ALWAYS be put in the relevant `memory/` directory.
 
 ### Output Format
 

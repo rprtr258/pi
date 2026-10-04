@@ -1,6 +1,6 @@
 ---
 name: si-context-budget
-description: Audits Claude Code context window consumption across agents, skills, MCP servers, and rules. Identifies bloat, redundant components, and produces prioritized token-savings recommendations.
+description: Audits Claude Code context window consumption across agents, skills, MCP servers, and rules. Identifies bloat, redundant components, and produces prioritized token-savings recommendations. Use when auditing context window consumption across agents, skills, MCP servers, and rules.
 ---
 
 # Context Budget

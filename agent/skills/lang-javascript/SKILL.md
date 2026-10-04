@@ -32,14 +32,14 @@ Prefer boring, readable patterns over clever tricks that save characters.
 
 | Topic | Reference | Load When |
 |-------|-----------|-----------|
-| Idioms & Naming | [`references/idioms.md`](references/idioms.md) | Naming, equality coercion, falsy values |
-| Functions | [`references/functions.md`](references/functions.md) | Arrows, closures, early return |
-| Async Patterns | [`references/async.md`](references/async.md) | Combinators, error classes, cancellation, streams |
-| Objects & Arrays | [`references/objects-and-arrays.md`](references/objects-and-arrays.md) | Iteration table, destructuring, Map/Set |
-| Modules | [`references/modules.md`](references/modules.md) | ESM vs CJS, package.json exports, tree shaking |
-| Modern Syntax | [`references/modern-syntax.md`](references/modern-syntax.md) | ES2023+ features |
-| Browser APIs | [`references/browser-apis.md`](references/browser-apis.md) | Fetch, Web Workers, Storage |
-| Node Essentials | [`references/node-essentials.md`](references/node-essentials.md) | fs/promises, streams, EventEmitter |
+| Idioms & Naming | [references/idioms.md](references/idioms.md) | Naming, equality coercion, falsy values |
+| Functions | [references/functions.md](references/functions.md) | Arrows, closures, early return |
+| Async Patterns | [references/async.md](references/async.md) | Combinators, error classes, cancellation, streams |
+| Objects & Arrays | [references/objects-and-arrays.md](references/objects-and-arrays.md) | Iteration table, destructuring, Map/Set |
+| Modules | [references/modules.md](references/modules.md) | ESM vs CJS, package.json exports, tree shaking |
+| Modern Syntax | [references/modern-syntax.md](references/modern-syntax.md) | ES2023+ features |
+| Browser APIs | [references/browser-apis.md](references/browser-apis.md) | Fetch, Web Workers, Storage |
+| Node Essentials | [references/node-essentials.md](references/node-essentials.md) | fs/promises, streams, EventEmitter |
 
 ## Variables and Declarations
 
@@ -61,12 +61,12 @@ Prefer boring, readable patterns over clever tricks that save characters.
 | File names | kebab-case or camelCase | `user-service.js`, `userService.js` |
 
 - **SCREAMING_SNAKE_CASE is for true compile-time constants only** — never computed values.
-- **Descriptive names, few abbreviations** (`url`, `id`, `err`, `ctx`, `req`, `res` only), no redundant context (`car.make`), consistent vocabulary (`getUser()` everywhere). More: [`references/idioms.md`](references/idioms.md).
+- **Descriptive names, few abbreviations** (`url`, `id`, `err`, `ctx`, `req`, `res` only), no redundant context (`car.make`), consistent vocabulary (`getUser()` everywhere). More: [references/idioms.md](references/idioms.md).
 
 ## Equality and Safety
 
 - **Always `===`/`!==`** (`==` only for `value == null`). **`??` over `||`** for defaults — `||` treats `0`, `""`, `false` as falsy. **`?.` for optional access**, sparingly — expected-missing data should throw.
-- Falsy-value list and coercion table: [`references/idioms.md`](references/idioms.md).
+- Falsy-value list and coercion table: [references/idioms.md](references/idioms.md).
 
 ## Ternary Operator
 
@@ -76,7 +76,7 @@ Prefer boring, readable patterns over clever tricks that save characters.
 ## Modern Syntax
 
 - **Template literals** for interpolation, plain quotes otherwise. **Spread for copies** — never `Object.assign`. **Shorthand properties**, grouped at the top. **Logical assignment** (`??=`, `||=`, `&&=`) for defaults.
-- Full ES2023+ tour: [`references/modern-syntax.md`](references/modern-syntax.md); everyday idioms: [`references/idioms.md`](references/idioms.md).
+- Full ES2023+ tour: [references/modern-syntax.md](references/modern-syntax.md); everyday idioms: [references/idioms.md](references/idioms.md).
 
 ## Functions
 
@@ -155,13 +155,13 @@ Prefer boring, readable patterns over clever tricks that save characters.
 - **Return objects for multiple values**, not arrays — callers don't depend on order.
 - **Never extend built-in prototypes** (`Array.prototype`, `Object.prototype`). Use utility functions or subclasses.
 
-Iteration table and class conventions: [`./references/objects-and-arrays.md`](./references/objects-and-arrays.md).
+Iteration table and class conventions: [./references/objects-and-arrays.md](./references/objects-and-arrays.md).
 
 Use `Map` for non-string or user-provided keys (prototype pollution), `Set` for dedup (`[...new Set(items)]`), generators for lazy sequences.
 
 ## Application
 
-When **writing**: apply conventions silently; if the codebase contradicts a convention, follow the codebase and flag the divergence once.
+When **writing**: apply conventions silently; if the repository contradicts a convention, follow the repository and flag the divergence once.
 
 When **reviewing**: state what's wrong and show the fix inline — don't lecture or quote rules.
 

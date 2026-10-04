@@ -1,11 +1,11 @@
 ---
 name: architecture-decision-records
-description: Capture architectural decisions made during Claude Code sessions as structured ADRs. Auto-detects decision moments, records context, alternatives considered, and rationale. Maintains an ADR log so future developers understand why the codebase is shaped the way it is.
+description: Capture architectural decisions made during Claude Code sessions as structured ADRs. Auto-detects decision moments, records context, alternatives considered, and rationale. Maintains an ADR log so future developers understand why the codebase is shaped the way it is. Use when recording architectural decisions, writing ADRs, or capturing design rationale during a session.
 ---
 
 # Architecture Decision Records
 
-Capture architectural decisions as they happen during coding sessions. Instead of decisions living only in Slack threads, PR comments, or someone's memory, this skill produces structured ADR documents that live alongside the code.
+Capture architectural decisions as they happen during coding sessions. Instead of decisions living only in Slack threads, pull request comments, or someone's memory, this skill produces structured ADR documents that live alongside the code.
 
 ## When to Activate
 
@@ -175,4 +175,4 @@ proposed → accepted → [deprecated | superseded by ADR-NNNN]
 ## Integration with Other Skills
 
 - **Planner agent**: when the planner proposes architecture changes, suggest creating an ADR
-- **Code reviewer agent**: flag PRs that introduce architectural changes without a corresponding ADR
+- **Code reviewer agent**: flag pull requests that introduce architectural changes without a corresponding ADR

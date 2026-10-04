@@ -21,11 +21,11 @@ Load detailed guidance based on context:
 
 | Topic | Reference | Load When |
 |-------|-----------|-----------|
-| Unity Development | `references/unity-patterns.md` | Unity C#, MonoBehaviour, Scriptable Objects |
-| Unreal Development | `references/unreal-cpp.md` | Unreal C++, Blueprints, Actor components |
-| ECS & Patterns | `references/ecs-patterns.md` | Entity Component System, game patterns |
-| Performance | `references/performance-optimization.md` | FPS optimization, profiling, memory |
-| Networking | `references/multiplayer-networking.md` | Multiplayer, client-server, lag compensation |
+| Unity Development | [references/unity-patterns.md](references/unity-patterns.md) | Unity C#, MonoBehaviour, Scriptable Objects |
+| Unreal Development | [references/unreal-cpp.md](references/unreal-cpp.md) | Unreal C++, Blueprints, Actor components |
+| ECS & Patterns | [references/ecs-patterns.md](references/ecs-patterns.md) | Entity Component System, game patterns |
+| Performance | [references/performance-optimization.md](references/performance-optimization.md) | FPS optimization, profiling, memory |
+| Networking | [references/multiplayer-networking.md](references/multiplayer-networking.md) | Multiplayer, client-server, lag compensation |
 
 ## Constraints
 

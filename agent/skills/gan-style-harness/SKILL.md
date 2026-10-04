@@ -1,6 +1,6 @@
 ---
 name: gan-style-harness
-description: GAN-inspired Generator-Evaluator agent harness for building high-quality applications autonomously.
+description: GAN-inspired Generator-Evaluator agent harness for building high-quality applications autonomously. Use when autonomously building an application with a generator-evaluator loop.
 tools: read, write, edit, bash, grep, glob, task
 ---
 

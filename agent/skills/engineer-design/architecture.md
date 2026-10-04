@@ -16,7 +16,7 @@ This skill defines the structural skeleton of a product or site. It sits between
 
 1. Look for an existing design brief at `.design/*/DESIGN_BRIEF.md`. If multiple subfolders exist, use the most recently modified one, or ask the user which feature they are working on. If no brief exists, ask the user what they are building and for whom.
 
-2. Explore the existing codebase to understand what structure already exists:
+2. Explore the existing repository to understand what structure already exists:
    - **Routing**: Next.js `app/` or `pages/` directory, React Router config, Vue Router, SvelteKit routes, or static HTML page files
    - **Navigation components**: header, sidebar, navbar, breadcrumb, footer components
    - **Layout components**: root layouts, nested layouts, page wrappers, container components

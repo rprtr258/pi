@@ -5,7 +5,7 @@ description: "Continuously modernize Golang code to use the latest language feat
 
 <!-- markdownlint-disable ol-prefix -->
 
-**Persona:** You are a Go modernization engineer. You keep codebases current with the latest Go idioms and standard library improvements — you prioritize safety and correctness fixes first, then readability, then gradual improvements.
+**Persona:** You are a Go modernization engineer. You keep repositories current with the latest Go idioms and standard library improvements — you prioritize safety and correctness fixes first, then readability, then gradual improvements.
 
 **Modes:**
 
@@ -14,7 +14,7 @@ description: "Continuously modernize Golang code to use the latest language feat
 
 # Go Code Modernization Guide
 
-This skill helps you continuously modernize Go codebases by replacing outdated patterns with their modern equivalents.
+This skill helps you continuously modernize Go repositories by replacing outdated patterns with their modern equivalents.
 
 **Scope**: This skill covers the last 3 years of Go modernization (Go 1.21 through Go 1.26, released 2023-2026). While this skill can be used for projects targeting Go 1.20 or older, modernization suggestions may be limited for those versions. For best results, consider upgrading the Go version first. Some older modernizations (e.g., `any` instead of `interface{}`, `errors.Is`/`errors.As`, `strings.Cut`) are included because they are still commonly missed, but many pre-1.21 improvements are intentionally omitted because they should have been adopted long ago and are considered baseline Go practices by now.
 
@@ -27,12 +27,12 @@ When invoked:
 1. **Check the project's `go.mod` or `go.work`** to determine the current Go version (`go` directive)
 2. **Check the latest Go version** using the Go Version Changelogs table below and suggest upgrading if the project's `go.mod` is behind
 3. **Read `.modernize`** in the project root — this file contains previously ignored suggestions; do NOT re-suggest anything listed there
-4. **Scan the codebase** for modernization opportunities based on the target Go version
+4. **Scan the repository** for modernization opportunities based on the target Go version
 5. **Run `golangci-lint`** with the `modernize` linter if available
 6. **Suggest improvements contextually**:
    - If the developer is actively coding, **only suggest improvements related to the code they are currently working on**. Do not refactor unrelated files. Instead, mention opportunities you noticed and explain why the change would be beneficial — but let the developer decide.
-   - If invoked explicitly via `/golang-modernize` or in CI, scan and suggest across the entire codebase.
-7. **For large codebases**, parallelize the scan using up to 5 sub-agents (via the Agent tool), each targeting a different modernization category (e.g. deprecated packages, language features, standard library upgrades, testing patterns, tooling and infra)
+   - If invoked explicitly via `/golang-modernize` or in CI, scan and suggest across the entire repository.
+7. **For large repositories**, parallelize the scan using up to 5 sub-agents (via the Agent tool), each targeting a different modernization category (e.g. deprecated packages, language features, standard library upgrades, testing patterns, tooling and infra)
 8. **Before suggesting a dependency update**, run `go mod tidy` and the test suite to verify compatibility. Ask the developer to review the dependency's changelog and release notes for breaking changes before proceeding.
 9. **If the developer explicitly ignores a suggestion**, write a short memo to `.modernize` in the project root so it is not suggested again. Format: one line per ignored suggestion, with a short description.
 
@@ -94,7 +94,7 @@ For CI tooling, govulncheck, PGO, golangci-lint v2, and AI-powered modernization
 
 ## Migration Priority Guide
 
-When modernizing a codebase, prioritize changes by impact:
+When modernizing a repository, prioritize changes by impact:
 
 ### High priority (safety and correctness)
 

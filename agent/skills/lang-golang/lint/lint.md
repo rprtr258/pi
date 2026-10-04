@@ -113,11 +113,11 @@ The linter name in parentheses tells you which linter flagged it. Use this to:
 | Linter not found | Check `golangci-lint linters` - linter may need a newer version |
 | Conflicts between linters | Disable the less useful one with a comment explaining why |
 | v1 config errors after upgrade | Run `golangci-lint migrate` to convert config format |
-| Slow on large repos | Reduce `run.concurrency` or exclude directories in `run.skip-dirs` |
+| Slow on large repositories | Reduce `run.concurrency` or exclude directories in `run.skip-dirs` |
 
 ## Parallelizing Legacy Codebase Cleanup
 
-When adopting linting on a legacy codebase, use up to 5 parallel sub-agents (via the Agent tool) to fix independent linter categories simultaneously:
+When adopting linting on a legacy repository, use up to 5 parallel sub-agents (via the Agent tool) to fix independent linter categories simultaneously:
 
 - Sub-agent 1: Run `golangci-lint run --fix ./...` for auto-fixable issues
 - Sub-agent 2: Fix security linter findings (bodyclose, sqlclosecheck, gosec)

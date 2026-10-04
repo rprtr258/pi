@@ -122,4 +122,4 @@ git filter-branch --force --index-filter \
 | Gitleaks | Git history | Fast |
 | TruffleHog | Deep scanning | Medium |
 | grep | Quick checks | Fast |
-| GitHub Secret Scanning | GitHub repos | Auto |
+| GitHub Secret Scanning | GitHub repositories | Auto |

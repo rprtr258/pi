@@ -1,6 +1,6 @@
 ---
 name: si-continuous-agent-loop
-description: Patterns for continuous autonomous agent loops with quality gates, evals, and recovery controls.
+description: Patterns for continuous autonomous agent loops with quality gates, evals, and recovery controls. Use when designing continuous autonomous agent loops with quality gates and recovery controls.
 ---
 
 ## Loop Selection Flow

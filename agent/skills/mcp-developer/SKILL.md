@@ -22,11 +22,11 @@ Load detailed guidance based on context:
 
 | Topic | Reference | Load When |
 |-------|-----------|-----------|
-| Protocol | `references/protocol.md` | Message types, lifecycle, JSON-RPC 2.0 |
-| TypeScript SDK | `references/typescript-sdk.md` | Building servers/clients in Node.js |
-| Python SDK | `references/python-sdk.md` | Building servers/clients in Python |
-| Tools | `references/tools.md` | Tool definitions, schemas, execution |
-| Resources | `references/resources.md` | Resource providers, URIs, templates |
+| Protocol | [references/protocol.md](references/protocol.md) | Message types, lifecycle, JSON-RPC 2.0 |
+| TypeScript SDK | [references/typescript-sdk.md](references/typescript-sdk.md) | Building servers/clients in Node.js |
+| Python SDK | [references/python-sdk.md](references/python-sdk.md) | Building servers/clients in Python |
+| Tools | [references/tools.md](references/tools.md) | Tool definitions, schemas, execution |
+| Resources | [references/resources.md](references/resources.md) | Resource providers, URIs, templates |
 
 ## Minimal Working Example
 
@@ -105,7 +105,7 @@ Server → { "result": { "content": [{ "type": "text", "text": "{\"temp\": 18, \
 ## Constraints
 
 ### MUST DO
-- Implement JSON-RPC 2.0 protocol correctly
+- Implement JSON-RPC 2.0 per spec (version, ids, error codes)
 - Validate all inputs with schemas (Zod/Pydantic)
 - Use proper transport mechanisms (stdio/HTTP/SSE)
 - Implement comprehensive error handling

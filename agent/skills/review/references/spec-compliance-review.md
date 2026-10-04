@@ -58,7 +58,7 @@ Approach every review with professional skepticism. Verify claims independently.
 
 | Question | How to Verify |
 |----------|---------------|
-| Did they skip requested features? | Compare PR to original requirements line by line |
+| Did they skip requested features? | Compare pull request to original requirements line by line |
 | Are edge cases handled? | Check error paths, empty states, boundaries |
 | Were error scenarios addressed? | Look for try/catch, error boundaries, validation |
 | Is the happy path complete? | Trace through primary use case manually |
@@ -184,7 +184,7 @@ Code quality review is meaningless if the code doesn't implement the correct fun
 
 **Interpretation Gaps:**
 - [ ] Author's understanding matches spec
-- [ ] Ambiguities resolved correctly
+- [ ] Ambiguities resolved and documented
 - [ ] Assumptions are documented and valid
 - [ ] Behavior matches similar existing features
 
@@ -249,4 +249,4 @@ All requirements verified:
 | Assuming spec was followed | Verify independently |
 | Skipping edge cases | Bugs hide in boundaries |
 | Accepting "we can add it later" | Technical debt accumulates |
-| Missing scope creep | Unreviewed code enters codebase |
+| Missing scope creep | Unreviewed code enters repository |

@@ -16,11 +16,11 @@ This skill creates a design brief through structured conversation. You may skip 
 
 1. Ask the user for a detailed description of what they want to build, who it is for, and any constraints or ideas they already have.
 
-2. Explore the existing codebase to understand the current state. Scan for each of the following specifically:
+2. Explore the existing repository to understand the current state. Scan for each of the following specifically:
    - **CSS variables / tokens**: files named `tokens.css`, `variables.css`, `theme.css`, or `:root` declarations with custom properties
    - **Tailwind config**: `tailwind.config.js` or `tailwind.config.ts`, check `theme.extend` for custom values
    - **UI framework themes**: Material UI `createTheme`, Chakra `extendTheme`, shadcn `globals.css` and `components.json`
-   - **Component directories**: `components/`, `ui/`, `shared/`, or any folder containing reusable UI pieces
+   - **Component directories**: `components/`, `ui/`, `shared/`, or any directory containing reusable UI pieces
    - **Storybook**: `.storybook/` directory or `*.stories.*` files indicating a documented component library
    - **Design token files**: JSON token files (Style Dictionary format, Figma token exports)
    - **Package.json UI dependencies**: tailwindcss, @mui/material, @chakra-ui/react, @radix-ui, lucide-react, framer-motion, etc.
@@ -44,7 +44,7 @@ This skill creates a design brief through structured conversation. You may skip 
 
 Save the brief to `.design/<feature-slug>/DESIGN_BRIEF.md` where `<feature-slug>` is a short, lowercase, hyphenated name derived from the feature or page being designed (e.g., `onboarding-flow`, `settings-page`, `project-dashboard`).
 
-This folder structure ensures that running the design flow multiple times for different features does not overwrite previous work. All subsequent skills (design-architecture, design-tokens, design-tasks, design-review) will read from and write to this same subfolder.
+This directory structure ensures that running the design flow multiple times for different features does not overwrite previous work. All subsequent skills (design-architecture, design-tokens, design-tasks, design-review) will read from and write to this same subfolder.
 
 Example:
 

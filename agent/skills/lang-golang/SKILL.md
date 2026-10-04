@@ -41,14 +41,29 @@ Read the reference that matches the area you are working in:
 | code style     | Line breaking, variables, control flow, function design, safety    | [code-style](references/code-style/code-style.md) |
 | error handling | Creation, wrapping, inspection, single handling rule, panic        | [error-handling](references/error-handling.md) |
 | naming         | Constructors, enums, error naming, anti-stutter                    | [naming](references/naming.md)                 |
+
+### Testing and CLI
+
+| Topic          | Description                                                        | Reference                                      |
+| -------------- | ------------------------------------------------------------------ | ---------------------------------------------- |
 | testing        | Table-driven tests, stub binaries, HTTP testing, mocking, commands | [testing](references/testing/testing.md)       |
 | TDD & advanced | Red-green-refactor, benchmarks, fuzzing, goleak, coverage, race    | [tdd](references/testing/tdd.md)               |
 | CLI patterns   | Exit codes, stdout/stderr, signal handling, context cancellation   | [cli](references/cli.md)                       |
 | Cobra          | Root command, subcommands, flags, arg validators                   | [cobra](references/libs/cobra.md)              |
+
+### Concurrency and Types
+
+| Topic          | Description                                                        | Reference                                      |
+| -------------- | ------------------------------------------------------------------ | ---------------------------------------------- |
 | Concurrency    | Goroutines, channels, select, sync, cancellation, timeouts         | [concurrency](references/concurrency/concurrency.md) |
 | Structs        | Zero value, struct tags, receivers, noCopy, stdlib interfaces      | [structs](references/interfaces/structs.md)    |
 | Interfaces     | Small interfaces, accept interfaces/return structs, io patterns    | [interfaces](references/interfaces/interfaces.md) |
 | Generics       | Type parameters, constraints, generic data structures              | [generics](references/generics.md)             |
+
+### Project and Runtime
+
+| Topic          | Description                                                        | Reference                                      |
+| -------------- | ------------------------------------------------------------------ | ---------------------------------------------- |
 | Project layout | Standard layout, go.mod, module commands, workspaces               | [project-structure](references/project-layout/project-layout.md) |
 | Performance    | Profiling, benchmarks, pprof, iterative optimization               | [performance](performance/performance.md)            |
 | gRPC           | Proto organization, server/client impl, interceptors, testing      | [gRPC](references/libs/grpc/grpc.md)          |
@@ -61,16 +76,41 @@ Deeper, domain-specific references. Read the one matching the area you are worki
 | ----------------- | ---------------------------------------------------------- | ------------------------------------------------------ |
 | CLI app structure | Cobra app assembly, Viper config, completions, versioning  | [cli-app](cli/cli.md)                                  |
 | CI/CD             | GitHub Actions, goreleaser, dependabot, codecov, codeql    | [ci](continuous-integration/continuous-integration.md) |
+
+### Data and Dependencies
+
+| Topic             | Description                                                | Reference                                              |
+| ----------------- | ---------------------------------------------------------- | ------------------------------------------------------ |
 | Database          | sqlx, GORM, migrations, transactions, connection pooling   | [database](database/database.md)                       |
 | Dependency mgmt   | go.mod, versioning, vendoring, private modules             | [deps](dependency-management/dependency-management.md) |
+
+### Docs, Lint, and Modernize
+
+| Topic             | Description                                                | Reference                                              |
+| ----------------- | ---------------------------------------------------------- | ------------------------------------------------------ |
 | Documentation     | Doc comments, README/CHANGELOG templates, llms.txt         | [docs](documentation/documentation.md)                 |
 | Lint              | golangci-lint config, linter catalog, enforcement          | [lint](lint/lint.md)                                   |
 | Modernize         | Upgrading to newer Go: iterators, generics, stdlib updates | [modernize](modernize/modernize.md)                    |
+
+### Observability and Patterns
+
+| Topic             | Description                                                | Reference                                              |
+| ----------------- | ---------------------------------------------------------- | ------------------------------------------------------ |
 | Observability     | Logging, metrics, tracing, alerting rules                  | [observability](observability/observability.md)        |
 | Idioms & patterns | Core Go idioms, anti-patterns, tooling integration         | [patterns](patterns/patterns.md)                       |
 | Design patterns   | Constructors, error flow, resilience, architecture guides  | [design-patterns](patterns/design-patterns.md)         |
+
+### Safety, Security, and Troubleshooting
+
+| Topic             | Description                                                | Reference                                              |
+| ----------------- | ---------------------------------------------------------- | ------------------------------------------------------ |
 | Safety            | Nil safety, zero values, bounds, type-safe helpers         | [safety](safety/safety.md)                             |
 | Security          | Input validation, crypto, secrets, OWASP for Go            | [security](security/security.md)                       |
 | Troubleshooting   | Debugging methodology, pprof, race, root-cause analysis    | [troubleshooting](troubleshooting/troubleshooting.md)  |
+
+### Generic and Assertion Helpers
+
+| Topic             | Description                                                | Reference                                              |
+| ----------------- | ---------------------------------------------------------- | ------------------------------------------------------ |
 | samber/lo         | Generic helpers: map, filter, reduce, tuples, channels     | [samber-lo](references/libs/samber-lo/samber-lo.md)    |
 | stretchr/testify  | assert/require, testify/mock, suites, linters              | [testify](references/libs/stretchr-testify/stretchr-testify.md)         |

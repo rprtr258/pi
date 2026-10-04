@@ -7,6 +7,8 @@ canvas layouts from memory or paraphrase these rules per mode.
 
 <!-- SHARED-CORE:canvas-surface START -->
 
+## Coordinates and lane layout
+
 **The coordinate rule.** The `surface` locks each artboard's footprint and
 aspect — never set artboard width/height and never use coordinates inside the
 wireframe HTML; board-level artboard `x`/`y` IS allowed when it creates clear
@@ -21,6 +23,8 @@ between rendered artboard rectangles plus room for annotation gutters. Connect
 only neighboring steps; never draw a long connector that skips across unrelated
 frames. Before handoff, inspect the top canvas at default zoom and move any
 frame whose label, connector, or annotation crosses another frame.
+
+## Canvas annotations
 
 **Canvas annotations are designer notes on the artboard.** When a top canvas is
 present, sprinkle Figma-style notes near the frames they explain: a short
@@ -37,8 +41,10 @@ omit `type` or use `type: "note"`. The renderer parks notes in a gutter beside
 the frame and lays them out automatically. Do not use `type: "callout"`,
 `type: "text"`, `type: "arrow"`, x/y, or points for ordinary notes; those are
 freeform review-markup layers and must be reserved for intentional markup in
-open canvas space. Reserve arrows for a note that must point at one specific
-control inside a frame; a note that simply sits beside its frame needs no arrow.
+open canvas space. Reserve arrows for the rare note pointing at one specific
+control inside a frame; a note sitting beside its frame needs no arrow.
+
+## Targeted patching
 
 **Patching.** Edit one wireframe, canvas annotation, diagram, or block with targeted `contentPatches`
 (for example `patch-wireframe-html`, `patch-diagram-html`, `update-block`,
@@ -50,7 +56,7 @@ edits. If an agent is working from exported source files, use
 frontmatter plus markdown/document blocks, `canvas.mdx` holds
 `<DesignBoard>/<Section>/<Artboard>/<Screen>/<Annotation>/<Connector>`, and the
 patch action normalizes the MDX back into the same JSON runtime model. JSON is
-the canonical runtime shape; MDX is the repo-friendly authoring/export surface.
+the canonical runtime shape; MDX is the repository-friendly authoring/export surface.
 In the browser, humans edit `rich-text` prose inline; agents should still use
 `update-rich-text` content patches or source patches for prose, and use
 comments/structured patches for canvas, artboard, wireframe, and diagram edits.
@@ -59,6 +65,8 @@ frame, or block: `content` is a full structured replacement, so omitted blocks
 or surfaces can disappear. If a full replacement is truly unavoidable, read the
 complete source/JSON first, include every existing block and surface in the new
 payload, and verify the source/export immediately after the update.
+
+## Artboards need interior content
 
 **Never emit a titled artboard with no interior wireframe content.** Every artboard
 you place on the canvas must carry an `html` wireframe or reference a wireframe
@@ -69,6 +77,8 @@ corresponding `content.canvas.frames[*].wireframe` / `legacyWireframe`. A
 label-only frame or a frame pointing at a deleted block renders empty and is
 rejected at parse time. If you only have a title, write it as a section header or
 annotation, not an empty artboard.
+
+## UI mockups on the canvas
 
 **UI mockups belong in the top visual review area.** Static UI/product visuals
 live on the canvas; multi-step UI flows get both canvas wireframes and a
@@ -91,6 +101,8 @@ moment: one real app state near the top showing how the concept appears to a
 user, followed by separate annotations or diagrams for mechanics. Do not make
 the first artboard a hybrid of app UI and architecture notes; the app screen
 should be inspectable as product UI on its own.
+
+## Legacy kit tree
 
 **Legacy kit tree.** Older plans set a `screen` array of `{ el, ...props }` kit
 nodes instead of `html`; the renderer still accepts and displays it, but new

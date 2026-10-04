@@ -125,7 +125,7 @@ Confirm:
 
 **Test passes?** You're testing existing behavior. Fix test.
 
-**Test errors?** Fix error, re-run until it fails correctly.
+**Test errors?** Fix error, re-run until it fails for the expected reason.
 
 ### GREEN - Minimal Code
 

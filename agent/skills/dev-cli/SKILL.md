@@ -9,7 +9,7 @@ description: "Use when building CLI tools, implementing argument parsing, or add
 
 1. **Analyze UX** - Identify user workflows, command hierarchy, common tasks. Validate by listing all commands and their expected `--help` output before writing code.
 2. **Design commands** - Plan subcommands, flags, arguments, configuration. Confirm flag naming is consistent and no existing signatures are broken.
-3. **Implement** - Build with the appropriate CLI framework for the language (see Reference Guide below). After wiring up commands, run `<cli> --help` to verify help text renders correctly and `<cli> --version` to confirm version output.
+3. **Implement** - Build with the appropriate CLI framework for the language (see Reference Guide below). After wiring up commands, run `<cli> --help` to verify help text lists every command and flag, and `<cli> --version` to confirm version output.
 4. **Polish** - Add completions, help text, error messages, progress indicators. Verify TTY detection for color output and graceful SIGINT handling.
 5. **Test** - Run cross-platform smoke tests; benchmark startup time (target: <50ms).
 
@@ -19,11 +19,11 @@ Load detailed guidance based on context:
 
 | Topic | Reference | Load When |
 |-------|-----------|-----------|
-| Design Patterns | `references/design-patterns.md` | Subcommands, flags, config, architecture |
-| Node.js CLIs | `references/node-cli.md` | commander, yargs, inquirer, chalk |
-| Python CLIs | `references/python-cli.md` | click, typer, argparse, rich |
-| Go CLIs | `references/go-cli.md` | cobra, viper, bubbletea |
-| UX Patterns | `references/ux-patterns.md` | Progress bars, colors, help text |
+| Design Patterns | [references/design-patterns.md](references/design-patterns.md) | Subcommands, flags, config, architecture |
+| Node.js CLIs | [references/node-cli.md](references/node-cli.md) | commander, yargs, inquirer, chalk |
+| Python CLIs | [references/python-cli.md](references/python-cli.md) | click, typer, argparse, rich |
+| Go CLIs | [references/go-cli.md](references/go-cli.md) | cobra, viper, bubbletea |
+| UX Patterns | [references/ux-patterns.md](references/ux-patterns.md) | Progress bars, colors, help text |
 
 ## Quick-Start Example
 
@@ -51,7 +51,7 @@ program
 program.parse();
 ```
 
-For Python (click/typer) and Go (cobra) quick-start examples, see `references/python-cli.md` and `references/go-cli.md`.
+For Python (click/typer) and Go (cobra) quick-start examples, see [references/python-cli.md](references/python-cli.md) and [references/go-cli.md](references/go-cli.md).
 
 ## Constraints
 
@@ -60,7 +60,7 @@ For Python (click/typer) and Go (cobra) quick-start examples, see `references/py
 - Provide clear, actionable error messages
 - Support `--help` and `--version` flags
 - Use consistent flag naming conventions
-- Handle SIGINT (Ctrl+C) gracefully
+- Handle SIGINT (Ctrl+C) so the process exits promptly without a stack trace
 - Validate user input early
 - Support both interactive and non-interactive modes
 - Test on Windows, macOS, and Linux

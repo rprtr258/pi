@@ -1,6 +1,6 @@
 ---
 name: si-agent-eval
-description: Head-to-head comparison of coding agents (Claude Code, Aider, Codex, etc.) on custom tasks with pass rate, cost, time, and consistency metrics
+description: Head-to-head comparison of coding agents (Claude Code, Aider, Codex, etc.) on custom tasks with pass rate, cost, time, and consistency metrics. Use when comparing coding agents on custom tasks with pass rate, cost, and time metrics.
 tools: Read, Write, Edit, Bash, Grep, Glob
 ---
 
@@ -10,7 +10,7 @@ A lightweight CLI tool for comparing coding agents head-to-head on reproducible 
 
 ## When to Activate
 
-- Comparing coding agents (Claude Code, Aider, Codex, etc.) on your own codebase
+- Comparing coding agents (Claude Code, Aider, Codex, etc.) on your own repository
 - Measuring agent performance before adopting a new tool or model
 - Running regression checks when an agent updates its model or tooling
 - Producing data-backed agent selection decisions for a team
@@ -45,7 +45,7 @@ commit: "abc1234"  # pin to specific commit for reproducibility
 
 ### Git Worktree Isolation
 
-Each agent run gets its own git worktree - no Docker required. This provides reproducibility isolation so agents cannot interfere with each other or corrupt the base repo.
+Each agent run gets its own git worktree - no Docker required. This provides reproducibility isolation so agents cannot interfere with each other or corrupt the base repository.
 
 ### Metrics Collected
 

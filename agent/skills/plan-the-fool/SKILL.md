@@ -42,7 +42,7 @@ Use `AskUserQuestion` to let the user choose how to challenge their idea.
 - "Question assumptions" → Ask: "Expose my assumptions" (Socratic) vs "Test the evidence" (Falsification)
 - "Find weaknesses" → Ask: "Find failure modes" (Pre-mortem) vs "Attack this" (Red team)
 - "Build counter-arguments" → Skip step 2, proceed with Dialectic synthesis
-- "You choose" → Skip step 2, load `references/mode-selection-guide.md` and auto-recommend
+- "You choose" → Skip step 2, load [references/mode-selection-guide.md](references/mode-selection-guide.md) and auto-recommend
 
 ## 5 Reasoning Modes
 
@@ -58,12 +58,12 @@ Use `AskUserQuestion` to let the user choose how to challenge their idea.
 
 | Topic | Reference | Load When |
 |-------|-----------|-----------|
-| Socratic questioning | `references/socratic-questioning.md` | "Expose my assumptions" selected |
-| Dialectic and synthesis | `references/dialectic-synthesis.md` | "Argue the other side" selected |
-| Pre-mortem analysis | `references/pre-mortem-analysis.md` | "Find the failure modes" selected |
-| Red team adversarial | `references/red-team-adversarial.md` | "Attack this" selected |
-| Evidence audit | `references/evidence-audit.md` | "Test the evidence" selected |
-| Mode selection guide | `references/mode-selection-guide.md` | "You choose" selected or auto-recommend needed |
+| Socratic questioning | [references/socratic-questioning.md](references/socratic-questioning.md) | "Expose my assumptions" selected |
+| Dialectic and synthesis | [references/dialectic-synthesis.md](references/dialectic-synthesis.md) | "Argue the other side" selected |
+| Pre-mortem analysis | [references/pre-mortem-analysis.md](references/pre-mortem-analysis.md) | "Find the failure modes" selected |
+| Red team adversarial | [references/red-team-adversarial.md](references/red-team-adversarial.md) | "Attack this" selected |
+| Evidence audit | [references/evidence-audit.md](references/evidence-audit.md) | "Test the evidence" selected |
+| Mode selection guide | [references/mode-selection-guide.md](references/mode-selection-guide.md) | "You choose" selected or auto-recommend needed |
 
 ## Constraints
 

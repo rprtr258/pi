@@ -1,6 +1,6 @@
 ---
 name: db-clickhouse
-description: ClickHouse database patterns, query optimization, analytics, and data engineering best practices for high-performance analytical workloads.
+description: ClickHouse database patterns, query optimization, analytics, and data engineering best practices for high-performance analytical workloads. Use when writing ClickHouse queries, tuning analytics, or building high-performance analytical data pipelines.
 ---
 
 # ClickHouse Analytics Patterns

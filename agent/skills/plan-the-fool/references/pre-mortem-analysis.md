@@ -13,7 +13,7 @@ A pre-mortem inverts the question. Instead of "Will this work?" ask: **"It's 6 m
 3. **Rank by likelihood and impact** — Not all failures are equal
 4. **Trace consequence chains** — First → second → third order effects
 5. **Identify early warning signs** — What would you see before the failure?
-6. **Design mitigations** — Concrete actions, not vague "be careful"
+6. **Design mitigations** — Concrete actions with owners and triggers, not reminders to be cautious
 
 ## Failure Narrative Construction
 
@@ -126,7 +126,7 @@ Ask: **"What would guarantee this fails?"** Then check if any of those condition
 | Dependency chain | Team A waits on Team B waits on Team C | Any slip cascades through all teams |
 | Knowledge silo | Expert leaves or is unavailable | Progress stops; replacement ramps up for weeks |
 | Scope creep | "While we're at it..." | Original goal buried under additions |
-| Feedback void | No user testing until launch | Wrong product built correctly |
+| Feedback void | No user testing until launch | Wrong product built as specified |
 
 ## Early Warning Signs
 

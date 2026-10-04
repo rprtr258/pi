@@ -120,7 +120,7 @@ env | grep API_KEY
 
 ## Step 5: Check Observability Tools
 
-Production debugging MUST start with observability data. Before diving into code, check if the project uses observability tools — they often have the answer already. Look for imports or dependencies like `prometheus`, `opentelemetry`, `datadog`, `sentry`, `elastic/apm` in the codebase. Even if you don't see them in code, the developer may have them deployed separately.
+Production debugging MUST start with observability data. Before diving into code, check if the project uses observability tools — they often have the answer already. Look for imports or dependencies like `prometheus`, `opentelemetry`, `datadog`, `sentry`, `elastic/apm` in the repository. Even if you don't see them in code, the developer may have them deployed separately.
 
 If the information is missing, **ask the user** what monitoring and observability tools they use. Common stacks:
 
@@ -157,7 +157,7 @@ If the user has an MCP server for any of these tools (Datadog MCP, Grafana MCP, 
 
 Before forming a hypothesis, find similar code that **works**:
 
-- Search the codebase for analogous functionality that doesn't have the bug
+- Search the repository for analogous functionality that doesn't have the bug
 - Read the working reference implementation **completely** — don't skim
 - List **every difference** between the working code and the broken code
 - Check: are the dependencies the same? The config? The initialization order? The error handling?

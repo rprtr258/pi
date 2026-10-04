@@ -8,16 +8,16 @@ description: Use this skill to generate or audit design systems, check visual co
 ## When to Use
 
 - Starting a new project that needs a design system
-- Auditing an existing codebase for visual consistency
+- Auditing an existing repository for visual consistency
 - Before a redesign — understand what you have
 - When the UI looks "off" but you can't pinpoint why
-- Reviewing PRs that touch styling
+- Reviewing pull requests that touch styling
 
 ## How It Works
 
 ### Mode 1: Generate Design System
 
-Analyzes your codebase and generates a cohesive design system:
+Analyzes your repository and generates a cohesive design system:
 
 ```
 1. Scan CSS/Tailwind/styled-components for existing patterns

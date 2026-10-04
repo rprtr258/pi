@@ -19,7 +19,7 @@ Note what you've learned and what remains unclear.
 
 ## Step 2: Ask UX-Focused Questions
 
-ask the user directly to clarify what you cannot infer. Focus only on what you couldn't infer from the codebase:
+ask the user directly to clarify what you cannot infer. Focus only on what you couldn't infer from the repository:
 
 ### Users & Purpose
 - Who uses this? What's their context when using it?
@@ -40,7 +40,7 @@ ask the user directly to clarify what you cannot infer. Focus only on what you c
 - Specific accessibility requirements? (WCAG level, known user needs)
 - Considerations for reduced motion, color blindness, or other accommodations?
 
-Skip questions where the answer is already clear from the codebase exploration.
+Skip questions where the answer is already clear from the repository exploration.
 
 ## Step 3: Write Design Context
 

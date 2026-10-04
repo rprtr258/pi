@@ -706,7 +706,7 @@ Data management in microservices requires careful design:
 
 **Key Principles:**
 - Database per service (non-negotiable)
-- Embrace eventual consistency where possible
+- Embrace eventual consistency where synchronous consistency is not required
 - Use Saga pattern for distributed transactions
 - Event sourcing for audit trail and temporal queries
 - CQRS for read/write optimization

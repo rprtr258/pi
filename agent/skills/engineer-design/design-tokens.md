@@ -14,7 +14,7 @@ This skill generates the foundational design tokens for a project. Run this afte
 
 ## Process
 
-1. **Check what already exists.** Before generating anything, scan the codebase for:
+1. **Check what already exists.** Before generating anything, scan the repository for:
    - CSS variable definitions (`:root`, `[data-theme]`, custom property files)
    - Tailwind config (`tailwind.config.js`, `tailwind.config.ts`) and any theme extensions
    - Theme provider files (Material UI `createTheme`, Chakra `extendTheme`, shadcn `globals.css`)

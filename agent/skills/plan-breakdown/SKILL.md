@@ -24,14 +24,14 @@ This skill defines _what a good PRD is_, _what a good slice is_, and _what each 
 
 ## Stage 1 — Capture (optional PRD)
 
-Synthesize the current conversation and codebase understanding into a PRD when:
+Synthesize the current conversation and repository understanding into a PRD when:
 
 - No plan, spec, PRD, or parent issue exists yet, and implementation and testing decisions should be captured before breakdown.
 - The user explicitly wants a PRD.
 
-1. Explore the repo if needed to understand current implementation, domain language, and relevant ADRs.
+1. Explore the repository if needed to understand current implementation, domain language, and relevant ADRs.
 2. Collect assets supplied in the conversation: screenshots, mockups, diagrams, prototypes, recordings, uploaded files, or URLs.
-3. Identify the major modules to build or modify, including any deep-module opportunities — a deep module encapsulates a lot of functionality in a simple, testable interface which rarely changes. Determine test coverage from conversation context and codebase patterns. Default to your best judgment; when a module or test-coverage choice is a real judgment call, check with the user first.
+3. Identify the major modules to build or modify, including any deep-module opportunities — a deep module encapsulates a lot of functionality in a simple, testable interface which rarely changes. Determine test coverage from conversation context and repository patterns. Default to your best judgment; when a module or test-coverage choice is a real judgment call, check with the user first.
 4. Write the PRD using the template below, including an **Assets** section when assets exist.
 5. Publish it to the documented PRD home — typically the project issue tracker (for example, a GitHub issue). If no such documented home can be found, request guidance from the user.
 
@@ -111,17 +111,17 @@ When a feature hinges on a risky integration (a new API, new infrastructure, an 
 
 ### Refactor RFCs
 
-When the input is a behavior-preserving refactor request, the same pipeline applies with a different slice shape. Interview first: get the problem and any candidate solutions from the user, verify their assertions in the repo, present alternatives they have not considered, and hammer out exact scope — what will and will not change. Check test coverage of the target area; if it is thin, agree on tests that pin current behavior before any behavior-preserving change is safe.
+When the input is a behavior-preserving refactor request, the same pipeline applies with a different slice shape. Interview first: get the problem and any candidate solutions from the user, verify their assertions in the repository, present alternatives they have not considered, and hammer out exact scope — what will and will not change. Check test coverage of the target area; if it is thin, agree on tests that pin current behavior before any behavior-preserving change is safe.
 
-Refactor slices follow Martin Fowler's advice: "make each refactoring step as small as possible, so that you can always see the program working." Each issue is a tiny, working-codebase step, ordered so each builds on the last — refactors are inherently sequential, so parallel slices rarely apply.
+Refactor slices follow Martin Fowler's advice: "make each refactoring step as small as possible, so that you can always see the program working." Each issue is a tiny, working-repository step, ordered so each builds on the last — refactors are inherently sequential, so parallel slices rarely apply.
 
 Beyond the standard fields, capture per refactor issue (RFC-level fields can live in the parent RFC issue or the first slice):
 
 - **Problem statement** — the pain, from the developer's perspective.
 - **Solution** — the approach, from the developer's perspective.
-- **Commits** — the ordered tiny-commit plan, each leaving the codebase in a working state.
+- **Commits** — the ordered tiny-commit plan, each leaving the repository in a working state.
 - **Decision document** — modules built/modified, interfaces changed, technical clarifications, architectural/schema/API decisions. No file paths or code snippets; they go stale.
-- **Testing decisions** — what makes a good test (external behavior, not implementation details), which modules will be tested, prior art for those tests in the codebase.
+- **Testing decisions** — what makes a good test (external behavior, not implementation details), which modules will be tested, prior art for those tests in the repository.
 - **Out of scope** — what the refactor deliberately does not touch.
 
 For simplification-flavored refactors, follow mode-simplify.md during execution.
@@ -130,7 +130,7 @@ For simplification-flavored refactors, follow mode-simplify.md during execution.
 
 1. Gather context from the conversation or the referenced plan, PRD, spec, parent issue, URL, or file. Identify assets to carry into slices.
 2. If no source document exists or the user asked for a PRD, run Stage 1 first and use the published PRD as the source document.
-3. Explore the codebase when needed for current state, domain vocabulary, and constraints.
+3. Explore the repository when needed for current state, domain vocabulary, and constraints.
 4. Draft vertical slices. For each, capture the fields in **What Each Slice Captures**.
 5. Order slices by dependency, blockers first, so later slices can reference earlier ones.
 6. Publish using the tracker's skill for mechanics: assemble the captured fields into the tracker's format, route implementation detail to a spec field if one exists, record dependencies structurally, and link each slice back to the source plan/PRD.

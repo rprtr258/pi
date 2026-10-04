@@ -14,7 +14,7 @@ This skill guides creation of distinctive, production-grade frontend interfaces.
 
 ## Before You Write Any Code
 
-1. **Explore the existing codebase first.** Scan specifically for:
+1. **Explore the existing repository first.** Scan specifically for:
    - **Component directories**: `components/`, `ui/`, `shared/` and list every component by name and its props/API
    - **CSS variables / tokens**: files named `tokens.css`, `variables.css`, `theme.css`, or `:root` declarations with custom properties
    - **Tailwind config**: `tailwind.config.js` or `tailwind.config.ts`, check `theme.extend` for custom values

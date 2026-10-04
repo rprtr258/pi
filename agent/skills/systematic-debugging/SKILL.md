@@ -124,7 +124,7 @@ You MUST complete each phase before proceeding to the next.
 **Find the pattern before fixing:**
 
 1. **Find Working Examples**
-   - Locate similar working code in same codebase
+   - Locate similar working code in same repository
    - What works that's similar to what's broken?
 
 2. **Compare Against References**
@@ -173,7 +173,7 @@ You MUST complete each phase before proceeding to the next.
 
 1. **Create Failing Test Case**
    - Simplest possible reproduction
-   - Automated test if possible
+   - Automated test when the repository has a test framework
    - One-off test script if no framework
    - MUST have before fixing
    - Use the `superpowers:test-driven-development` skill for writing proper failing tests
@@ -282,6 +282,8 @@ These techniques are part of systematic debugging and available in this director
 - **`root-cause-tracing.md`** - Trace bugs backward through call stack to find original trigger
 - **`defense-in-depth.md`** - Add validation at multiple layers after finding root cause
 - **`condition-based-waiting.md`** - Replace arbitrary timeouts with condition polling
+- **`test-academic.md`, `test-pressure-1.md`, `test-pressure-2.md`, `test-pressure-3.md`** - Pressure tests used to validate this skill against rationalization
+- **`CREATION-LOG.md`** - Provenance: how this skill was extracted, structured, and bulletproofed
 
 **Related skills:**
 - **superpowers:test-driven-development** - For creating failing test case (Phase 4, Step 1)

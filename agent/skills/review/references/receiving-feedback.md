@@ -140,7 +140,7 @@ Push back with technical reasoning when feedback:
 | Situation | How to Respond |
 |-----------|----------------|
 | Breaks existing functionality | "This change would break Feature X (see test at tests/feature-x.spec.ts:34)" |
-| Lacks full codebase context | "This pattern exists because of Y (see architecture.md#constraints)" |
+| Lacks full repository context | "This pattern exists because of Y (see architecture.md#constraints)" |
 | Violates YAGNI | "This flexibility isn't needed yet - only one caller exists" |
 | Is technically incorrect | "This actually works because of Z (link to docs)" |
 | Conflicts with established architecture | "This conflicts with our JWT approach (see auth/README.md)" |

@@ -442,7 +442,7 @@ Borders are never colored (no navy borders, no green borders); the bevel two-ton
 
 **Retro check** (`{components.retro-check}`) — A 16px sunken-bevel white square containing a literal lowercase `x` character when checked. The bevel is inverted relative to buttons (black on top/left, white on bottom/right).
 
-**Tree view** (`{components.tree-item}`) — Explorer-style hierarchical list. Each row carries an expand marker (+/−), a folder (`📁`) or file (`📄`) emoji glyph, and the label. 24px indentation per nesting level.
+**Tree view** (`{components.tree-item}`) — Explorer-style hierarchical list. Each row carries an expand marker (+/−), a directory (`📁`) or file (`📄`) emoji glyph, and the label. 24px indentation per nesting level.
 
 **KPI tile (group-box variant)** — A square group-box with a title label (`Revenue`, `Customers`, `Retention`, `NPS Score`), a large 30px navy metric, a green delta line (`▲ +18.3%`), and a 12px gray context line (`vs previous quarter`). Used in 4-up rows for dashboards.
 
@@ -560,7 +560,7 @@ The two nostalgic accent fonts (Press Start 2P, VT323) are fundamentally Latin-o
 3. Any new primary headline uses `{typography.text-lg}` (22px) in `{colors.blue-navy}` weight 700. Hero / splash headlines use `{typography.text-xl}` (32px) or Press Start 2P (20–24px).
 4. Any new metric tile uses the `{components.group-box}` + `{typography.metric-xl}` navy-700 + green delta + 12px gray context pattern.
 5. Any new chart uses Chart.js with the navy ladder for primary data and the retro status colors for categorical segments. Always wrap the canvas in a `{components.panel-raised}`.
-6. Any new bullet list uses the `{components.retro-list}` chevron pattern; any checkbox uses the `{components.retro-check}` pattern; any hierarchical tree uses the `{components.tree-item}` folder/file emoji pattern.
+6. Any new bullet list uses the `{components.retro-list}` chevron pattern; any checkbox uses the `{components.retro-check}` pattern; any hierarchical tree uses the `{components.tree-item}` directory/file emoji pattern.
 7. Any new button is a `{components.btn-retro}` — beveled gray, 6px × 24px padding, 14px MS Sans Serif. Buttons appear in clusters (OK / Cancel / Help, or Export / Print).
 8. Any new status badge uses `{colors.green-retro}` weight 700 for OK, `{colors.red-retro}` for error, `{colors.yellow-retro}` for moderate. Always weight 700; never decorative.
 9. Status footers (panel-raised strips at the bottom of a window body) carry three or four data points separated by `•` bullets — data source, last updated, count, classification.

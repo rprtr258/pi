@@ -1,6 +1,6 @@
 ---
 name: review-santa
-description: Multi-agent adversarial verification with convergence loop. Two independent review agents must both pass before output ships.
+description: Multi-agent adversarial verification with convergence loop. Two independent review agents must both pass before output ships. Use when output must pass adversarial multi-agent verification before shipping.
 ---
 
 # Santa Method
@@ -24,53 +24,22 @@ Do NOT use for internal drafts, exploratory research, or tasks with deterministi
 ## Architecture
 
 ```
-┌──────────────┐
-│  GENERATOR   │  Phase 1: Make a List
-│  (Agent A)   │  Produce the deliverable
-└──────┬───────┘
-       │ output
-       ▼
-┌─────────────────────────────────┐
-│     DUAL INDEPENDENT REVIEW     │  Phase 2: Check It Twice
-│                                 │
-│  ┌────────────┐ ┌────────────┐  │  Two agents, same rubric,
-│  │ Reviewer B │ │ Reviewer C │  │  no shared context
-│  └─────┬──────┘ └─────┬──────┘  │
-│        │              │         │
-└────────┼──────────────┼─────────┘
-         │              │
-         ▼              ▼
-┌────────────────────────────────┐
-│        VERDICT GATE            │  Phase 3: Naughty or Nice
-│                                │
-│  B passes AND C passes → NICE  │  Both must pass.
-│  Otherwise → NAUGHTY           │  No exceptions.
-└──────┬──────────────┬──────────┘
-       │              │
-    NICE           NAUGHTY
-       │              │
-       ▼              ▼
-   [ SHIP ]    ┌─────────────┐
-               │  FIX CYCLE  │  Phase 4: Fix Until Nice
-               │             │
-               │ iteration++ │  Collect all flags.
-               │ if i > MAX: │  Fix all issues.
-               │   escalate  │  Re-run both reviewers.
-               │ else:       │  Loop until convergence.
-               │   goto Ph.2 │
-               └─────────────┘
+GENERATOR (Phase 1: Make a List)
+   └─> DUAL INDEPENDENT REVIEW (Phase 2: Check It Twice)
+         Reviewer B ∥ Reviewer C — same rubric, no shared context
+   └─> VERDICT GATE (Phase 3: Naughty or Nice)
+         B passes AND C passes → NICE → SHIP
+         otherwise → NAUGHTY
+   └─> FIX CYCLE (Phase 4: Fix Until Nice)
+         Fix all flags → re-run both reviewers → loop to convergence
+         (iteration > MAX_ITERATIONS → escalate to human)
 ```
 
 ## Phase Details
 
 ### Phase 1: Make a List (Generate)
 
-Execute the primary task. No changes to your normal generation workflow. Santa Method is a post-generation verification layer, not a generation strategy.
-
-```python
-# The generator runs as normal
-output = generate(task_spec)
-```
+Execute the primary task as normal. No changes to your generation workflow — Santa Method is a post-generation verification layer, not a generation strategy.
 
 ### Phase 2: Check It Twice (Independent Dual Review)
 
@@ -140,7 +109,7 @@ The rubric is the most important input. Vague rubrics produce vague reviews. Eve
 - Brand voice adherence
 - SEO requirements met (keyword density, meta tags, structure)
 - No competitor trademark misuse
-- CTA present and correctly linked
+- CTA present and links resolve to the intended URL
 
 **Code:**
 - Type safety (no `any` leaks, proper null handling)
@@ -205,24 +174,7 @@ Critical: each review round uses **fresh agents**. Reviewers must not carry memo
 
 ### Pattern A: Claude Code Subagents (Recommended)
 
-Subagents provide true context isolation. Each reviewer is a separate process with no shared state.
-
-```bash
-# In a Claude Code session, use the Agent tool to spawn reviewers
-# Both agents run in parallel for speed
-```
-
-```python
-# Pseudocode for Agent tool invocation
-reviewer_b = Agent(
-  description="Santa Review B",
-  prompt=f"Review this output for quality...\n\nRUBRIC:\n{rubric}\n\nOUTPUT:\n{output}"
-)
-reviewer_c = Agent(
-  description="Santa Review C",
-  prompt=f"Review this output for quality...\n\nRUBRIC:\n{rubric}\n\nOUTPUT:\n{output}"
-)
-```
+Subagents provide true context isolation: each reviewer is a separate process with no shared state. Spawn both in parallel with the `Agent` tool, passing the same `REVIEWER_PROMPT` from Phase 2 to each — one as Reviewer B, one as Reviewer C.
 
 ### Pattern B: Sequential Inline (Fallback)
 
@@ -295,11 +247,6 @@ Track these to measure Santa Method effectiveness:
 
 ## Cost Analysis
 
-Santa Method costs approximately 2-3x the token cost of generation alone per verification cycle. For most high-stakes output, this is a bargain:
-
-```
-Cost of Santa = (generation tokens) + 2×(review tokens per round) × (avg rounds)
-Cost of NOT Santa = (reputation damage) + (correction effort) + (trust erosion)
-```
+Santa Method costs approximately 2-3x the token cost of generation alone per verification cycle. For most high-stakes output, this is a bargain: cost of Santa = generation tokens + 2 × review tokens per round × average rounds; cost of NOT Santa = reputation damage + correction effort + trust erosion.
 
 For batch operations, the sampling pattern reduces cost to ~15-20% of full verification while catching >90% of systematic issues.

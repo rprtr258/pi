@@ -1,6 +1,6 @@
 ---
 name: cli-gh
-description: "Interact with GitHub using the `gh` CLI. Supports issues, PRs, CI runs, fork-aware PR creation, upstream sync, dependabot bulk merge, and automated PR+CI+merge workflows."
+description: "Interact with GitHub using the `gh` CLI. Supports issues, PRs, CI runs, fork-aware PR creation, upstream sync, dependabot bulk merge, and automated PR+CI+merge workflows. Use when working with GitHub issues, PRs, or CI runs via the gh CLI."
 ---
 
 # GitHub Skill
@@ -9,7 +9,7 @@ Use the `gh` CLI to interact with GitHub. Always specify `--repo owner/repo` whe
 
 ## Pull Requests
 
-Check CI status on a PR:
+Check CI status on a pull request:
 
 ```bash
 gh pr checks <pr-number> --repo owner/repo
@@ -42,7 +42,7 @@ gh pr create --fill  # Auto-fill from commits
 
 ## Merge a PR
 
-Wait for CI to pass on a PR, then squash merge it:
+Wait for CI to pass on a pull request, then squash merge it:
 
 ```bash
 # Get target repo (handles forks)
@@ -56,7 +56,7 @@ gh pr checks <pr-number> --repo "$repo" --watch --fail-fast && gh pr merge <pr-n
 
 The `gh api` command is useful for accessing data not available through other subcommands.
 
-Get PR with specific fields:
+Get pull request with specific fields:
 
 ```bash
 gh api repos/owner/repo/pulls/55 --jq '.title, .state, .user.login'

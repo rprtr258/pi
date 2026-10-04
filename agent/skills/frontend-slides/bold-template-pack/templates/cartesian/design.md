@@ -233,7 +233,7 @@ Depth is **entirely absent in the conventional sense**. There are no shadows, no
 ## Colors
 
 ### Stone & Ink Palette
-- **Background Primary** (`{colors.bg-primary}` — #EDE8E0): The canvas. Warm sandstone off-cream — closer to "manila folder" than "white paper." This is the default slide background.
+- **Background Primary** (`{colors.bg-primary}` — #EDE8E0): The canvas. Warm sandstone off-cream — closer to "manila directory" than "white paper." This is the default slide background.
 - **Background Secondary** (`{colors.bg-secondary}` — #E2DBD1): A slightly deeper stone, used for image placeholders, team-photo frames, and any region that needs subtle separation from the canvas without a colored fill or a border.
 - **Text Primary** (`{colors.text-primary}` — #1A1A1A): Near-black ink. Used for headlines, stat numerals, and the special `{components.horizontal-accent}` rule. The strongest contrast color in the system.
 - **Text Secondary** (`{colors.text-secondary}` — #5A5A5A): Medium warm gray. Used for all body paragraph text. Softer than ink — readable but recedes.

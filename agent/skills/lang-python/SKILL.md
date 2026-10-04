@@ -18,7 +18,7 @@ Modern Python 3.11+ specialist focused on type-safe, async-first, production-rea
 
 ## Core Workflow
 
-1. **Analyze codebase** — Review structure, dependencies, type coverage, test suite
+1. **Analyze repository** — Review structure, dependencies, type coverage, test suite
 2. **Design interfaces** — Define protocols, dataclasses, type aliases
 3. **Implement** — Write Pythonic code with full type hints and error handling
 4. **Test** — Create comprehensive pytest suite with >90% coverage
@@ -33,12 +33,12 @@ Load detailed guidance based on context:
 
 | Topic | Reference | Load When |
 |-------|-----------|-----------|
-| Type System | `references/type-system.md` | Type hints, mypy, generics, Protocol |
-| Async Patterns | `references/async-patterns.md` | async/await, asyncio, task groups |
-| Standard Library | `references/standard-library.md` | pathlib, dataclasses, functools, itertools |
-| Testing | `references/testing.md` | TDD, pytest, fixtures, parametrize, mocking, async, coverage, property-based |
-| Packaging | `references/packaging.md` | poetry, pip, pyproject.toml, distribution |
-| Python Patterns | `references/patterns.md` | idiomatic patterns, EAFP, decorators, concurrency, __slots__ |
+| Type System | [references/type-system.md](references/type-system.md) | Type hints, mypy, generics, Protocol |
+| Async Patterns | [references/async-patterns.md](references/async-patterns.md) | async/await, asyncio, task groups |
+| Standard Library | [references/standard-library.md](references/standard-library.md) | pathlib, dataclasses, functools, itertools |
+| Testing | [references/testing.md](references/testing.md) | TDD, pytest, fixtures, parametrize, mocking, async, coverage, property-based |
+| Packaging | [references/packaging.md](references/packaging.md) | poetry, pip, pyproject.toml, distribution |
+| Python Patterns | [references/patterns.md](references/patterns.md) | idiomatic patterns, EAFP, decorators, concurrency, __slots__ |
 
 ## Constraints
 

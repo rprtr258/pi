@@ -333,7 +333,7 @@ Expected: { "status": "ok", "database": "connected" }
 - [ ] Accessibility audit complete
 
 ### Handoff Package
-- [ ] Links to merged PRs
+- [ ] Links to merged pull requests
 - [ ] Deployment instructions
 - [ ] Database migration notes
 - [ ] Known issues/limitations
