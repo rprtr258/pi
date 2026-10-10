@@ -39,12 +39,16 @@ function printTree(node: TreeNode, total: number): string[] {
 }
 
 export default function (pi: ExtensionAPI) {
-  // Drop large tool results older than 10 messages
+  const textLen = (msg: AgentMessage): number =>
+    msg.content.filter(c => c.type === "text").map(c => c.text.length).reduce((a, b) => a + b, 0);
+  // Truncate large tool results older than 10 messages (placeholder keeps the
+  // toolCall paired, so the model sees what was elided instead of a tool error)
   pi.on("context", (event, ctx) => {
-    const pruned = event.messages.filter((msg, i) => {
-      return msg.role !== "toolResult" ||
+    const pruned = event.messages.map((msg, i) => {
+      if (msg.role !== "toolResult" ||
         i >= event.messages.length - 10 ||
-        msg.content.filter(c => c.type === "text").map(c => c.text.length).reduce((a, b) => a + b, 0) <= 5000;
+        textLen(msg) <= 5000) return msg;
+      return { ...msg, content: [{ type: "text" as const, text: `[previous tool output elided by context pruning: ${textLen(msg)} chars]` }] };
     });
     return { messages: pruned };
   });
