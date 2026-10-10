@@ -8,9 +8,10 @@ export default function (pi: ExtensionAPI) {
     if (res.diagnostics.length > 0) {
       throw new Error(`Failed to load karpathy-guidelines skill: ${res.diagnostics.join("\n")}`);
     }
-    if (res.skills.length !== 1) {
+    const skill = res.skills[0];
+    if (res.skills.length !== 1 || !skill) {
       throw new Error(`Failed to load karpathy-guidelines skill: expected 1 skill, got ${res.skills.length}`);
     }
-    return { systemPrompt: `${event.systemPrompt}\n\n${readFileSync(res.skills[0].filePath)}` };
+    return { systemPrompt: `${event.systemPrompt}\n\n${readFileSync(skill.filePath)}` };
   });
 }

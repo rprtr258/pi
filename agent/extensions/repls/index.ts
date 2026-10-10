@@ -8,7 +8,7 @@
  */
 import {spawnSync} from "child_process";
 import {randomUUID} from "crypto";
-import {Type, type Static} from "@sinclair/typebox";
+import {Type, type Static} from "typebox";
 import type {AgentToolResult, ExtensionAPI, ExtensionContext, ToolDefinition} from "@earendil-works/pi-coding-agent";
 
 type ReplSession = {

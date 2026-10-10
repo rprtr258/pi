@@ -5,8 +5,8 @@
  * Multiple questions: tab bar navigation between questions
  */
 
-import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
-import { Editor, type EditorTheme, Key, matchesKey, Text, truncateToWidth, wrapTextWithAnsi } from "@mariozechner/pi-tui";
+import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { Editor, type EditorTheme, Key, matchesKey, Text, truncateToWidth, wrapTextWithAnsi } from "@earendil-works/pi-tui";
 import { Type } from "typebox";
 
 // Types
@@ -237,6 +237,10 @@ export default function questionnaire(pi: ExtensionAPI) {
           // Select option
           if (matchesKey(data, Key.enter) && q) {
             const opt = opts[optionIndex];
+            if (!opt) {
+              refresh();
+              return;
+            }
             if (opt.isOther) {
               inputMode = true;
               inputQuestionId = q.id;
@@ -270,10 +274,10 @@ export default function questionnaire(pi: ExtensionAPI) {
           // Tab bar (multi-question only)
           if (isMulti) {
             const tabs: string[] = ["← "];
-            for (let i = 0; i < questions.length; i++) {
+            for (const [i, question] of questions.entries()) {
               const isActive = i === currentTab;
-              const isAnswered = answers.has(questions[i].id);
-              const lbl = questions[i].label;
+              const isAnswered = answers.has(question.id);
+              const lbl = question.label;
               const box = isAnswered ? "■" : "□";
               const color = isAnswered ? "success" : "muted";
               const text = ` ${box} ${lbl} `;
@@ -293,8 +297,7 @@ export default function questionnaire(pi: ExtensionAPI) {
 
           // Helper to render options list
           function renderOptions() {
-            for (let i = 0; i < opts.length; i++) {
-              const opt = opts[i];
+            for (const [i, opt] of opts.entries()) {
               const selected = i === optionIndex;
               const isOther = opt.isOther === true;
               const prefix = selected ? theme.fg("accent", "> ") : "  ";

@@ -12,10 +12,10 @@
  * The generated prompt appears as a draft in the editor for review/editing.
  */
 
-import type { AgentMessage } from "@mariozechner/pi-agent-core";
-import { complete, type Message } from "@mariozechner/pi-ai";
-import type { ExtensionAPI, SessionEntry } from "@mariozechner/pi-coding-agent";
-import { BorderedLoader, convertToLlm, serializeConversation } from "@mariozechner/pi-coding-agent";
+import type { AgentMessage } from "@earendil-works/pi-agent-core";
+import { complete, type Message } from "@earendil-works/pi-ai/compat";
+import type { ExtensionAPI, SessionEntry } from "@earendil-works/pi-coding-agent";
+import { BorderedLoader, convertToLlm, serializeConversation } from "@earendil-works/pi-coding-agent";
 
 const SYSTEM_PROMPT = `You are a context transfer assistant. Given a conversation history and the user's goal for a new thread, generate a focused prompt that:
 
@@ -57,7 +57,7 @@ function entryToMessage(entry: SessionEntry): AgentMessage | undefined {
 function getHandoffMessages(branch: SessionEntry[]): AgentMessage[] {
   let compactionIndex = -1;
   for (let i = branch.length - 1; i >= 0; i--) {
-    if (branch[i].type === "compaction") {
+    if (branch[i]?.type === "compaction") {
       compactionIndex = i;
       break;
     }
@@ -67,8 +67,10 @@ function getHandoffMessages(branch: SessionEntry[]): AgentMessage[] {
   }
 
   const compaction = branch[compactionIndex];
-  const firstKeptIndex =
-    compaction.type === "compaction" ? branch.findIndex((entry) => entry.id === compaction.firstKeptEntryId) : -1;
+  if (!compaction || compaction.type !== "compaction") {
+    return branch.map(entryToMessage).filter((message) => message !== undefined);
+  }
+  const firstKeptIndex = branch.findIndex((entry) => entry.id === compaction.firstKeptEntryId);
   const compactedBranch = [
     compaction,
     ...(firstKeptIndex >= 0 ? branch.slice(firstKeptIndex, compactionIndex) : []),

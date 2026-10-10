@@ -118,6 +118,10 @@ export default function question(pi: ExtensionAPI) {
 
           if (matchesKey(data, Key.enter)) {
             const selected = allOptions[optionIndex];
+            if (!selected) {
+              refresh();
+              return;
+            }
             if (selected.isOther) {
               editMode = true;
               refresh();
@@ -153,8 +157,7 @@ export default function question(pi: ExtensionAPI) {
           addWrapped(" ", theme.fg("text", params.question));
           lines.push("");
 
-          for (let i = 0; i < allOptions.length; i++) {
-            const opt = allOptions[i];
+          for (const [i, opt] of allOptions.entries()) {
             const selected = i === optionIndex;
             const isOther = opt.isOther === true;
             const prefix = selected ? theme.fg("accent", "> ") : "  ";
@@ -252,7 +255,7 @@ export default function question(pi: ExtensionAPI) {
         return new Text(text?.type === "text" ? text.text : "", 0, 0);
       }
 
-      if (details.answer === null) {
+      if (details.answer === undefined) {
         return new Text(theme.fg("warning", "Cancelled"), 0, 0);
       }
 
