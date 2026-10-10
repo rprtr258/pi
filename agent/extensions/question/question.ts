@@ -5,8 +5,8 @@
  */
 
 import { Type } from "typebox";
-import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
-import { Editor, type EditorTheme, Key, matchesKey, Text, truncateToWidth } from "@mariozechner/pi-tui";
+import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { Editor, type EditorTheme, Key, matchesKey, Text, truncateToWidth, visibleWidth, wrapTextWithAnsi } from "@earendil-works/pi-tui";
 
 interface OptionWithDesc {
   label: string;
@@ -61,6 +61,7 @@ export default function question(pi: ExtensionAPI) {
         let optionIndex = 0;
         let editMode = false;
         let cachedLines: string[] | undefined;
+        let cachedWidth: number | undefined;
 
         const editorTheme: EditorTheme = {
           borderColor: s => theme.fg("accent", s),
@@ -87,6 +88,7 @@ export default function question(pi: ExtensionAPI) {
 
         function refresh() {
           cachedLines = undefined;
+          cachedWidth = undefined;
           tui.requestRender();
         }
 
@@ -131,13 +133,24 @@ export default function question(pi: ExtensionAPI) {
         }
 
         function render(width: number): string[] {
-          if (cachedLines) return cachedLines;
+          if (cachedLines && cachedWidth === width) return cachedLines;
 
           const lines: string[] = [];
           const add = (s: string) => lines.push(truncateToWidth(s, width));
+          // Wrap long text (question, labels, descriptions) onto multiple lines
+          // instead of clipping it. `indent` prefixes the first line; wrapped
+          // continuation lines get a plain-space pad of the same visible width so
+          // the block stays aligned. truncateToWidth is a final safety net.
+          const addWrapped = (indent: string, s: string) => {
+            const pad = " ".repeat(visibleWidth(indent));
+            const wrapped = wrapTextWithAnsi(s, Math.max(1, width - pad.length));
+            wrapped.forEach((line, i) => {
+              lines.push(truncateToWidth((i === 0 ? indent : pad) + line, width, ""));
+            });
+          };
 
           add(theme.fg("accent", "─".repeat(width)));
-          add(theme.fg("text", ` ${params.question}`));
+          addWrapped(" ", theme.fg("text", params.question));
           lines.push("");
 
           for (let i = 0; i < allOptions.length; i++) {
@@ -147,16 +160,16 @@ export default function question(pi: ExtensionAPI) {
             const prefix = selected ? theme.fg("accent", "> ") : "  ";
 
             if (isOther && editMode) {
-              add(prefix + theme.fg("accent", `${i + 1}. ${opt.label} ✎`));
+              addWrapped(prefix, theme.fg("accent", `${i + 1}. ${opt.label} ✎`));
             } else if (selected) {
-              add(prefix + theme.fg("accent", `${i + 1}. ${opt.label}`));
+              addWrapped(prefix, theme.fg("accent", `${i + 1}. ${opt.label}`));
             } else {
-              add(`  ${theme.fg("text", `${i + 1}. ${opt.label}`)}`);
+              addWrapped("  ", theme.fg("text", `${i + 1}. ${opt.label}`));
             }
 
             // Show description if present
             if (opt.description) {
-              add(`     ${theme.fg("muted", opt.description)}`);
+              addWrapped("     ", theme.fg("muted", opt.description));
             }
           }
 
@@ -176,6 +189,7 @@ export default function question(pi: ExtensionAPI) {
           }
           add(theme.fg("accent", "─".repeat(width)));
 
+          cachedWidth = width;
           cachedLines = lines;
           return lines;
         }
@@ -184,6 +198,7 @@ export default function question(pi: ExtensionAPI) {
           render,
           invalidate: () => {
             cachedLines = undefined;
+            cachedWidth = undefined;
           },
           handleInput,
         };
