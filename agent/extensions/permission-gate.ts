@@ -3,17 +3,38 @@
  *
  * Prompts for confirmation before running potentially dangerous bash commands.
  * Patterns checked: rm -rf, sudo, chmod/chown 777
+ * Exception: rm -rf where every target is under /tmp/ is allowed without asking.
  */
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
 export default function (pi: ExtensionAPI) {
+  const rmRfPattern = /\brm\s+(-rf?|--recursive)/i;
   const dangerousPatterns = [
-    /\brm\s+(-rf?|--recursive)/i,
+    rmRfPattern,
     /\bsudo\b/i,
     /\b(chmod|chown)\b.*777/i,
     /\bgit\s+(add|am|apply|archive|bisect|branch|checkout|cherry-pick|clean|clone|commit|config|merge|mv|notes|pull|push|rebase|reflog|remote|reset|restore|revert|rm|stash|submodule|switch|tag|update-ref).*/i,
   ];
+
+  // True when the command contains rm (recursively) and every target path
+  // lies under /tmp/ — those are auto-allowed. Quoted paths with spaces or
+  // paths inside /tmp symlinks cannot be verified here and will still prompt.
+  function isTmpOnlyRm(command: string): boolean {
+    let sawRm = false;
+    for (const segment of command.split(/&&|\|\||[;|\n]/)) {
+      const tokens = segment.trim().split(/\s+/).map(t => t.replace(/^["']|["']$/g, ""));
+      if (tokens[0] !== "rm") continue;
+      sawRm = true;
+      for (const token of tokens.slice(1)) {
+        if (token.startsWith("-")) continue; // flags
+        if (!token.startsWith("/tmp/")) return false;
+        const rest = token.slice("/tmp/".length);
+        if (!rest || rest.split("/").includes("..")) return false;
+      }
+    }
+    return sawRm;
+  }
 
   const HIGHLIGHT = "\x1b[1;31m"; // bold red
   const RESET = "\x1b[0m";
@@ -46,7 +67,9 @@ export default function (pi: ExtensionAPI) {
       return undefined;
 
     const command = event.input.command as string;
-    const isDangerous = dangerousPatterns.some(p => p.test(command));
+    const isDangerous = dangerousPatterns.some(
+      p => p.test(command) && !(p === rmRfPattern && isTmpOnlyRm(command)),
+    );
 
     if (!isDangerous) {
       return undefined;
