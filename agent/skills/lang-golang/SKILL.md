@@ -20,9 +20,10 @@ Idiomatic Go conventions for CLI-focused projects.
 9. Constructor is `New()` when a package exports one primary type — avoid stutter
 10. Enum zero value (iota 0) is always an explicit `Unknown` or `Invalid` sentinel
 11. `context.Context` as first arg for blocking operations (network, exec, long work)
-12. Never start a goroutine without a termination plan — WaitGroup, channel, or ctx cancel
-13. Document every exported symbol with a doc comment
-14. Config comes from env vars or functional options — no hardcoded values
+12. `context.Background` only creates the global app context in `main()` — everywhere else derive from a passed-in ctx; in tests use `t.Context()`
+13. Never start a goroutine without a termination plan — WaitGroup, channel, or ctx cancel
+14. Document every exported symbol with a doc comment
+15. Config comes from env vars or functional options — no hardcoded values
 
 ## Workflow
 
