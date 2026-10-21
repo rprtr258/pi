@@ -1,0 +1,4 @@
+0000000000000000000000000000000000000000 92eea2b02888c6ff8bf0a032415a70c6b8855952 Agent <agent@example.com> 1792602238 +0300	commit (initial): add alpha
+92eea2b02888c6ff8bf0a032415a70c6b8855952 5dac02c1ea4decf85da72bce017a08d5ed4cbd38 Agent <agent@example.com> 1792602238 +0300	commit: add beta
+5dac02c1ea4decf85da72bce017a08d5ed4cbd38 ddafce646c4ff1bfa25363262b36649b5716f36b Agent <agent@example.com> 1792602238 +0300	commit: add gamma
+ddafce646c4ff1bfa25363262b36649b5716f36b 00d414c6e31450895b599ed1121c963a56d3022e Agent <agent@example.com> 1792602238 +0300	commit: add delta

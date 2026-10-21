@@ -1,0 +1,17 @@
+{
+  "server": {
+    "port": 8080,
+    "host": "localhost",
+    "tls": false
+  },
+  "tags": [
+    "a",
+    "b"
+  ],
+  "feature": {
+    "cache": {
+      "ttl": 60
+    },
+    "beta": true
+  }
+}

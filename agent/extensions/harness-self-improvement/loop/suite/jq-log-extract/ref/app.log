@@ -1,0 +1,10 @@
+{"ts":"2024-03-01T10:00:00Z","level":"INFO","msg":"boot"}
+{"ts":"2024-03-01T10:00:05Z","level":"ERROR","msg":"db connection refused"}
+{"ts":"2024-03-01T10:00:10Z","level":"WARN","msg":"retry 1"}
+{"ts":"2024-03-01T10:00:15Z","level":"INFO","msg":"db connected"}
+{"ts":"2024-03-01T10:01:00Z","level":"ERROR","msg":"timeout on /api/users"}
+{"ts":"2024-03-01T10:01:30Z","level":"ERROR","msg":"cache miss storm"}
+not-json-at-all
+{"ts":"2024-03-01T10:02:00Z","level":"WARN","msg":"slow query"}
+{"ts":"2024-03-01T10:02:30Z","level":"INFO","msg":"shutdown"}
+{"ts":"2024-03-01T09:59:00Z","level":"ERROR","msg":"clock skew detected"}

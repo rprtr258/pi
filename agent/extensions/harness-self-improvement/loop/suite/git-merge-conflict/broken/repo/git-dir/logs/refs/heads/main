@@ -1,0 +1,3 @@
+0000000000000000000000000000000000000000 eefc6954dff1bf4541310724dc03fbd0a96cea77 Agent <agent@example.com> 1792602238 +0300	commit (initial): initial config
+eefc6954dff1bf4541310724dc03fbd0a96cea77 d5e784b198d9d62c92449909d1f6127f5420adad Agent <agent@example.com> 1792602238 +0300	commit: adjust discount
+d5e784b198d9d62c92449909d1f6127f5420adad 2fe397d3cb6166a7ae3d72c5363eafabdb50dbc5 Agent <agent@example.com> 1792602238 +0300	commit (merge): Merge branch 'feature/tax'

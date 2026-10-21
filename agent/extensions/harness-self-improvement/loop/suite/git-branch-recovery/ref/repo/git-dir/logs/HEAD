@@ -1,0 +1,4 @@
+0000000000000000000000000000000000000000 6f014030de3c1a1d81dd3523d1e50be78a2fad08 Agent <agent@example.com> 1792602238 +0300	commit (initial): init
+6f014030de3c1a1d81dd3523d1e50be78a2fad08 c064e0c2e6bae38c29a07af321de4526e62a4e70 Agent <agent@example.com> 1792602238 +0300	commit: important fix
+c064e0c2e6bae38c29a07af321de4526e62a4e70 6f014030de3c1a1d81dd3523d1e50be78a2fad08 Agent <agent@example.com> 1792602238 +0300	reset: moving to HEAD~1
+6f014030de3c1a1d81dd3523d1e50be78a2fad08 c064e0c2e6bae38c29a07af321de4526e62a4e70 Agent <agent@example.com> 1792602238 +0300	cherry-pick: important fix
