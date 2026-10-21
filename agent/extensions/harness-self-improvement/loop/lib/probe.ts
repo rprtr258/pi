@@ -89,6 +89,15 @@ export type RunProbeOptions = {
    *  workspace. A throwing callback fails the probe with the error as the
    *  stderr excerpt (never a partially staged silent run). */
   stageWorkspace?: (wsDir: string) => void,
+  /**
+   * Per-probe temp directory (Step 10 parallel probing): when set, TMPDIR,
+   * TMP and TEMP in the nested pi's env AND the checker's env point here, so
+   * probes running concurrently against the same sandbox cannot collide in
+   * the shared /tmp (a checker that violates the S1 workspace-only contract
+   * with a fixed temp path would otherwise race at concurrency ≥ 2). The
+   * caller (score.ts) creates a unique dir per probe and cleans it up.
+   */
+  tmpDir?: string,
 };
 
 /**
@@ -259,9 +268,10 @@ export function killProcessGroup(pid: number, signal: NodeJS.Signals = "SIGKILL"
   }
 }
 
-function runChecker(checkTs: string, wsDir: string): CheckerResult {
+function runChecker(checkTs: string, wsDir: string, env?: NodeJS.ProcessEnv): CheckerResult {
   const proc = spawnSync(checkTs, [wsDir], {
     cwd: wsDir,
+    env,
     timeout: CHECKER_TIMEOUT_MS,
     encoding: "utf8",
     maxBuffer: 16 * 1024 * 1024,
@@ -339,6 +349,10 @@ export async function runProbe(task: LoadedTask, sandboxDir: string, wsDir: stri
       }
     };
 
+    // Step 10: per-probe TMPDIR isolation (see RunProbeOptions.tmpDir) — the
+    // nested pi AND the checker both see the isolated temp dir, so concurrent
+    // probes never share temp paths.
+    const tmpEnv: Record<string, string> | null = options.tmpDir !== undefined ? {TMPDIR: options.tmpDir, TMP: options.tmpDir, TEMP: options.tmpDir} : null;
     let stderrTail = "";
     let timedOut = false;
     // Resolved after task validation: a bad PI_BIN fails the probe with a
@@ -346,7 +360,7 @@ export async function runProbe(task: LoadedTask, sandboxDir: string, wsDir: stri
     const piBinary = resolvePiBinary();
     const child = spawn(piBinary.bin, args, {
       cwd: wsDir,
-      env: nestedPiEnv({PI_CODING_AGENT_DIR: sandboxDir}),
+      env: nestedPiEnv({PI_CODING_AGENT_DIR: sandboxDir, ...(tmpEnv ?? {})}),
       // New process group (setsid) so the timeout kill takes the whole tree.
       detached: true,
       stdio: ["ignore", "pipe", "pipe"],
@@ -389,7 +403,7 @@ export async function runProbe(task: LoadedTask, sandboxDir: string, wsDir: stri
         ? `${rawHead}\n==[raw JSONL truncated: ${truncatedBytes} middle bytes not retained in memory]==\n${rawTail}`
         : rawHead + rawTail;
     const parsed = parseJsonlEvents(parseInput);
-    const checkerResult = runChecker(task.paths.checkTs, wsDir);
+    const checkerResult = runChecker(task.paths.checkTs, wsDir, options.tmpDir === undefined ? undefined : {...process.env, TMPDIR: options.tmpDir, TMP: options.tmpDir, TEMP: options.tmpDir});
     return {
       trajectory: parsed.trajectoryLines.join("\n"),
       usage: parsed.usage,

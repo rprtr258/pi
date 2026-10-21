@@ -69,6 +69,9 @@
  *     "code": {"allow": ["harness-loop-sample"], "minWin": 2} // Step 9a:
  *        editable extension names + minimum passDelta for CODE-bearing
  *        candidates (the `extensions` surface kind; gates in loop/lib/gates.ts)
+ *     "parallel": {"enabled": true, "maxConcurrentProbes": 2} // Step 10:
+ *        parallel probing of tasks WITHIN one candidate sandbox; candidates
+ *        themselves stay sequential. Each probe gets its own isolated TMPDIR.
  *   }
  *   loadLoopConfig() is tolerant: missing file → defaults; invalid JSON or
  *   wrong-typed fields → default for that field + a console warning.
@@ -151,6 +154,13 @@ export type LoopConfig = {
     /** Minimum passDelta for a CODE-bearing candidate to win (≥ minWin default). */
     minWin: number,
   },
+  /** Parallel probing (Step 10) — tasks WITHIN one candidate sandbox. */
+  parallel: {
+    /** Parallelize suite probes across tasks within a sandbox (candidates stay sequential). */
+    enabled: boolean,
+    /** Max probes in flight within one sandbox. */
+    maxConcurrentProbes: number,
+  },
 }
 
 export const DEFAULT_LOOP_CONFIG: LoopConfig = {
@@ -162,6 +172,7 @@ export const DEFAULT_LOOP_CONFIG: LoopConfig = {
   candidates: {maxPerIteration: 3},
   replay: {enabled: false, minAgreement: 0.8},
   code: {allow: [], minWin: 2},
+  parallel: {enabled: true, maxConcurrentProbes: 2},
 };
 
 function defaultConfigPath(): string {
@@ -202,6 +213,7 @@ export function loadLoopConfig(path: string = defaultConfigPath()): LoopConfig {
     candidates: {...DEFAULT_LOOP_CONFIG.candidates},
     replay: {...DEFAULT_LOOP_CONFIG.replay},
     code: {...DEFAULT_LOOP_CONFIG.code, allow: [...DEFAULT_LOOP_CONFIG.code.allow]},
+    parallel: {...DEFAULT_LOOP_CONFIG.parallel},
   };
   const p = parsed as Record<string, unknown>;
   if (p["minWin"] === undefined) {
@@ -313,6 +325,28 @@ export function loadLoopConfig(path: string = defaultConfigPath()): LoopConfig {
     }
   } else {
     warnField("code", "not an object");
+  }
+  const parallel = p["parallel"];
+  if (parallel === undefined) {
+    // keep default
+  } else if (parallel !== null && typeof parallel === "object" && !Array.isArray(parallel)) {
+    const pr = parallel as Record<string, unknown>;
+    if (pr["enabled"] === undefined) {
+      // keep default
+    } else if (typeof pr["enabled"] === "boolean") {
+      cfg.parallel.enabled = pr["enabled"]!;
+    } else {
+      warnField("parallel.enabled", "not a boolean");
+    }
+    if (pr["maxConcurrentProbes"] === undefined) {
+      // keep default
+    } else if (typeof pr["maxConcurrentProbes"] === "number" && Number.isInteger(pr["maxConcurrentProbes"]) && pr["maxConcurrentProbes"] >= 1) {
+      cfg.parallel.maxConcurrentProbes = pr["maxConcurrentProbes"]!;
+    } else {
+      warnField("parallel.maxConcurrentProbes", "not an integer ≥ 1");
+    }
+  } else {
+    warnField("parallel", "not an object");
   }
   return cfg;
 }

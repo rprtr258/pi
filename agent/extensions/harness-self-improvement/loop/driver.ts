@@ -30,8 +30,26 @@
  *       the probe fails. Code-bearing candidates (extensions OR mcp.json)
  *       select with config code.minWin instead of minWin.
  *   (5) selectWinner vs baseline (loop/lib/score.ts)
- *   (6) applyCandidate (winner) or appendProposalRejectedEntry (no winner)
- *   (7) ledger entries + report.md per iteration and per candidate
+ *   (6) Step 10 composition: when MULTIPLE candidates win the same iteration
+ *       with disjoint or partially-disjoint file sets, they are composed into
+ *       ONE candidate (loop/lib/merge.ts — per-file attribution, conflicts
+ *       resolved by rank, partial losers ledgered as "composed-out"). The
+ *       composed candidate is then re-probed AS A WHOLE (fresh
+ *       sandbox-composed, same gate pipeline for code/mcp-bearing merges,
+ *       full suite) and must INDEPENDENTLY clear selectWinner vs baseline
+ *       before applyCandidate touches anything; a failed composition falls
+ *       back to the best single winner.
+ *   (7) applyCandidate (winner) or appendProposalRejectedEntry (no winner)
+ *   (8) ledger entries + report.md per iteration and per candidate
+ *
+ * STEP 10 PARALLEL PROBING: suite tasks within ONE sandbox (baseline, one
+ * candidate, or the composed candidate) run concurrently up to
+ * config.parallel.maxConcurrentProbes; candidates stay sequential. Every
+ * probe gets its own isolated TMPDIR (probe.ts RunProbeOptions.tmpDir) so
+ * concurrent checkers cannot collide in the shared system temp dir. The
+ * budget guard wraps every probe spawn; in-flight probes may overshoot the
+ * budget by at most maxConcurrentProbes − 1 probes (documented overshoot —
+ * running model calls cannot be un-spent).
  *
  * STOP CONDITIONS (checked between iterations, before the proposer model
  * call, and before each probe spawn): iteration count reached; the SUM of
@@ -64,16 +82,16 @@
  * Usage:
  *   bun run loop/driver.ts selftest   state-machine unit checks (fakes only)
  */
-import {existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync} from "node:fs";
+import {existsSync, mkdirSync, appendFileSync, readdirSync, readFileSync, rmSync, writeFileSync} from "node:fs";
 import {join} from "node:path";
 import {appendEntry, extensionRoot, ledgerPath, newRunId, readLedger, renderReport, type ReportTask} from "./lib/ledger.ts";
 import {buildSandbox, captureModelFlag, realPiAgentDir, snapshotReal, type ComponentSnapshot} from "./lib/stage.ts";
 import {listTaskDirs, loadTask, suiteRoot, type LoadedTask} from "./lib/suite.ts";
-import {scoreSuite, selectWinner, type RunProbeFn, type SelectionConfig, type TaskScoreResult} from "./lib/score.ts";
+import {scoreSuite, selectWinner, type RunProbeFn, type ScoreSuiteResult, type SelectionConfig, type SelectionResult, type TaskScoreResult} from "./lib/score.ts";
 import {buildLedgerDigest, propose, type CallModel, type ProposedCandidate} from "./lib/proposer.ts";
 import {appendProposalRejectedEntry, applyCandidate, loadLoopConfig, type LoopConfig} from "./lib/apply.ts";
-import {baselineCacheDir, baselineCachePath, cacheMatchesTaskSet, fingerprintSnapshot, readBaselineCache, writeBaselineCache} from "./baseline.ts";
-import {resolvePiBinary, runProbe} from "./lib/probe.ts";
+import {baselineCacheDir, baselineCachePath, cacheMatchesTaskSet, fingerprintSnapshot, readBaselineCache, writeBaselineCache} from "./baseline.ts";import {resolvePiBinary, runProbe} from "./lib/probe.ts";
+import {composeWinners, compositionSelectionConfig} from "./lib/merge.ts";
 import {runCodeGates, isMcpPath, runStartupProbe, scanProbeLoadErrors, selectionConfigForEdits, stageExtensionForSandbox, stageMcpForSandbox, touchedExtensionNames, type StartupProbeResult} from "./lib/gates.ts";
 
 // ---------------------------------------------------------------------------
@@ -466,6 +484,17 @@ export async function runLoop(opts: RunLoopOptions): Promise<LoopRunResult> {
     return result;
   };
 
+  // Step 10 parallel probing: tasks WITHIN one sandbox run concurrently up to
+  // this cap (candidates stay sequential — each candidate's sandbox is built
+  // once and scored on its own). The budget guard below still wraps EVERY
+  // probe spawn: checkGuards() runs before each spawn, so once the budget is
+  // exhausted no NEW probe starts — but probes already in flight run to
+  // completion, so real spend may overshoot the budget by up to
+  // maxConcurrentProbes probes' tokens (all may pass the budget check before
+  // any completes). Documented overshoot, accepted
+  // because in-flight model calls cannot be un-spent.
+  const concurrency = config.parallel.enabled ? config.parallel.maxConcurrentProbes : 1;
+
   const runIteration = async (index: number): Promise<void> => {
     let iter = state.iterations.find((it) => it.index === index);
     const iterDir = join(runDir, `iter-${index}`);
@@ -486,6 +515,7 @@ export async function runLoop(opts: RunLoopOptions): Promise<LoopRunResult> {
       const hit = readBaselineCache(cachePath);
       let baselineResults: TaskScoreResult[];
       let cached: boolean;
+      let baselineStats: ScoreSuiteResult["stats"] | undefined;
       if (hit !== null && cacheMatchesTaskSet(hit.results, taskNames)) {
         // Cache payloads carry the probing run's boundTo (score.ts stamps it
         // on every probed result); strip it so the materialized baseline
@@ -509,8 +539,10 @@ export async function runLoop(opts: RunLoopOptions): Promise<LoopRunResult> {
           model: model ?? undefined,
           runProbeFn: guardedProbe,
           boundTo: `${runId}/iter-${index}/baseline`,
+          concurrency,
         });
         baselineResults = scored.results;
+        baselineStats = scored.stats;
         cached = false;
         writeBaselineCache({fingerprint: iter.fingerprint, model, ts: now(), results: baselineResults}, cachePath);
       }
@@ -526,6 +558,7 @@ export async function runLoop(opts: RunLoopOptions): Promise<LoopRunResult> {
         fingerprint: iter.fingerprint,
         cached,
         piBinary: baselineResults.find((r) => r.piBinary)?.piBinary ?? null,
+        probeStats: cached ? undefined : baselineStats,
         tasks: toReportTasks(baselineResults),
         aggregate,
       }));
@@ -711,6 +744,7 @@ export async function runLoop(opts: RunLoopOptions): Promise<LoopRunResult> {
           // Resume reuse is bound to (runId, iteration, candidate index): a
           // result file only counts when its boundTo matches exactly.
           boundTo: `${runId}/iter-${index}/cand-${candIdx}`,
+          concurrency,
         });
         // Gate 4 capture: after the suite, scan the probe output for nested-pi
         // extension LOAD ERRORS mentioning the staged extension.
@@ -742,6 +776,7 @@ export async function runLoop(opts: RunLoopOptions): Promise<LoopRunResult> {
           model,
           fingerprint: iter.fingerprint,
           piBinary: scored.results.find((r) => r.piBinary)?.piBinary ?? null,
+          probeStats: scored.stats,
           tasks: toReportTasks(scored.results),
           base: toReportTasks(baselineResults),
           aggregate: scored.aggregate,
@@ -767,7 +802,12 @@ export async function runLoop(opts: RunLoopOptions): Promise<LoopRunResult> {
       persist();
     }
 
-    // (6) apply the first winner (or record the proposal as rejected).
+    // (6) apply the winner(s) (or record the proposal as rejected).
+    // Step 10: with MULTIPLE winners whose file sets are disjoint or
+    // partially disjoint, the winners are composed into ONE candidate that is
+    // re-probed AS A WHOLE (gates + full suite + independent selection) and
+    // only applied when the COMPOSED result clears selection; otherwise the
+    // best single winner is applied (single-winner path, unchanged).
     if (iter.phase === "decide") {
       const winners = iter.candidates.filter((c) => c.win === true);
       if (winners.length === 0) {
@@ -786,55 +826,261 @@ export async function runLoop(opts: RunLoopOptions): Promise<LoopRunResult> {
         iter.decision = "no-winner";
         log(`[hloop] iter ${index}: no candidate won — proposal recorded as rejected`);
       } else {
-        const winner = winners[0]!;
         const allCandidates: ProposedCandidate[] = iter.candidates
           .filter((c) => c.verdict === "accepted")
           .map((c) => ({rationale: c.rationale, edits: c.edits, fingerprint: c.fingerprint, verdict: c.verdict, reasons: c.reasons}));
-        const winnerCandidate: ProposedCandidate = {
-          rationale: winner.rationale,
-          edits: winner.edits,
-          fingerprint: winner.fingerprint,
-          verdict: "accepted",
-          reasons: [],
-        };
-        log(`[hloop] iter ${index}: applying winning candidate ${winner.index + 1} (dryRun: ${state.config.dryRun})...`);
-        const applied = applyCandidate({
-          candidates: allCandidates,
-          winner: winnerCandidate,
-          runId,
-          config: runConfig,
-          scores: winner.scores ?? undefined,
-          usage: {totalTokens: winner.totalTokens},
-          agentDir: opts.agentDir,
-          ledgerPath: ledger,
-        });
-        if (applied.decision === "applied") {
-          winner.decision = "winner-applied";
-          iter.decision = "applied";
-        } else if (applied.decision === "dry-run") {
-          winner.decision = "winner-dry-run";
-          iter.decision = "dry-run";
-        } else if (applied.decision === "rejected") {
-          winner.decision = "apply-rejected";
-          iter.decision = "apply-rejected";
-          // Feed the apply-time rejection into the proposer's dedupe digest.
-          appendProposalRejectedEntry({
+
+        /** Apply one scored winner via applyCandidate; maps the outcome onto
+         *  the candidate state and returns the iteration decision value. */
+        const applyWinner = (winner: IterationCandidateState): string => {
+          const winnerCandidate: ProposedCandidate = {
+            rationale: winner.rationale,
+            edits: winner.edits,
+            fingerprint: winner.fingerprint,
+            verdict: "accepted",
+            reasons: [],
+          };
+          log(`[hloop] iter ${index}: applying winning candidate ${winner.index + 1} (dryRun: ${state.config.dryRun})...`);
+          const applied = applyCandidate({
+            candidates: allCandidates,
+            winner: winnerCandidate,
             runId,
-            proposalFingerprint: iter.proposalFingerprint ?? "",
-            candidateFingerprints: iter.candidates.map((c) => c.fingerprint ?? "").filter((f) => f !== ""),
-            scores: winner.scores ?? {passCount: 0, total: 0},
+            config: runConfig,
+            scores: winner.scores ?? undefined,
             usage: {totalTokens: winner.totalTokens},
-            reasons: applied.reasons,
+            agentDir: opts.agentDir,
             ledgerPath: ledger,
           });
-        } else {
+          if (applied.decision === "applied") {
+            winner.decision = "winner-applied";
+            return "applied";
+          } else if (applied.decision === "dry-run") {
+            winner.decision = "winner-dry-run";
+            return "dry-run";
+          } else if (applied.decision === "rejected") {
+            winner.decision = "apply-rejected";
+            // Feed the apply-time rejection into the proposer's dedupe digest.
+            appendProposalRejectedEntry({
+              runId,
+              proposalFingerprint: iter.proposalFingerprint ?? "",
+              candidateFingerprints: iter.candidates.map((c) => c.fingerprint ?? "").filter((f) => f !== ""),
+              scores: winner.scores ?? {passCount: 0, total: 0},
+              usage: {totalTokens: winner.totalTokens},
+              reasons: applied.reasons,
+              ledgerPath: ledger,
+            });
+            return "apply-rejected";
+          }
           winner.decision = "apply-failed";
-          iter.decision = "apply-failed";
-        }
-        log(`[hloop] iter ${index}: apply outcome ${applied.decision}${applied.reasons.length > 0 ? ` — ${applied.reasons.join("; ")}` : ""}`);
-        // Additional winners (beyond the first) were not applied.
-        for (const c of iter.candidates) {
-          if (c.win === true && c.decision === "pending") c.decision = "winner-not-applied";
+          return "apply-failed";
+        };
+
+        // composeWinners returns null for a single winner, or when every
+        // non-first winner lost ALL its files to conflicts (the merge would
+        // equal the rank-1 winner's own edits) — both take the unchanged
+        // single-winner path.
+        const composition = winners.length > 1
+          ? composeWinners(winners.map((w) => ({candidateIdx: w.index, rationale: w.rationale, edits: w.edits})))
+          : null;
+
+        if (composition === null) {
+          iter.decision = applyWinner(winners[0]!);
+          log(`[hloop] iter ${index}: apply outcome ${iter.decision}`);
+          // Additional winners (beyond the first) were not applied.
+          for (const c of iter.candidates) {
+            if (c.win === true && c.decision === "pending") c.decision = "winner-not-applied";
+          }
+        } else {
+          log(`[hloop] iter ${index}: ${winners.length} winners with disjoint/partially-disjoint file sets — composing candidates ${composition.sources.join(", ")}...`);
+          // Same mid-resume drift guard as the score phase: the composed
+          // re-probe must pair against the iteration's recorded fingerprint.
+          const decideSnapshot = opts.snapshotFn?.() ?? snapshotReal();
+          const decideFingerprint = fingerprintSnapshot(decideSnapshot, model ?? undefined, opts.resolvePiBinaryFn?.() ?? resolvePiBinary());
+          if (iter.fingerprint !== null && decideFingerprint !== iter.fingerprint) {
+            throw new Error(`snapshot changed before the composed re-probe: iteration ${index} was fingerprinted ${iter.fingerprint.slice(0, 12)}…, the current snapshot is ${decideFingerprint.slice(0, 12)}… — refusing to pair results from different snapshots`);
+          }
+          const baselineResults = readResultDir(join(iterDir, "baseline"));
+          const composedDir = join(iterDir, "composed");
+          const composedSandboxDir = join(runDir, "sandbox-composed"); // self-created; buildSandbox wipes it
+          const composedEdits = composition.edits;
+          const composedFailures: string[] = [];
+          const writeComposedFailureReport = (title: string, reasons: string[]): string => {
+            mkdirSync(composedDir, {recursive: true});
+            const reportPath = join(composedDir, "report.md");
+            writeFileSync(reportPath, [`# run ${runId} — composed candidate — ${title}`, "", "```", ...reasons, "```", ""].join("\n"));
+            return reportPath;
+          };
+          buildSandbox(decideSnapshot, composedSandboxDir);
+          // Gates for the composed candidate — the SAME pipeline as the
+          // per-candidate gates, cheapest-first: mcp startup probe first,
+          // then code gates for EVERY touched extension (a composition may
+          // merge edits from different winners into one or more extensions,
+          // so every touched extension is re-gated on the merged copy).
+          if (composedEdits.some((e) => isMcpPath(e.path))) {
+            stageMcpForSandbox(composedSandboxDir, composedEdits);
+            log(`[hloop] iter ${index}: composed candidate mcp startup probe...`);
+            const startup = await (opts.startupProbeFn ?? runStartupProbe)(composedSandboxDir);
+            state.budgetSpent += startup.usageTokens;
+            persist();
+            if (!startup.ok) {
+              composedFailures.push(`mcp startup probe failed for the composed candidate${startup.timedOut ? " (timed out, process group killed)" : ""}:\n${startup.error}`);
+            }
+          }
+          const composedExts = touchedExtensionNames(composedEdits);
+          for (const extName of composedExts) {
+            if (composedFailures.length > 0) break;
+            try {
+              stageExtensionForSandbox(composedSandboxDir, opts.agentDir ?? realPiAgentDir(), extName, composedEdits);
+            } catch (err) {
+              composedFailures.push(`sandbox staging of extension "${extName}" for the composed candidate failed: ${err instanceof Error ? err.message : String(err)}`);
+              break;
+            }
+            log(`[hloop] iter ${index}: composed candidate code gates on extensions/${extName}...`);
+            const gates = await (opts.codeGatesFn ?? runCodeGates)(composedSandboxDir, extName);
+            if (!gates.ok) {
+              composedFailures.push(`code gate '${gates.failedGate}' failed for the composed extensions/${extName}${gates.timedOut ? " (timed out, process group killed)" : ""}:\n${gates.output}`);
+              break;
+            }
+          }
+          let composedAggregate: ScoreSuiteResult["aggregate"] | null = null;
+          let composedSelection: SelectionResult | null = null;
+          if (composedFailures.length === 0) {
+            // HARD RULE (merge→re-probe→apply): the composed candidate is
+            // re-probed AS A WHOLE — its own sandbox built from the merged
+            // edits, full suite — and must INDEPENDENTLY clear selectWinner
+            // vs baseline before anything is applied.
+            const scored = await scoreSuite(tasksFn(), composedSandboxDir, composedDir, {
+              model: model ?? undefined,
+              runProbeFn: guardedProbe,
+              boundTo: `${runId}/iter-${index}/composed`,
+              concurrency,
+            });
+            composedAggregate = scored.aggregate;
+            for (const extName of composedExts) {
+              const loadErrors = scanProbeLoadErrors(composedDir, extName);
+              if (loadErrors.length > 0) {
+                composedFailures.push(`nested pi failed to load the staged extension "${extName}" in the composed sandbox:\n${loadErrors.slice(0, 5).join("\n")}`);
+                break;
+              }
+            }
+            if (composedFailures.length === 0) {
+              composedSelection = selectWinner(baselineResults, scored.results, compositionSelectionConfig(composition, selectionConfig, runConfig.code.minWin));
+              writeFileSync(join(composedDir, "report.md"), renderReport({
+                runId,
+                ts: now(),
+                kind: "composed",
+                model,
+                fingerprint: iter.fingerprint,
+                piBinary: scored.results.find((r) => r.piBinary)?.piBinary ?? null,
+                probeStats: scored.stats,
+                tasks: toReportTasks(scored.results),
+                base: toReportTasks(baselineResults),
+                aggregate: scored.aggregate,
+              }));
+            } else {
+              writeComposedFailureReport("composed candidate gates failed", composedFailures);
+            }
+          } else {
+            writeComposedFailureReport("composed candidate gates failed", composedFailures);
+          }
+          const composedWin = composedSelection?.win ?? false;
+          // Ledger: the composition outcome, then one composed-out entry per
+          // partial candidate (files lost to a higher-ranked winner).
+          appendEntry({
+            runId,
+            ts: now(),
+            kind: "composed",
+            iteration: index,
+            sources: composition.sources,
+            fileAttribution: composition.fileAttribution,
+            fingerprint: composition.fingerprint,
+            win: composedWin,
+            decision: composedWin ? "won" : "failed",
+            scores: composedAggregate !== null ? {passCount: composedAggregate.passCount, total: composedAggregate.total} : undefined,
+            usage: {totalTokens: composedAggregate?.totalTokens ?? 0},
+            reasons: composedWin ? composedSelection!.reasons : composedSelection !== null ? composedSelection.reasons : composedFailures,
+          }, ledger);
+          for (const co of composition.composedOut) {
+            appendEntry({
+              runId,
+              ts: now(),
+              kind: "composed-out",
+              iteration: index,
+              candidateIdx: co.candidateIdx,
+              filesDropped: co.filesDropped,
+              filesKept: co.filesKept,
+            }, ledger);
+          }
+          log(`[hloop] iter ${index}: composed candidate ${composedWin ? "WINS" : "fails"} — ${(composedWin ? composedSelection!.reasons[0] : composedSelection !== null ? composedSelection.reasons[0] : composedFailures[0]) ?? ""}`);
+          // Composition note in the iteration report.md.
+          appendFileSync(join(iterDir, "report.md"), [
+            "",
+            "## Composition (Step 10)",
+            "",
+            `- composed from candidate(s): ${composition.sources.join(", ")}`,
+            `- per-file attribution: ${Object.entries(composition.fileAttribution).map(([path, idx]) => `${path} ← cand-${idx}`).join(", ")}`,
+            composition.composedOut.length > 0
+              ? `- composed-out: ${composition.composedOut.map((co) => `cand-${co.candidateIdx} dropped [${co.filesDropped.join(", ")}], kept [${co.filesKept.join(", ")}]`).join("; ")}`
+              : "- composed-out: none (fully disjoint file sets)",
+            `- composed selection: ${composedWin ? "WIN" : "FAIL"} — ${(composedWin ? composedSelection!.reasons[0]! : composedSelection !== null ? composedSelection.reasons[0]! : composedFailures[0] ?? "unknown")}`,
+            "",
+          ].join("\n"));
+          if (composedWin) {
+            const composedCandidate: ProposedCandidate = {
+              rationale: composition.rationale,
+              edits: composition.edits,
+              fingerprint: composition.fingerprint,
+              verdict: "accepted",
+              reasons: [],
+            };
+            log(`[hloop] iter ${index}: applying the COMPOSED candidate (dryRun: ${state.config.dryRun})...`);
+            const applied = applyCandidate({
+              candidates: allCandidates,
+              winner: composedCandidate,
+              runId,
+              config: runConfig,
+              scores: composedAggregate !== null ? {passCount: composedAggregate.passCount, total: composedAggregate.total} : undefined,
+              usage: {totalTokens: composedAggregate?.totalTokens ?? 0},
+              agentDir: opts.agentDir,
+              ledgerPath: ledger,
+            });
+            iter.decision = applied.decision === "applied" ? "applied" : applied.decision === "dry-run" ? "dry-run" : applied.decision === "rejected" ? "apply-rejected" : "apply-failed";
+            if (applied.decision === "rejected") {
+              // Feed the apply-time rejection into the proposer's dedupe digest.
+              appendProposalRejectedEntry({
+                runId,
+                proposalFingerprint: iter.proposalFingerprint ?? "",
+                candidateFingerprints: [...iter.candidates.map((c) => c.fingerprint ?? "").filter((f) => f !== ""), composition.fingerprint],
+                scores: composedAggregate !== null ? {passCount: composedAggregate.passCount, total: composedAggregate.total} : {passCount: 0, total: 0},
+                usage: {totalTokens: composedAggregate?.totalTokens ?? 0},
+                reasons: applied.reasons,
+                ledgerPath: ledger,
+              });
+            }
+            log(`[hloop] iter ${index}: composed apply outcome ${applied.decision}${applied.reasons.length > 0 ? ` — ${applied.reasons.join("; ")}` : ""}`);
+            // Contributing winners' files were part of the composed apply;
+            // non-contributing winners (fully composed-out) were not applied.
+            for (const c of iter.candidates) {
+              if (c.win !== true) continue;
+              if (!composition.sources.includes(c.index)) {
+                c.decision = "winner-not-applied";
+              } else {
+                c.decision = applied.decision === "applied" ? "winner-applied"
+                  : applied.decision === "dry-run" ? "winner-dry-run"
+                  : applied.decision === "rejected" ? "apply-rejected"
+                  : "apply-failed";
+              }
+            }
+          } else {
+            // Composed candidate failed (gates, suite, or selection): fall
+            // back to the best single winner (rank 1 — it cleared selection),
+            // ledgered above as kind "composed" decision "failed".
+            iter.decision = applyWinner(winners[0]!);
+            log(`[hloop] iter ${index}: composed candidate failed — fell back to candidate ${winners[0]!.index + 1} (apply outcome ${iter.decision})`);
+            for (const c of iter.candidates) {
+              if (c.win === true && c.decision === "pending") c.decision = "winner-not-applied";
+            }
+          }
         }
       }
       iter.phase = "done";

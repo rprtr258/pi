@@ -6,5 +6,6 @@
   "budget": { "maxTotalTokens": 5000000, "maxIterations": 3 },
   "candidates": { "maxPerIteration": 3 },
   "replay": { "enabled": false, "minAgreement": 0.8 },
-  "code": { "allow": ["harness-loop-sample"], "minWin": 2 }
+  "code": { "allow": ["harness-loop-sample"], "minWin": 2 },
+  "parallel": { "enabled": true, "maxConcurrentProbes": 2 }
 }
