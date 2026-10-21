@@ -160,6 +160,104 @@ export type PairedDelta = {
 };
 
 /**
+ * Selection thresholds (subset of LoopConfig in loop/lib/apply.ts; passed
+ * separately so selection stays decoupled from apply machinery).
+ */
+export type SelectionConfig = {
+  /** Minimum passDelta for a straight pass-count win. */
+  minWin: number,
+  /**
+   * Minimum relative duration improvement required for a pass-equal candidate
+   * to win; null disables the duration branch entirely (the DEFAULT: a
+   * pass-equal candidate NEVER wins by default). Improvement is defined as
+   * (sum of paired base durations − sum of paired cand durations) /
+   * sum of paired base durations; undefined (null) when the base total
+   * duration is 0.
+   */
+  minQualityGain: number | null,
+  /** Maximum allowed candTotalTokens / baseTotalTokens (veto above it). */
+  usageFactor: number,
+}
+
+export type SelectionResult = {
+  win: boolean,
+  /** ALL reasons, both why-win and why-not — never just a boolean. */
+  reasons: string[],
+}
+
+/**
+ * Decide whether the candidate run wins over the baseline run (Step 5).
+ *
+ * WIN iff ALL of:
+ *   1. aggregates.passDelta ≥ minWin, OR (passDelta === 0 AND
+ *      minQualityGain !== null AND duration improvement ≥ minQualityGain —
+ *      duration branch, see SelectionConfig.minQualityGain; disabled by
+ *      default since the default minQualityGain is null)
+ *   2. aggregates.regressions === 0 (pass→fail flips are an absolute veto)
+ *   3. tokenRatio === null OR tokenRatio ≤ usageFactor
+ *   4. aggregates.unpaired is empty (the candidate must be scored on the
+ *      exact same suite; a partial run is refused outright)
+ *
+ * Durations are re-paired here (by task name, pairs only) because
+ * pairedDelta deliberately carries tokens but not durations.
+ */
+export function selectWinner(baselineResults: TaskScoreResult[], candidateResults: TaskScoreResult[], config: SelectionConfig): SelectionResult {
+  const reasons: string[] = [];
+  const delta = pairedDelta(baselineResults, candidateResults);
+  const agg = delta.aggregates;
+
+  if (agg.unpaired.length > 0) {
+    reasons.push(`REFUSE: unpaired tasks (candidate must be scored on the same suite): ${agg.unpaired.join(", ")}`);
+  }
+
+  const baseDurByName = new Map(baselineResults.map((r) => [r.task, r.durationMs]));
+  const candDurByName = new Map(candidateResults.map((r) => [r.task, r.durationMs]));
+  const paired = delta.perTask;
+  const baseTotalDurationMs = paired.reduce((sum, d) => sum + (baseDurByName.get(d.task) ?? 0), 0);
+  const candTotalDurationMs = paired.reduce((sum, d) => sum + (candDurByName.get(d.task) ?? 0), 0);
+
+  // Branch 1: pass-count win or (pass-equal) duration win.
+  let passWin = false;
+  let durationWin = false;
+  if (agg.passDelta >= config.minWin) {
+    passWin = true;
+    reasons.push(`WIN-MET: pass delta ${agg.passDelta} ≥ minWin ${config.minWin}`);
+  } else if (agg.passDelta !== 0) {
+    // Below minWin AND not pass-equal (covers negative deltas and
+    // 0 < passDelta < minWin): the duration branch is pass-equal only, so a
+    // fast partial pass improvement must never win here.
+    reasons.push(`NOT-WIN: pass delta ${agg.passDelta} is below minWin ${config.minWin} and not pass-equal`);
+  } else if (config.minQualityGain === null) {
+    reasons.push("NOT-WIN: pass-equal (passDelta 0) and minQualityGain is null — pass-equal candidates never win by default");
+  } else if (baseTotalDurationMs <= 0) {
+    reasons.push(`NOT-WIN: pass-equal (passDelta 0), but duration improvement cannot be evaluated (base total duration is ${baseTotalDurationMs}ms)`);
+  } else {
+    const improvement = (baseTotalDurationMs - candTotalDurationMs) / baseTotalDurationMs;
+    if (improvement >= config.minQualityGain) {
+      durationWin = true;
+      reasons.push(`WIN-MET: duration improvement ${(improvement * 100).toFixed(1)}% (base ${baseTotalDurationMs}ms → cand ${candTotalDurationMs}ms) ≥ minQualityGain ${config.minQualityGain}`);
+    } else {
+      reasons.push(`NOT-WIN: duration improvement ${(improvement * 100).toFixed(1)}% (base ${baseTotalDurationMs}ms → cand ${candTotalDurationMs}ms) < minQualityGain ${config.minQualityGain}`);
+    }
+  }
+
+  // Branch 2: regression veto.
+  if (agg.regressions !== 0) {
+    reasons.push(`VETO: ${agg.regressions} regression(s) (pass→fail flips)`);
+  }
+
+  // Branch 3: token budget veto.
+  if (agg.tokenRatio === null) {
+    reasons.push(`token ratio unknown (base used 0 tokens over ${agg.pairedCount} paired tasks) — token veto skipped`);
+  } else if (agg.tokenRatio > config.usageFactor) {
+    reasons.push(`VETO: token ratio ${agg.tokenRatio.toFixed(2)} > usageFactor ${config.usageFactor} (base ${agg.baseTotalTokens} → cand ${agg.candTotalTokens} tokens)`);
+  }
+
+  const win = (passWin || durationWin) && agg.regressions === 0 && (agg.tokenRatio === null || agg.tokenRatio <= config.usageFactor) && agg.unpaired.length === 0;
+  return {win, reasons};
+}
+
+/**
  * Pair base and candidate results by task name. Tasks present in only one
  * list are excluded from the pairs (a pair needs both sides) but reported in
  * aggregates.unpaired; base order is preserved.
