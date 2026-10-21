@@ -105,6 +105,13 @@ export type LoopConfig = {
     /** Maximum number of validated candidates scored per iteration. */
     maxPerIteration: number,
   },
+  /** Replay channel (Step 7) — second probe objective mined from real sessions. */
+  replay: {
+    /** False (default): the replay channel is NOT wired into selection yet — advisory only. */
+    enabled: boolean,
+    /** Judge-vs-checker agreement required for the channel to leave advisory mode. */
+    minAgreement: number,
+  },
 }
 
 export const DEFAULT_LOOP_CONFIG: LoopConfig = {
@@ -114,6 +121,7 @@ export const DEFAULT_LOOP_CONFIG: LoopConfig = {
   apply: {dryRun: true},
   budget: {maxTotalTokens: 5_000_000, maxIterations: 3},
   candidates: {maxPerIteration: 3},
+  replay: {enabled: false, minAgreement: 0.8},
 };
 
 function defaultConfigPath(): string {
@@ -152,6 +160,7 @@ export function loadLoopConfig(path: string = defaultConfigPath()): LoopConfig {
     apply: {...DEFAULT_LOOP_CONFIG.apply},
     budget: {...DEFAULT_LOOP_CONFIG.budget},
     candidates: {...DEFAULT_LOOP_CONFIG.candidates},
+    replay: {...DEFAULT_LOOP_CONFIG.replay},
   };
   const p = parsed as Record<string, unknown>;
   if (p["minWin"] === undefined) {
@@ -219,6 +228,28 @@ export function loadLoopConfig(path: string = defaultConfigPath()): LoopConfig {
     }
   } else {
     warnField("candidates", "not an object");
+  }
+  const replay = p["replay"];
+  if (replay === undefined) {
+    // keep default
+  } else if (replay !== null && typeof replay === "object" && !Array.isArray(replay)) {
+    const r = replay as Record<string, unknown>;
+    if (r["enabled"] === undefined) {
+      // keep default
+    } else if (typeof r["enabled"] === "boolean") {
+      cfg.replay.enabled = r["enabled"]!;
+    } else {
+      warnField("replay.enabled", "not a boolean");
+    }
+    if (r["minAgreement"] === undefined) {
+      // keep default
+    } else if (typeof r["minAgreement"] === "number" && Number.isFinite(r["minAgreement"]) && r["minAgreement"] >= 0 && r["minAgreement"] <= 1) {
+      cfg.replay.minAgreement = r["minAgreement"]!;
+    } else {
+      warnField("replay.minAgreement", "not a finite number in [0, 1]");
+    }
+  } else {
+    warnField("replay", "not an object");
   }
   return cfg;
 }
