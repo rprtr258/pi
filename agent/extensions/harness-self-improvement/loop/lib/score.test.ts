@@ -187,6 +187,7 @@ describe("fingerprintSnapshot", () => {
       templates: [] as Array<{relPath: string, content: string}>,
       subagents: [] as Array<{relPath: string, content: string}>,
       extensions: [] as Array<{relPath: string, content: string}>,
+      mcp: [] as Array<{relPath: string, content: string}>,
     },
   });
 
@@ -208,6 +209,13 @@ describe("fingerprintSnapshot", () => {
     expect(fingerprintSnapshot(snap("md", [{relPath: "s/SKILL.md", content: "x"}]), "prov/model", {bin: "pi", version: "1.4.0"})).not.toBe(base);
     expect(fingerprintSnapshot(snap("md", [{relPath: "s/SKILL.md", content: "x"}]), "prov/model", {bin: "pi", version: null})).not.toBe(base);
     expect(fingerprintSnapshot(snap("md", [{relPath: "s/SKILL.md", content: "x"}]), "prov/model", undefined)).not.toBe(base);
+    // Step 9b review fix: a mutating mcp.json content must invalidate the
+    // fingerprint (the baseline cache is keyed on it — a changed MCP config
+    // must never reuse cached results probed against the old config).
+    const mcpFp = (content: string) =>
+      fingerprintSnapshot({kinds: {...snap("md", []).kinds, mcp: [{relPath: "mcp.json", content}]}}, "prov/model", {bin: "pi", version: "1.3.0"});
+    expect(mcpFp('{"mcpServers":{"fs":{"command":"fs-server"}}}')).not.toBe(base);
+    expect(mcpFp('{"mcpServers":{}}')).not.toBe(mcpFp('{"mcpServers":{"fs":{"command":"fs-server"}}}'));
   });
 
   test("is order-independent over skills and separator-ambiguity-safe", () => {

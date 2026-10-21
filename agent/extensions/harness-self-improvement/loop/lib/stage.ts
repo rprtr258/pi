@@ -45,6 +45,17 @@
  * sandbox, by the gate pipeline (loop/lib/gates.ts
  * stageExtensionForSandbox, called from loop/driver.ts before the suite
  * probe).
+ * STEP 9b (mcp kind): the real mcp.json IS part of the ambient sandbox (the
+ * mcp kind's snapshot returns it when present — an absent file snapshots as
+ * an empty list, so the sandbox then has none, exactly like the real dir).
+ * No buildSandbox change was needed: staging goes through the registry's
+ * per-kind stage, like every other kind. Candidate mcp.json edits are
+ * overlaid on top by gates.ts stageMcpForSandbox before the startup probe
+ * and the suite probe. REVIEW FIX (Step 9b): the real mcp-auth.json (pi's
+ * OAuth token store for MCP servers) is staged READ-ONLY alongside
+ * auth.json/models.json when present — without it, OAuth-configured servers
+ * always report needs-auth in sandbox probes, so a candidate that BREAKS
+ * auth for such a server is indistinguishable from a healthy run.
  */
 import {
   chmodSync,
@@ -213,7 +224,10 @@ export function buildSandbox(snapshot: ComponentSnapshot, dir: string, piAgentDi
   const packages = capturePackages(piAgentDir);
   const settings = packages.length > 0 ? {...captured, packages} : captured;
   writeFileSync(join(dir, "settings.json"), `${JSON.stringify(settings, null, 2)}\n`);
-  for (const name of ["auth.json", "models.json"]) {
+  // auth.json (provider auth), mcp-auth.json (MCP OAuth token store, Step 9b
+  // review fix) and models.json are copied READ-ONLY when present — without
+  // them probes fail at auth or OAuth-configured MCP servers sit unsigned.
+  for (const name of ["auth.json", "mcp-auth.json", "models.json"]) {
     const src = join(piAgentDir, name);
     if (existsSync(src) && statSync(src).isFile()) {
       copyFileSync(src, join(dir, name));

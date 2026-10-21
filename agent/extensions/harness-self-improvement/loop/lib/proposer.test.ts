@@ -46,6 +46,7 @@ function snap(
       templates: templates.map((t) => ({relPath: t.relPath, content: t.content})),
       subagents: subagents.map((t) => ({relPath: t.relPath, content: t.content})),
       extensions: [],
+      mcp: [],
     },
   };
 }
