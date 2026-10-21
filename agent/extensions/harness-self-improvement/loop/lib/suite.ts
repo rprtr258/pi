@@ -155,9 +155,9 @@ export function loadTask(root: string, dirName: string): LoadedTask {
   const shapeErrors: string[] = [];
   if (!NAME_RE.test(dirName)) {
     shapeErrors.push(`task directory name not kebab-case: ${dirName}`);
-  } else if (dirName.startsWith("smoke-")) {
-    shapeErrors.push("smoke- prefix is reserved for a later step");
   }
+  // smoke- prefixed tasks are allowed since S6: trivial end-to-end sanity
+  // checks exercised by /hloop (see loop/suite/README.md).
   if (dirName.includes(".")) {
     // e.g. checker accidentally placed as <name>.ts sibling — keep discovery strict
     shapeErrors.push("task directory name contains '.'");
