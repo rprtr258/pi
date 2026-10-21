@@ -43,12 +43,32 @@
  *   separator makes path/content boundaries unambiguous; deleted files use
  *   the "<deleted>" sentinel so a delete never collides with an empty-file
  *   write.
+ *
+ * S8 SURFACE REGISTRY: validation routes every edit by its owning kind in
+ * loop/lib/surface.ts (AGENTS.md / skills / prompts templates / agents
+ * subagents): per-kind allowlist, per-kind content validators, per-kind byte
+ * caps. Component inclusion in buildPrompt covers all four kinds: skills
+ * keep the Phase I priority policy; prompt templates and subagents are
+ * manifest-listed in full with contents included greedily from the budget
+ * the skills pass did not consume (templates first, then subagents).
  */
 import {createHash} from "node:crypto";
 import {existsSync, readdirSync, readFileSync} from "node:fs";
 import {join} from "node:path";
-import type {ComponentSnapshot, SkillSnapshot} from "./stage.ts";
+import type {ComponentSnapshot} from "./stage.ts";
+import {agentsMdOf} from "./stage.ts";
+import {kindForPath, parseFrontmatterField, type SurfaceFile} from "./surface.ts";
 import type {LedgerEntry} from "./ledger.ts";
+
+/**
+ * Legacy Phase I skill view: a skills/ file with its relPath relative to
+ * skills/ (e.g. "coding-standards/SKILL.md") — the shape manifests and
+ * inclusion use. Derived from the snapshot's kinds.skills SurfaceFiles.
+ */
+export type SkillSnapshot = {
+  relPath: string,
+  content: string,
+}
 
 // ---------------------------------------------------------------------------
 // Types
@@ -137,15 +157,34 @@ export function skillDescription(content: string, cap = 160): string {
   return desc.length > cap ? `${desc.slice(0, cap - 1)}…` : desc;
 }
 
+/**
+ * Template description for the manifest: pi shows the first line as the
+ * description when a template has no frontmatter — the manifest mirrors that
+ * (first non-empty line, capped).
+ */
+export function templateDescription(content: string, cap = 160): string {
+  const first = content.split(/\r?\n/).map((l) => l.trim()).find((l) => l !== "") ?? "";
+  return first.length > cap ? `${first.slice(0, cap - 1)}…` : first;
+}
+
+/** Subagent description for the manifest (frontmatter `description`, capped). */
+export function subagentDescription(content: string, cap = 160): string {
+  const frontmatter = /^---\r?\n([\s\S]*?)\r?\n---/.exec(content);
+  if (!frontmatter) return "";
+  const desc = parseFrontmatterField(frontmatter[1]!, "description");
+  if (desc === null) return "";
+  return desc.length > cap ? `${desc.slice(0, cap - 1)}…` : desc;
+}
+
 function escapeRegex(text: string): string {
   return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-/** Top-level skill dir names (from a snapshot's relPaths). */
+/** Top-level skill dir names (from snapshot skill relPaths, "skills/"-stripped). */
 export function skillDirNames(skills: Array<{relPath: string}>): string[] {
   const dirs: string[] = [];
   for (const skill of skills) {
-    const top = skill.relPath.split("/")[0]!;
+    const top = skill.relPath.replace(/^skills\//, "").split("/")[0]!;
     if (!dirs.includes(top)) dirs.push(top);
   }
   return dirs;
@@ -172,14 +211,23 @@ export type SkillInclusion = {
 };
 
 /**
+ * Legacy Phase I skill view: snapshot skill files with the "skills/" prefix
+ * stripped, so manifest lines and priority logic keep their pre-S8 shapes.
+ */
+function skillViewOf(snapshot: ComponentSnapshot): SkillSnapshot[] {
+  return snapshot.kinds.skills.map((f) => ({relPath: f.relPath.replace(/^skills\//, ""), content: f.content}));
+}
+
+/**
  * Choose which skill files are included in FULL and build the manifest of
  * ALL skill files. See the file header for the documented policy.
  */
 export function includeSkills(snapshot: ComponentSnapshot, budget: number = PROMPT_CHAR_BUDGET): SkillInclusion {
-  const dirs = skillDirNames(snapshot.skills);
-  const referenced = referencedSkillDirs(snapshot.agentsMd, dirs);
-  const referencedFirst = snapshot.skills.filter((s) => referenced.has(s.relPath.split("/")[0]!));
-  const rest = snapshot.skills
+  const skills = skillViewOf(snapshot);
+  const dirs = skillDirNames(skills);
+  const referenced = referencedSkillDirs(agentsMdOf(snapshot), dirs);
+  const referencedFirst = skills.filter((s) => referenced.has(s.relPath.split("/")[0]!));
+  const rest = skills
     .filter((s) => !referenced.has(s.relPath.split("/")[0]!))
     .sort((a, b) => (a.relPath < b.relPath ? -1 : a.relPath > b.relPath ? 1 : 0));
   const ordered = [...referencedFirst, ...rest];
@@ -193,11 +241,51 @@ export function includeSkills(snapshot: ComponentSnapshot, budget: number = PROM
     }
   }
 
-  const manifestLines = snapshot.skills.map((s) => {
+  const manifestLines = skills.map((s) => {
     const desc = s.relPath.endsWith("SKILL.md") ? skillDescription(s.content) : "";
     return `- ${s.relPath} (${byteSize(s.content)}B)${desc === "" ? "" : ` — ${desc}`}`;
   });
   return {included, manifestLines, includedChars: used};
+}
+
+export type SurfaceInclusion = {
+  included: SurfaceFile[],
+  /** One manifest line per snapshot file, ascending relPath order. */
+  manifestLines: string[],
+  /** Char total of the FULL contents included under the budget. */
+  includedChars: number,
+}
+
+/**
+ * Greedy inclusion for the flat surface kinds (templates, subagents): files
+ * sorted by relPath (UTF-16 code-unit order), each included in FULL while the
+ * running total fits the budget; the manifest always covers ALL files.
+ */
+function includeFlatFiles(files: SurfaceFile[], describe: (content: string) => string, budget: number): SurfaceInclusion {
+  const sorted = [...files].sort((a, b) => (a.relPath < b.relPath ? -1 : a.relPath > b.relPath ? 1 : 0));
+  const included: SurfaceFile[] = [];
+  let used = 0;
+  for (const file of sorted) {
+    if (used + file.content.length <= budget) {
+      included.push(file);
+      used += file.content.length;
+    }
+  }
+  const manifestLines = sorted.map((f) => {
+    const desc = describe(f.content);
+    return `- ${f.relPath} (${byteSize(f.content)}B)${desc === "" ? "" : ` — ${desc}`}`;
+  });
+  return {included, manifestLines, includedChars: used};
+}
+
+/** Include prompt templates (manifest always; contents greedily under budget). */
+export function includeTemplates(snapshot: ComponentSnapshot, budget: number = PROMPT_CHAR_BUDGET): SurfaceInclusion {
+  return includeFlatFiles(snapshot.kinds.templates, (content) => templateDescription(content), budget);
+}
+
+/** Include subagent definitions (manifest always; contents greedily under budget). */
+export function includeSubagents(snapshot: ComponentSnapshot, budget: number = PROMPT_CHAR_BUDGET): SurfaceInclusion {
+  return includeFlatFiles(snapshot.kinds.subagents, (content) => subagentDescription(content), budget);
 }
 
 /** Load per-task results from runs/<runId>/tasks/*.json into BaselineData. */
@@ -263,8 +351,6 @@ export function proposalFingerprintOf(candidates: Array<{edits: ProposedEdit[]}>
 // ---------------------------------------------------------------------------
 // Prompt build
 
-export const AGENTS_MD_CAP_BYTES = 48 * 1024;
-export const FILE_CAP_BYTES = 100 * 1024;
 export const MAX_FILES_PER_CANDIDATE = 6;
 export const CHECKER_TAIL_LINES = 10;
 
@@ -285,14 +371,18 @@ function escapeTableCell(text: string): string {
  */
 export function buildPrompt(input: ProposeInput, template: string = loadSystemPromptTemplate()): BuiltPrompt {
   const inclusion = includeSkills(input.snapshot);
+  // Templates and subagents get the budget the skills pass did not consume
+  // (templates first, then subagents) — deterministic and skills-first.
+  const templates = includeTemplates(input.snapshot, PROMPT_CHAR_BUDGET - inclusion.includedChars);
+  const subagents = includeSubagents(input.snapshot, PROMPT_CHAR_BUDGET - inclusion.includedChars - templates.includedChars);
 
   const components: string[] = [];
   components.push("## AGENTS.md (full text)");
   components.push("```markdown");
-  components.push(input.snapshot.agentsMd === "" ? "(empty)" : input.snapshot.agentsMd);
+  components.push(agentsMdOf(input.snapshot) === "" ? "(empty)" : agentsMdOf(input.snapshot));
   components.push("```");
   components.push("");
-  components.push(`## Skills manifest (ALL ${input.snapshot.skills.length} skill files; full contents below only where marked INCLUDED)`);
+  components.push(`## Skills manifest (ALL ${input.snapshot.kinds.skills.length} skill files; full contents below only where marked INCLUDED)`);
   components.push(...inclusion.manifestLines);
   components.push("");
   components.push(`## Included skill file contents (${inclusion.included.length} files, ${inclusion.includedChars} chars; everything else is manifest-only this round)`);
@@ -300,6 +390,28 @@ export function buildPrompt(input: ProposeInput, template: string = loadSystemPr
     components.push(`### skills-source: ${skill.relPath}`);
     components.push("```markdown");
     components.push(skill.content);
+    components.push("```");
+  }
+  components.push("");
+  components.push(`## Prompt templates manifest (ALL ${input.snapshot.kinds.templates.length} prompt template files; full contents below only where marked INCLUDED)`);
+  components.push(...(templates.manifestLines.length > 0 ? templates.manifestLines : ["(none found)"]));
+  components.push("");
+  components.push(`## Included prompt template contents (${templates.included.length} files, ${templates.includedChars} chars; everything else is manifest-only this round)`);
+  for (const file of templates.included) {
+    components.push(`### templates-source: ${file.relPath}`);
+    components.push("```markdown");
+    components.push(file.content);
+    components.push("```");
+  }
+  components.push("");
+  components.push(`## Subagent manifest (ALL ${input.snapshot.kinds.subagents.length} subagent definition files; full contents below only where marked INCLUDED)`);
+  components.push(...(subagents.manifestLines.length > 0 ? subagents.manifestLines : ["(none found)"]));
+  components.push("");
+  components.push(`## Included subagent contents (${subagents.included.length} files, ${subagents.includedChars} chars; everything else is manifest-only this round)`);
+  for (const file of subagents.included) {
+    components.push(`### subagents-source: ${file.relPath}`);
+    components.push("```markdown");
+    components.push(file.content);
     components.push("```");
   }
   const componentsText = components.join("\n");
@@ -424,46 +536,47 @@ function parseCandidates(value: unknown): {ok: true, candidates: Array<{rational
 // ---------------------------------------------------------------------------
 // Validation
 
-// Allowlist (case-sensitive on purpose: case variants must be rejected):
-// AGENTS.md, or skills/<skill-dir>/SKILL.md or skills/<skill-dir>/scripts/<file>.
-const PATH_ALLOWLIST: RegExp[] = [
-  /^AGENTS\.md$/,
-  /^skills\/[a-z0-9][a-z0-9_-]*\/(SKILL\.md|scripts\/[A-Za-z0-9_.-]+)$/,
-];
+// Per-kind byte caps come from the surface registry (loop/lib/surface.ts
+// caps.maxFileBytes): 48KB for AGENTS.md, 100KB for everything else — one
+// source of truth, no duplicated constants here.
 
-/** Validate one edit's path against the allowlist; returns a reject reason or null. */
+/** Validate one edit's path (traversal, absolute, allowlist); returns a reject reason or null. */
 export function validatePath(path: string): string | null {
   if (path.startsWith("/") || /^[A-Za-z]:[\\/]/.test(path)) return `absolute path rejected: ${path}`;
   if (path.split("/").includes("..")) return `path traversal (..) rejected: ${path}`;
-  if (!PATH_ALLOWLIST.some((re) => re.test(path))) return `path outside the allowlist (AGENTS.md or skills/<dir>/SKILL.md|scripts/<file>, lowercase): ${path}`;
+  if (kindForPath(path) === null) {
+    return `path outside the allowlist (AGENTS.md, skills/<dir>/SKILL.md|scripts/<file>, prompts/<name>.md, agents/<name>.md): ${path}`;
+  }
   return null;
 }
 
 export type ValidationLimits = {
-  agentsMdCapBytes?: number,
-  fileCapBytes?: number,
   maxFilesPerCandidate?: number,
 };
 
 /** Validate one candidate's structure + caps; returns the list of reject reasons (empty = accept). */
 export function validateCandidate(edits: ProposedEdit[], limits: ValidationLimits = {}): string[] {
-  const agentsMdCap = limits.agentsMdCapBytes ?? AGENTS_MD_CAP_BYTES;
-  const fileCap = limits.fileCapBytes ?? FILE_CAP_BYTES;
   const maxFiles = limits.maxFilesPerCandidate ?? MAX_FILES_PER_CANDIDATE;
   const reasons: string[] = [];
   if (edits.length < 1) reasons.push("candidate has no edits (at least 1 required)");
   if (edits.length > maxFiles) reasons.push(`candidate touches ${edits.length} files (max ${maxFiles})`);
   for (const edit of edits) {
     const pathReason = validatePath(edit.path);
-    if (pathReason !== null) reasons.push(pathReason);
-    if (edit.path === "AGENTS.md" && (edit.content === null || edit.content.trim() === "")) {
-      reasons.push("AGENTS.md cannot be deleted or emptied");
+    if (pathReason !== null) {
+      reasons.push(pathReason);
+      continue;
     }
+    // Per-kind routing (S8): content rules and byte caps come from the
+    // edit's owning surface kind, not from hardcoded AGENTS.md/skills logic.
+    const kind = kindForPath(edit.path)!;
+    reasons.push(...kind.validate(edit.content, edit.path));
     if (edit.content !== null) {
-      if (edit.path === "AGENTS.md" && byteSize(edit.content) > agentsMdCap) {
-        reasons.push(`AGENTS.md edit is ${byteSize(edit.content)} bytes (cap ${agentsMdCap})`);
+      const cap = kind.caps.maxFileBytes;
+      if (byteSize(edit.content) > cap) {
+        reasons.push(kind.name === "agents"
+          ? `AGENTS.md edit is ${byteSize(edit.content)} bytes (cap ${cap})`
+          : `edit for ${edit.path} is ${byteSize(edit.content)} bytes (cap ${cap})`);
       }
-      if (byteSize(edit.content) > fileCap) reasons.push(`edit for ${edit.path} is ${byteSize(edit.content)} bytes (cap ${fileCap})`);
     }
   }
   return reasons;

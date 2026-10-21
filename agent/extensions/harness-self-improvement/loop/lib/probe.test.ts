@@ -7,7 +7,7 @@
  */
 import {spawn} from "node:child_process";
 import {describe, expect, test} from "bun:test";
-import {killProcessGroup, parseJsonlEvents, redact, stripFrontmatter} from "./probe.ts";
+import {killProcessGroup, nestedPiEnv, parseJsonlEvents, redact, stripFrontmatter} from "./probe.ts";
 
 /** True when the process group is still alive. */
 function groupAlive(pid: number): boolean {
@@ -18,6 +18,15 @@ function groupAlive(pid: number): boolean {
     return false;
   }
 }
+
+describe("nestedPiEnv (S8)", () => {
+  test("sets PI_OFFLINE=1 by default and lets an explicit extra override it", () => {
+    expect(nestedPiEnv().PI_OFFLINE).toBe("1");
+    expect(nestedPiEnv({PI_OFFLINE: "0"}).PI_OFFLINE).toBe("0");
+    // Extra vars pass through.
+    expect(nestedPiEnv({PI_CODING_AGENT_DIR: "/tmp/sbx"}).PI_CODING_AGENT_DIR).toBe("/tmp/sbx");
+  });
+});
 
 describe("killProcessGroup (timeout path)", () => {
   test("kills the child and its grandchildren", async () => {

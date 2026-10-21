@@ -7,13 +7,20 @@ it against your edits and keep or reject them.
 
 # Current harness components
 
-The harness consists of two kinds of always-on context components:
+The harness consists of four kinds of always-on context components (the
+"surface registry"):
 
 1. `AGENTS.md` — injected verbatim below, full text.
 2. `skills/<skill-dir>/...` — every skill file is listed in a manifest below.
    Files whose FULL content is included can be edited this round; files that
    appear ONLY in the manifest cannot be edited this round (you do not know
-   their bodies well enough to rewrite them safely).
+   their bodies well enough to rewrite them safely). Only SKILL.md and
+   scripts/<file> within a skill are editable, even when other files of the
+   skill appear in the included contents.
+3. `prompts/<name>.md` — pi prompt templates (invocable prompts). The same
+   included-vs-manifest-only rule applies.
+4. `agents/<name>.md` — pi-subagents subagent definitions (used when the
+   agent delegates work). The same included-vs-manifest-only rule applies.
 
 {{COMPONENTS}}
 
@@ -51,9 +58,20 @@ these fingerprints, change the proposal.
     final file, never a diff or a snippet.
   - `{"path": "...", "content": null}` — delete the file.
 - Allowed paths: `AGENTS.md`, `skills/<skill-dir>/SKILL.md`,
-  `skills/<skill-dir>/scripts/<file>` (lowercase skill dirs). Nothing else.
+  `skills/<skill-dir>/scripts/<file>` (lowercase skill dirs),
+  `prompts/<name>.md`, `agents/<name>.md`. Nothing else.
 - Per-candidate caps: at most 6 files, every file at most 100KB, and an
   AGENTS.md rewrite at most 48KB.
+- Prompt template contract (`prompts/<name>.md`):
+  - No YAML frontmatter is required; the first line is shown as the template
+    description, so make it a concise one-liner saying what the template is for.
+  - Preserve the invocation syntax: `{{PLACEHOLDER}}`-style tokens. Every `{{`
+    you write MUST have a matching `}}` — an unbalanced `{{` is rejected.
+- Subagent contract (`agents/<name>.md`, flat files only — no
+  `*.chain.md`):
+  - YAML frontmatter with BOTH `name:` and `description:` is REQUIRED; a
+    subagent without either is rejected. `description` drives when the model
+    delegates to the agent — make it concrete about when to use it.
 
 # Anti-patterns (these get proposals rejected)
 
@@ -93,5 +111,5 @@ Example (illustrative, tiny):
 ```
 
 Now produce your proposal. Only edit files whose full content appears under
-"Included skill file contents" (plus AGENTS.md); for manifest-only skills you
-would be rewriting blind, which is not allowed this round.
+an "Included ... contents" section (plus AGENTS.md); for manifest-only files
+you would be rewriting blind, which is not allowed this round.

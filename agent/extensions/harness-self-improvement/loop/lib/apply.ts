@@ -9,9 +9,11 @@
  *     repo, and a `ledgerPath` override pointing at a temp ledger. No test
  *     may ever write to the real ~/.pi/agent or the real run-history.jsonl.
  *   - Paths are re-validated through proposer.ts's validation pipeline
- *     (validateCandidate: allowlist AGENTS.md / skills/<dir>/SKILL.md |
- *     scripts/<file>, no traversal, size caps) immediately before apply —
- *     the caller's earlier validation is never trusted on its own.
+ *     (validateCandidate: per-kind allowlist AGENTS.md / skills/<dir>/SKILL.md
+ *     | scripts/<file> / prompts/<name>.md / agents/<name>.md via the surface
+ *     registry, no traversal, per-kind size caps + content validators)
+ *     immediately before apply — the caller's earlier validation is never
+ *     trusted on its own.
  *   - Git staging uses EXPLICIT PATHS ONLY ("AGENTS.md", "skills/") — never
  *     -A, ., or --all, so nothing outside the loop's scope can be committed.
  *   - Prior state of every affected path is snapshotted BEFORE any write as
@@ -24,11 +26,12 @@
  *     one) is lstat'd; ANY symlink rejects the whole candidate, so a planted
  *     symlink can never redirect a loop write or delete outside agentDir.
  *   - Dirty-tree preflight: before any write (and before every revert),
- *     `git status --porcelain -- AGENTS.md skills/` must be EMPTY; a dirty
- *     tree refuses the apply. This also SHRINKS THE CRASH WINDOW: if the
+ *     `git status --porcelain -- AGENTS.md skills/ prompts/ agents/` must be
+ *     EMPTY (pathspecs from the surface registry); a dirty tree refuses the
+ *     apply. This also SHRINKS THE CRASH WINDOW: if the
  *     process is killed between the file writes and the commit, the loop's
  *     own writes are left uncommitted in the tree — the next apply (or
- *     revert) sees that dirty state under AGENTS.md/skills/ and refuses
+ *     revert) sees that dirty state under the managed paths and refuses
  *     until the residue is resolved manually (inspect `git diff`, then
  *     commit or checkout the leftover loop writes). That residue is
  *     deliberate: an uncommitted half-apply is never silently committed or
@@ -74,6 +77,7 @@ import {homedir} from "node:os";
 import {dirname, join} from "node:path";
 import {fileURLToPath} from "node:url";
 import {validateCandidate, proposalFingerprintOf, type ProposedCandidate, type ProposedEdit} from "./proposer.ts";
+import {SURFACE_KINDS} from "./surface.ts";
 import {appendEntry, ledgerPath, type LedgerEntry} from "./ledger.ts";
 
 // ---------------------------------------------------------------------------
@@ -353,15 +357,26 @@ function git(agentDir: string, args: string[]): {status: number, stdout: string,
 }
 
 /**
- * Dirty-tree preflight, scoped to the loop-managed paths. Returns a refusal
- * reason when AGENTS.md or skills/ has uncommitted changes, null when clean.
- * A non-repo agentDir is NOT dirty (git add fails later on its own); status
- * failure is treated the same way.
+ * The loop's managed git pathspecs, derived from the surface registry (S8):
+ * ["AGENTS.md", "skills/", "prompts/", "agents/"]. Used for git add, the
+ * dirty-tree preflight, and the revert checkout fallback — explicit paths
+ * only, never -A/./--all.
+ */
+function managedGitPaths(): string[] {
+  return SURFACE_KINDS.map((k) => k.gitPath);
+}
+
+/**
+ * Dirty-tree preflight, scoped to the loop-managed paths (surface registry
+ * gitPaths). Returns a refusal reason when any of them has uncommitted
+ * changes, null when clean. A non-repo agentDir is NOT dirty (git add fails
+ * later on its own); status failure is treated the same way.
  */
 function dirtyManagedPathsReason(agentDir: string): string | null {
-  const st = git(agentDir, ["status", "--porcelain", "--", "AGENTS.md", "skills/"]);
+  const st = git(agentDir, ["status", "--porcelain", "--", ...managedGitPaths()]);
   if (st.status !== 0) return null;
-  return st.stdout.trim() !== "" ? "working tree dirty under AGENTS.md/skills — resolve before apply" : null;
+  const paths = managedGitPaths().map((p) => p.replace(/\/$/, "")).join("/");
+  return st.stdout.trim() !== "" ? `working tree dirty under ${paths} — resolve before apply` : null;
 }
 
 /**
@@ -614,13 +629,15 @@ function applyCandidateLocked(input: ApplyCandidateInput, agentDir: string, ledg
 
   let sha: string | undefined;
   if (failure === null) {
-    // EXPLICIT PATHS ONLY — never -A, ".", or --all. A path that does not
-    // exist on disk (e.g. a skills/ dir with no changes and no files) is
-    // skipped rather than turning into a pathspec error; the affected edit
-    // paths themselves were just written, so their parents exist.
-    const addPaths = ["AGENTS.md", "skills/"].filter((p) => existsSync(join(agentDir, p)));
+    // EXPLICIT PATHS ONLY — never -A, ".", or --all. Paths come from the
+    // surface registry's gitPath set ("AGENTS.md", "skills/", "prompts/",
+    // "agents/"). A path that does not exist on disk (e.g. a skills/ dir with
+    // no changes and no files) is skipped rather than turning into a pathspec
+    // error; the affected edit paths themselves were just written, so their
+    // parents exist.
+    const addPaths = managedGitPaths().filter((p) => existsSync(join(agentDir, p)));
     if (addPaths.length === 0) {
-      failure = "git add failed: neither AGENTS.md nor skills/ exists in the agent dir";
+      failure = "git add failed: none of the loop-managed paths (AGENTS.md, skills/, prompts/, agents/) exists in the agent dir";
     } else {
       const add = git(agentDir, ["add", ...addPaths]);
       if (add.status !== 0) {
@@ -676,7 +693,7 @@ export type RevertResult = {
  *     some other commit.
  *   - Refuse when the marker commit is not an ancestor of HEAD (its changes
  *     are not in the current tree; reverting would surprise).
- *   - Refuse when the working tree is dirty under AGENTS.md/skills/ — checked
+ *   - Refuse when the working tree is dirty under the loop-managed paths — checked
  *     BOTH before `git revert` AND before the destructive checkout fallback
  *     (no uncommitted manual change is ever swept into a revert or clobbered
  *     by the fallback checkout).
@@ -687,7 +704,9 @@ export type RevertResult = {
  *   - Only the marker commit is ever reverted — non-harness-loop commits are
  *     never touched, because we revert by that exact sha and nothing else.
  *   - Prefer `git revert --no-edit <sha>`; on CONFLICT, abort the revert and
- *     fall back to `git checkout <sha>^ -- AGENTS.md skills/` + commit (this
+ *     fall back to `git checkout <sha>^ -- <managed paths>` + commit (the
+ *     managed paths come from the surface registry, filtered to those present
+ *     in the apply commit's parent tree; this
  *     restores the loop-managed paths to their pre-apply state; any manual
  *     edits to those paths made after the apply commit are overwritten —
  *     documented trade-off of the fallback).
@@ -750,8 +769,8 @@ function revertByRunIdLocked(runId: string, agentDir: string, ledger: string): R
   }
 
   // Dirty-tree preflight BEFORE the revert (and again before the destructive
-  // checkout fallback below): uncommitted changes under AGENTS.md/skills
-  // would be mixed into (or destroyed by) the revert.
+  // checkout fallback below): uncommitted changes under the loop-managed
+  // paths would be mixed into (or destroyed by) the revert.
   const dirtyReason = dirtyManagedPathsReason(agentDir);
   if (dirtyReason !== null) {
     revertLedgerEntry(runId, ledger, "revert-failed", {method: "revert", sha: target.sha, error: dirtyReason});
@@ -765,7 +784,10 @@ function revertByRunIdLocked(runId: string, agentDir: string, ledger: string): R
   }
 
   // Conflict (or other failure): abort the in-progress revert, then fall back
-  // to restoring the loop-managed paths from the apply commit's parent.
+  // to restoring the loop-managed paths from the apply commit's parent. Only
+  // pathspecs present in that commit's tree are checked out (git checkout
+  // errors on pathspecs the tree never had — e.g. prompts/ when no S8 apply
+  // ever touched templates).
   git(agentDir, ["revert", "--abort"]);
   const dirtyAfterAbort = dirtyManagedPathsReason(agentDir);
   if (dirtyAfterAbort !== null) {
@@ -773,13 +795,21 @@ function revertByRunIdLocked(runId: string, agentDir: string, ledger: string): R
     revertLedgerEntry(runId, ledger, "revert-failed", {method: "checkout-fallback", sha: target.sha, error});
     return {ok: false, method: "checkout-fallback", sha: target.sha, error};
   }
-  const checkout = git(agentDir, ["checkout", `${target.sha}^`, "--", "AGENTS.md", "skills/"]);
+  const tree = git(agentDir, ["ls-tree", "--name-only", `${target.sha}^`]);
+  const treeEntries = tree.status === 0 ? tree.stdout.split("\n").filter((e) => e !== "") : [];
+  const checkoutPaths = managedGitPaths().filter((p) => treeEntries.some((e) => e === p.replace(/\/$/, "") || e.startsWith(p)));
+  if (checkoutPaths.length === 0) {
+    const error = `git revert failed (${revert.stderr.trim() || `exit ${revert.status}`}) and the apply commit's parent tree has none of the loop-managed paths to restore`;
+    revertLedgerEntry(runId, ledger, "revert-failed", {method: "checkout-fallback", sha: target.sha, error});
+    return {ok: false, method: "checkout-fallback", sha: target.sha, error};
+  }
+  const checkout = git(agentDir, ["checkout", `${target.sha}^`, "--", ...checkoutPaths]);
   if (checkout.status !== 0) {
     const error = `git revert failed (${revert.stderr.trim() || `exit ${revert.status}`}) and checkout fallback also failed: ${checkout.stderr.trim() || `exit ${checkout.status}`}`;
     revertLedgerEntry(runId, ledger, "revert-failed", {method: "checkout-fallback", sha: target.sha, error});
     return {ok: false, method: "checkout-fallback", sha: target.sha, error};
   }
-  const commit = git(agentDir, ["commit", "-m", `harness-loop(revert run ${runId}): restore pre-apply state of AGENTS.md and skills/`]);
+  const commit = git(agentDir, ["commit", "-m", `harness-loop(revert run ${runId}): restore pre-apply state of loop-managed paths`]);
   if (commit.status !== 0) {
     const error = `revert conflicted; checkout fallback staged the restore but the commit failed: ${commit.stderr.trim() || `exit ${commit.status}`}`;
     revertLedgerEntry(runId, ledger, "revert-failed", {method: "checkout-fallback", sha: target.sha, error});

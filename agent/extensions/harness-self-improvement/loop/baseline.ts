@@ -10,18 +10,27 @@
  *     1. "agents-md", the AGENTS.md text
  *     2. for each skill file, in ascending relPath order (a < b UTF-16
  *        code-unit comparison, locale-independent — never localeCompare):
- *        "skill", the skill's relPath (POSIX-style, relative to skills/),
+ *        "skill", the skill's relPath (POSIX-style, relative to the agent
+ *        dir, e.g. "skills/x/SKILL.md" — S8 note: pre-S8 this was relative
+ *        to skills/; the form changed with the kinds-generic snapshot),
  *        then the skill file's full text as its own NUL-terminated field —
  *        relPath and content are separate fields so their boundary can never
  *        be shifted by crafting either string
- *     3. "pi", the resolved pi binary's version ("unknown" when it could not
+ *     3. for each prompt template file, same pattern: "template", relPath,
+ *        content (ascending relPath order)
+ *     4. for each subagent file, same pattern: "subagent", relPath, content
+ *     5. "pi", the resolved pi binary's version ("unknown" when it could not
  *        be determined) — a cache written under a different pi version is
  *        therefore never reused
- *     4. "model", the captured --model flag for nested pi runs (provider +
+ *     6. "model", the captured --model flag for nested pi runs (provider +
  *        model id, e.g. "ozon-real/AgentLLM-big"), or "" when no model was
  *        captured — a model change therefore invalidates the fingerprint
  *   The NUL separator makes the encoding prefix-free: no field boundary is
  *   ambiguous regardless of file content.
+ *   S8 CACHE-INVALIDATION NOTE: the S8 surface-registry migration changed the
+ *   canonical form (templates + subagents fields added, skills relPaths now
+ *   agent-dir-relative), so every pre-S8 baseline cache misses ONCE by design
+ *   and a full probed baseline rebuild is expected.
  *
  * RESULT CACHE: loop/.cache/baseline-<fingerprint>[-<taskset>].json holds the
  * per-task results. <taskset> (a 16-hex-char digest of the sorted task-name
@@ -41,7 +50,7 @@ import {createHash} from "node:crypto";
 import {dirname, join} from "node:path";
 import {fileURLToPath} from "node:url";
 import {listTaskDirs, loadTask, suiteRoot} from "./lib/suite.ts";
-import {buildSandbox, captureModelFlag, snapshotReal, type ComponentSnapshot} from "./lib/stage.ts";
+import {agentsMdOf, buildSandbox, captureModelFlag, snapshotReal, type ComponentSnapshot} from "./lib/stage.ts";
 import {scoreSuite, type ScoreSuiteResult, type TaskScoreResult} from "./lib/score.ts";
 import {appendEntry, newRunId, renderReport, type ReportTask} from "./lib/ledger.ts";
 import {resolvePiBinary} from "./lib/probe.ts";
@@ -52,8 +61,9 @@ const cacheDir = join(extensionRoot, "loop", ".cache");
 
 /**
  * sha256 over the canonical snapshot form described in the file header:
- * agentsMd + skills (relPath and content as separate fields, sorted by UTF-16
- * code-unit relPath order) + resolved pi version + captured model flag.
+ * agentsMd + skills + prompt templates + subagents (relPath and content as
+ * separate fields, each group sorted by UTF-16 code-unit relPath order) +
+ * resolved pi version + captured model flag.
  */
 export function fingerprintSnapshot(
   snapshot: ComponentSnapshot,
@@ -65,10 +75,19 @@ export function fingerprintSnapshot(
     for (const part of parts) hash.update(part, "utf8");
     hash.update("\0");
   };
-  field("agents-md", snapshot.agentsMd);
-  for (const skill of [...snapshot.skills].sort((a, b) => (a.relPath < b.relPath ? -1 : a.relPath > b.relPath ? 1 : 0))) {
+  const byRelPath = (a: {relPath: string}, b: {relPath: string}): number => (a.relPath < b.relPath ? -1 : a.relPath > b.relPath ? 1 : 0);
+  field("agents-md", agentsMdOf(snapshot));
+  for (const skill of [...snapshot.kinds.skills].sort(byRelPath)) {
     field("skill", skill.relPath);
     field(skill.content);
+  }
+  for (const template of [...snapshot.kinds.templates].sort(byRelPath)) {
+    field("template", template.relPath);
+    field(template.content);
+  }
+  for (const subagent of [...snapshot.kinds.subagents].sort(byRelPath)) {
+    field("subagent", subagent.relPath);
+    field(subagent.content);
   }
   field("pi", piBinary?.version ?? "unknown");
   field("model", model ?? "");
