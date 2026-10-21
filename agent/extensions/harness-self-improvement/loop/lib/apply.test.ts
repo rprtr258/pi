@@ -12,7 +12,7 @@
  *   bun test loop/lib/apply.test.ts
  */
 import {spawnSync} from "node:child_process";
-import {chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, utimesSync, writeFileSync} from "node:fs";
+import {chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, utimesSync, writeFileSync} from "node:fs";
 import {tmpdir} from "node:os";
 import {dirname, join} from "node:path";
 import {afterAll, describe, expect, test} from "bun:test";
@@ -22,6 +22,7 @@ import {
   appendProposalRejectedEntry,
   DEFAULT_LOOP_CONFIG,
   loadLoopConfig,
+  pruneRunDirs,
   revertByRunId,
   type LoopConfig,
 } from "./apply.ts";
@@ -249,6 +250,75 @@ describe("loadLoopConfig", () => {
     const bad = loadLoopConfig(p2);
     expect(bad.mode).toEqual(DEFAULT_LOOP_CONFIG.mode);
     expect(bad.targeted).toEqual(DEFAULT_LOOP_CONFIG.targeted);
+  });
+
+  test("Step 12 retention: maxRunDirs honored; invalid values fall back to the default", () => {
+    const p = join(tempRoot("cfg-"), "retention.json");
+    writeFileSync(p, JSON.stringify({retention: {maxRunDirs: 25}}));
+    expect(loadLoopConfig(p).retention).toEqual({maxRunDirs: 25});
+
+    const p2 = join(tempRoot("cfg-"), "retention-bad.json");
+    writeFileSync(p2, JSON.stringify({retention: {maxRunDirs: 0}}));
+    expect(loadLoopConfig(p2).retention).toEqual(DEFAULT_LOOP_CONFIG.retention);
+
+    const p3 = join(tempRoot("cfg-"), "retention-fractional.json");
+    writeFileSync(p3, JSON.stringify({retention: {maxRunDirs: 2.5}}));
+    expect(loadLoopConfig(p3).retention).toEqual(DEFAULT_LOOP_CONFIG.retention);
+
+    const p4 = join(tempRoot("cfg-"), "retention-notobj.json");
+    writeFileSync(p4, JSON.stringify({retention: "lots"}));
+    expect(loadLoopConfig(p4).retention).toEqual(DEFAULT_LOOP_CONFIG.retention);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// pruneRunDirs (Step 12 retention)
+
+describe("pruneRunDirs", () => {
+  function makeRuns(prefix: string, count: number): string {
+    const runsDir = tempRoot(prefix);
+    for (let i = 1; i <= count; i++) {
+      const name = `20260101-0000${String(i).padStart(2, "0")}-aaaa`;
+      mkdirSync(join(runsDir, name, "iter-1"), {recursive: true});
+      writeFileSync(join(runsDir, name, "state.json"), `{"runId":"${name}"}`);
+    }
+    return runsDir;
+  }
+
+  test("prunes the OLDEST dirs beyond the cap, keeping the most recent", () => {
+    const runsDir = makeRuns("retention-", 12);
+    const deleted = pruneRunDirs(runsDir, 10);
+    expect(deleted).toEqual(["20260101-000001-aaaa", "20260101-000002-aaaa"]);
+    expect(readdirSync(runsDir).length).toBe(10);
+    expect(existsSync(join(runsDir, "20260101-000012-aaaa"))).toBe(true); // most recent kept
+    expect(existsSync(join(runsDir, "20260101-000003-aaaa"))).toBe(true); // oldest survivor kept
+  });
+
+  test("never deletes the most recent run dir even when everything else is protected", () => {
+    const runsDir = makeRuns("retention-keep-", 3);
+    // Cap 1 with every dir protected via keepRunId except... keepRunId = the
+    // OLDEST: the cap demands 2 deletions but the most recent is untouchable.
+    const deleted = pruneRunDirs(runsDir, 1, "20260101-000001-aaaa");
+    expect(deleted).toEqual(["20260101-000002-aaaa"]);
+    expect(readdirSync(runsDir).sort()).toEqual(["20260101-000001-aaaa", "20260101-000003-aaaa"]);
+  });
+
+  test("no-op when under the cap; no-op for a missing dir; fail-safe on an invalid cap", () => {
+    const runsDir = makeRuns("retention-under-", 3);
+    expect(pruneRunDirs(runsDir, 10)).toEqual([]);
+    expect(pruneRunDirs(runsDir, 3)).toEqual([]);
+    expect(pruneRunDirs(join(runsDir, "nope"), 10)).toEqual([]);
+    expect(pruneRunDirs(runsDir, 0)).toEqual([]); // invalid cap → do nothing
+    expect(pruneRunDirs(runsDir, 1.5)).toEqual([]);
+    expect(readdirSync(runsDir).length).toBe(3);
+  });
+
+  test("files (non-directories) in runs/ are never touched", () => {
+    const runsDir = makeRuns("retention-files-", 3);
+    writeFileSync(join(runsDir, "stray-file.txt"), "x");
+    pruneRunDirs(runsDir, 1);
+    expect(existsSync(join(runsDir, "stray-file.txt"))).toBe(true);
+    expect(readdirSync(runsDir).sort()).toEqual(["20260101-000003-aaaa", "stray-file.txt"]);
   });
 });
 
