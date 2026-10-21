@@ -17,6 +17,16 @@ import {join} from "node:path";
 import {buildLedgerDigest, buildPrompt, loadBaselineFromRunDir, propose, type BuiltPrompt} from "./loop/lib/proposer.ts";
 import {extensionRoot, readLedger} from "./loop/lib/ledger.ts";
 import {agentsMdOf, captureModelFlag, captureModelSettings, realPiAgentDir, snapshotReal, type ComponentSnapshot} from "./loop/lib/stage.ts";
+// === harness-loop (S6): /hloop command group — driver, budget, UX ===
+// Runs the recursive optimization loop's state machine (loop/driver.ts
+// runLoop) to completion INSIDE the command handler — synchronous, like
+// /hloop-propose: the session blocks for the whole loop (nested pi probes +
+// proposer model calls; expect minutes). Long-running by design.
+import {runLoop, type LoopState} from "./loop/driver.ts";
+import {loadLoopConfig, revertByRunId} from "./loop/lib/apply.ts";
+import {ledgerPath} from "./loop/lib/ledger.ts"; // readLedger/extensionRoot already imported in the S4 block above
+import {buildDraftPrompt, extractDraft, MINE_SYSTEM_PROMPT, mineStamp, printEpisodes, scanSessions, type MinedEpisode} from "./loop/mine.ts";
+
 
 const CYCLE_PROMPT = `Run one agent harness improvement cycle.
 
@@ -186,16 +196,6 @@ function registerHloopPropose(pi: ExtensionAPI): void {
   });
 }
 // === end harness-loop (S4) ===
-
-// === harness-loop (S6): /hloop command group — driver, budget, UX ===
-// Runs the recursive optimization loop's state machine (loop/driver.ts
-// runLoop) to completion INSIDE the command handler — synchronous, like
-// /hloop-propose: the session blocks for the whole loop (nested pi probes +
-// proposer model calls; expect minutes). Long-running by design.
-import {runLoop, type LoopState} from "./loop/driver.ts";
-import {loadLoopConfig, revertByRunId} from "./loop/lib/apply.ts";
-import {ledgerPath} from "./loop/lib/ledger.ts"; // readLedger/extensionRoot already imported in the S4 block above
-import {buildDraftPrompt, extractDraft, MINE_SYSTEM_PROMPT, mineStamp, printEpisodes, scanSessions, type MinedEpisode} from "./loop/mine.ts";
 
 const hloopRunsDir = join(extensionRoot, "runs");
 const hloopStopFlagPath = join(extensionRoot, "loop", ".stop");
