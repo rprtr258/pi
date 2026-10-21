@@ -33,9 +33,9 @@ Read PLAN.md first — it defines scope, evidence rules, and the cycle.
 // Generates + validates improvement candidates against a fixture baseline run.
 // Debug-only: prints candidates to the console and writes NOTHING (S5 owns
 // apply + ledger bookkeeping).
-import {buildLedgerDigest, buildPrompt, loadBaselineFromRunDir, propose} from "./loop/lib/proposer.ts";
+import {buildLedgerDigest, buildPrompt, loadBaselineFromRunDir, propose, type BuiltPrompt} from "./loop/lib/proposer.ts";
 import {extensionRoot, readLedger} from "./loop/lib/ledger.ts";
-import {captureModelSettings, realPiAgentDir, snapshotReal} from "./loop/lib/stage.ts";
+import {captureModelSettings, realPiAgentDir, snapshotReal, type ComponentSnapshot} from "./loop/lib/stage.ts";
 
 function byteLen(text: string): number {
   return new TextEncoder().encode(text).length;
@@ -73,7 +73,7 @@ interface SimpleStreamRegistryView {
  * Model pick: the session's current model, else the captured defaultProvider/
  * defaultModel from settings.json (same capture stage.ts uses for nested runs).
  */
-async function callModelViaRegistry(ctx: ExtensionCommandContext, system: string, user: string, options?: {temperature?: number}): Promise<string> {
+async function callModelViaRegistry(ctx: ExtensionCommandContext, system: string, user: string, options?: {temperature?: number; maxTokens?: number}): Promise<string> {
   const registry = ctx.modelRegistry as unknown as SimpleStreamRegistryView;
   let model: unknown = ctx.model;
   if (!model) {
@@ -86,7 +86,7 @@ async function callModelViaRegistry(ctx: ExtensionCommandContext, system: string
   const stream = registry.streamSimple(
     model,
     {systemPrompt: system, messages: [{role: "user", content: user, timestamp: Date.now()}]},
-    {temperature: options?.temperature, maxTokens: 16384},
+    {temperature: options?.temperature, maxTokens: options?.maxTokens ?? 16384},
   );
   const message = await stream.result();
   if (message.stopReason === "error" || message.errorMessage !== undefined) {
@@ -121,14 +121,24 @@ function registerHloopPropose(pi: ExtensionAPI): void {
         console.error(`/hloop-propose: cannot load fixture run '${fixture}': ${err instanceof Error ? err.message : String(err)}`);
         return;
       }
-      const snapshot = snapshotReal(realPiAgentDir());
-      const ledgerDigest = buildLedgerDigest(readLedger());
-      const findingsCandidates = [join(extensionRoot(), "harness-findings.md"), join(realPiAgentDir(), "harness-findings.md")];
-      const findingsPath = findingsCandidates.find((p) => existsSync(p));
-      const harnessFindings = findingsPath !== undefined ? readFileSync(findingsPath, "utf8") : undefined;
+      let snapshot: ComponentSnapshot;
+      let ledgerDigest: string[];
+      let findingsPath: string | undefined;
+      let harnessFindings: string | undefined;
+      let prompt: BuiltPrompt;
+      try {
+        snapshot = snapshotReal(realPiAgentDir());
+        ledgerDigest = buildLedgerDigest(readLedger());
+        const findingsCandidates = [join(extensionRoot(), "harness-findings.md"), join(realPiAgentDir(), "harness-findings.md")];
+        findingsPath = findingsCandidates.find((p) => existsSync(p));
+        harnessFindings = findingsPath !== undefined ? readFileSync(findingsPath, "utf8") : undefined;
 
-      // Prompt stats (cheap, deterministic) — shown in both modes.
-      const prompt = buildPrompt({snapshot, baseline, ledgerDigest, harnessFindings, model: ctx.model?.id});
+        // Prompt stats (cheap, deterministic) — shown in both modes.
+        prompt = buildPrompt({snapshot, baseline, ledgerDigest, harnessFindings, model: ctx.model?.id});
+      } catch (err) {
+        console.error(`/hloop-propose: setup failed: ${err instanceof Error ? err.message : String(err)}`);
+        return;
+      }
       console.log(`[hloop-propose] fixture ${fixture}: baseline ${baseline.aggregate.passCount}/${baseline.aggregate.total} pass`);
       console.log(`[hloop-propose] components: AGENTS.md ${byteLen(snapshot.agentsMd)}B, ${snapshot.skills.length} skill files in manifest, ${prompt.system.length + prompt.user.length} prompt chars total`);
       console.log(`[hloop-propose] ledger digest: ${ledgerDigest.length} rejected proposal fingerprint(s)`);

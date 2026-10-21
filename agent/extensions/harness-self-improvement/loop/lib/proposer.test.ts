@@ -211,6 +211,45 @@ describe("propose", () => {
     expect(result.candidates.every((c) => c.verdict === "rejected")).toBe(true);
     expect(result.candidates.every((c) => c.reasons.some((r) => r.includes("1–3 required")))).toBe(true);
   });
+
+  test("AGENTS.md delete (content null) rejected", async () => {
+    const {callModel} = fakeModel([JSON.stringify([{rationale: "r", edits: [{path: "AGENTS.md", content: null}]}])]);
+    const result = await propose(makeInput(), {callModel, systemPromptTemplate: TEMPLATE});
+    expect(result.candidates[0]!.verdict).toBe("rejected");
+    expect(result.candidates[0]!.reasons.some((r) => r.includes("AGENTS.md cannot be deleted or emptied"))).toBe(true);
+  });
+
+  test("AGENTS.md empty rewrite (0-byte content) rejected", async () => {
+    expect(validateCandidate([{path: "AGENTS.md", content: ""}]).some((r) => r.includes("AGENTS.md cannot be deleted or emptied"))).toBe(true);
+    expect(validateCandidate([{path: "AGENTS.md", content: "   \n\t"}]).some((r) => r.includes("AGENTS.md cannot be deleted or emptied"))).toBe(true);
+  });
+});
+
+describe("validation bypass attempts", () => {
+  test("trailing space in path rejected", () => {
+    const reasons = validateCandidate([{path: "skills/cli-jq/SKILL.md ", content: "x"}]);
+    expect(reasons.some((r) => r.includes("path outside the allowlist"))).toBe(true);
+  });
+
+  test("embedded newline in path rejected", () => {
+    const reasons = validateCandidate([{path: "AGENTS.md\n", content: "x"}]);
+    expect(reasons.some((r) => r.includes("path outside the allowlist"))).toBe(true);
+  });
+
+  test("backslash-separated path rejected", () => {
+    const reasons = validateCandidate([{path: "skills\\cli-jq\\SKILL.md", content: "x"}]);
+    expect(reasons.some((r) => r.includes("path outside the allowlist"))).toBe(true);
+  });
+
+  test("unicode homoglyph path (Cyrillic 'а') rejected", () => {
+    const reasons = validateCandidate([{path: "skills/аgent/SKILL.md", content: "x"}]);
+    expect(reasons.some((r) => r.includes("path outside the allowlist"))).toBe(true);
+  });
+
+  test("skills/a/scripts/.. rejected as traversal", () => {
+    const reasons = validateCandidate([{path: "skills/a/scripts/..", content: "x"}]);
+    expect(reasons.some((r) => r.includes("traversal"))).toBe(true);
+  });
 });
 
 describe("includeSkills", () => {
@@ -272,6 +311,31 @@ describe("buildPrompt", () => {
       TEMPLATE,
     );
     expect(prompt.system).toContain("All tasks pass");
+  });
+
+  test("single-pass substitution: $-patterns and placeholders in content stay literal", () => {
+    const tricky = "value $& $' $` {{LEDGER}}";
+    const prompt = buildPrompt(makeInput({snapshot: {agentsMd: tricky, skills: []}}), TEMPLATE);
+    // The bytes appear verbatim in the components section (AGENTS.md full text).
+    expect(prompt.system).toContain(tricky);
+    // Exactly ONE ledger section — the template's own placeholder, not the
+    // injected {{LEDGER}} (which must remain unsubstituted, appearing once).
+    expect(prompt.system.split("(no rejected proposals recorded yet)").length - 1).toBe(1);
+    expect(prompt.system.split("{{LEDGER}}").length - 1).toBe(1);
+  });
+
+  test("baseline table escapes pipes in cells; checker output uses a 4-backtick fence", () => {
+    const prompt = buildPrompt(
+      makeInput({
+        baseline: {
+          tasks: [{task: "weird | task", category: "a|b", pass: false, durationMs: 1, tokens: 1, checkerOutput: "FAIL\n```nested```\nboom"}],
+          aggregate: {passCount: 0, total: 1},
+        },
+      }),
+      TEMPLATE,
+    );
+    expect(prompt.system).toContain("| weird \\| task | a\\|b |");
+    expect(prompt.system).toContain("````\nFAIL\n```nested```\nboom\n````");
   });
 });
 

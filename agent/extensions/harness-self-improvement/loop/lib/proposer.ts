@@ -97,7 +97,7 @@ export interface ProposeResult {
 }
 
 /** Async model call the core logic depends on; faked in unit tests. */
-export type CallModel = (system: string, user: string, options?: {temperature?: number}) => Promise<string>;
+export type CallModel = (system: string, user: string, options?: {temperature?: number; maxTokens?: number}) => Promise<string>;
 
 export interface ProposeInput {
   snapshot: ComponentSnapshot;
@@ -273,6 +273,11 @@ export interface BuiltPrompt {
   user: string;
 }
 
+/** Escape a markdown table cell so a literal `|` cannot break the column layout. */
+function escapeTableCell(text: string): string {
+  return text.replaceAll("|", "\\|");
+}
+
 /**
  * Build the system + user prompt. The system prompt template
  * (loop/prompts/proposer.md) contains {{COMPONENTS}}, {{BASELINE}},
@@ -305,7 +310,7 @@ export function buildPrompt(input: ProposeInput, template: string = loadSystemPr
   baseline.push("| task | category | pass | duration | tokens |");
   baseline.push("| --- | --- | --- | --- | --- |");
   for (const t of input.baseline.tasks) {
-    baseline.push(`| ${t.task} | ${t.category} | ${t.pass ? "pass" : "FAIL"} | ${t.durationMs}ms | ${t.tokens} |`);
+    baseline.push(`| ${escapeTableCell(t.task)} | ${escapeTableCell(t.category)} | ${t.pass ? "pass" : "FAIL"} | ${t.durationMs}ms | ${t.tokens} |`);
   }
   const failed = input.baseline.tasks.filter((t) => !t.pass);
   if (failed.length === 0) {
@@ -316,9 +321,10 @@ export function buildPrompt(input: ProposeInput, template: string = loadSystemPr
     baseline.push("## Failure checker output (verbatim tail)");
     for (const t of failed) {
       baseline.push(`### ${t.task}`);
-      baseline.push("```");
+      // 4-backtick fence: checker output may itself contain ``` fences.
+      baseline.push("````");
       for (const line of t.checkerOutput.split("\n").filter((l) => l.trim() !== "").slice(-CHECKER_TAIL_LINES)) baseline.push(line);
-      baseline.push("```");
+      baseline.push("````");
     }
   }
   const baselineText = baseline.join("\n");
@@ -331,11 +337,23 @@ export function buildPrompt(input: ProposeInput, template: string = loadSystemPr
     ? "(no harness-findings.md present this round)"
     : input.harnessFindings;
 
+  // Single-pass placeholder substitution: split the template on the token
+  // regex, then rebuild with each known token dispatched to its value and
+  // unknown tokens left as-is. No String.prototype.replace is involved, so
+  // `$` patterns in injected content ($&, $`, $') pass through literally, and
+  // placeholders inside injected content (e.g. a skill file containing
+  // "{{LEDGER}}") are never substituted, because tokenization happens on the
+  // template before any content is inserted.
+  const placeholderValues: Record<string, string> = {
+    "{{COMPONENTS}}": componentsText,
+    "{{BASELINE}}": baselineText,
+    "{{LEDGER}}": ledgerText,
+    "{{HARNESS_FINDINGS}}": findingsText,
+  };
   const system = template
-    .replaceAll("{{COMPONENTS}}", componentsText)
-    .replaceAll("{{BASELINE}}", baselineText)
-    .replaceAll("{{LEDGER}}", ledgerText)
-    .replaceAll("{{HARNESS_FINDINGS}}", findingsText);
+    .split(/({{[A-Z_]+}})/)
+    .map((part) => placeholderValues[part] ?? part)
+    .join("");
 
   const user = [
     "Propose 1–3 candidates now.",
@@ -438,6 +456,9 @@ export function validateCandidate(edits: ProposedEdit[], limits: ValidationLimit
   for (const edit of edits) {
     const pathReason = validatePath(edit.path);
     if (pathReason !== null) reasons.push(pathReason);
+    if (edit.path === "AGENTS.md" && (edit.content === null || edit.content.trim() === "")) {
+      reasons.push("AGENTS.md cannot be deleted or emptied");
+    }
     if (edit.content !== null) {
       if (edit.path === "AGENTS.md" && byteSize(edit.content) > agentsMdCap) {
         reasons.push(`AGENTS.md edit is ${byteSize(edit.content)} bytes (cap ${agentsMdCap})`);
@@ -460,6 +481,8 @@ export interface ProposeDeps {
 
 const DEFAULT_TEMPERATURE = 0.7;
 const RAW_PREVIEW_CHARS = 2000;
+/** Repair output can exceed the generation call's cap; extra headroom so a long JSON array is not truncated mid-token. */
+const REPAIR_MAX_TOKENS = 65536;
 
 /**
  * Generate and validate candidates. Never throws for model/parse outcomes —
@@ -491,11 +514,11 @@ export async function propose(input: ProposeInput, deps: ProposeDeps): Promise<P
       text.slice(0, 20_000),
       "```",
       "",
-      "Return ONLY the corrected JSON array of candidates — no prose, no fences needed.",
+      "Return ONLY the corrected JSON array of candidates as COMPACT JSON (minified, no whitespace-heavy pretty-printing) with no prose before or after it — no fences needed. Long output risks truncation.",
     ].join("\n");
     let repairText: string;
     try {
-      repairText = await deps.callModel(prompt.system, repairUser, {temperature: 0});
+      repairText = await deps.callModel(prompt.system, repairUser, {temperature: 0, maxTokens: REPAIR_MAX_TOKENS});
     } catch (err) {
       return {candidates: [], proposalFingerprint: proposalFingerprintOf([]), repairRetried, parseError: `repair call failed: ${err instanceof Error ? err.message : String(err)}`, rawPreview: text.slice(0, RAW_PREVIEW_CHARS)};
     }
