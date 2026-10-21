@@ -41,6 +41,8 @@ carefully, they are your primary evidence.
 
 {{BASELINE}}
 
+{{FOCUS}}
+
 # Already-rejected proposals
 
 These combined proposal fingerprints were proposed before and REJECTED. Do not
@@ -48,11 +50,9 @@ re-propose an equivalent edit set; if your combined edits would hash to one of
 these fingerprints, change the proposal.
 
 {{LEDGER}}
-
 # Optional findings from the interactive harness cycle
 
 {{HARNESS_FINDINGS}}
-
 # Edit contract
 
 - You propose 1–3 candidates. Each candidate is an independent, self-contained

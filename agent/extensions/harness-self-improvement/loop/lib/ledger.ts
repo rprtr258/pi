@@ -106,6 +106,11 @@ export type RunReportData = {
   piBinary?: {bin: string, version: string | null} | null,
   /** Step 10 probing stats (score.ts): wall time + concurrency aggregate. */
   probeStats?: {tasks: number, probed: number, reused: number, maxObservedConcurrency: number, wallMs: number},
+  /** Step 11 role map; rendered only when at least one role overrides the session model. */
+  roleModels?: {proposer: string | null, judge: string | null, probe: string | null},
+  /** Step 11 per-iteration recursion mode + resolution reason (iterations only). */
+  mode?: string,
+  modeReason?: string,
   /** This run's per-task rows (the candidate side when `base` is present). */
   tasks: ReportTask[],
   /** Optional baseline rows to compare against (comparison table mode). */
@@ -141,6 +146,17 @@ export function renderReport(data: RunReportData): string {
   if (data.cached !== undefined) out.push(`- **cached:** ${data.cached}`);
   if (data.probeStats !== undefined) {
     out.push(`- **probing:** ${data.probeStats.tasks} task(s) — ${data.probeStats.probed} probed, ${data.probeStats.reused} reused; max concurrent probes ${data.probeStats.maxObservedConcurrency}; wall ${fmtDuration(data.probeStats.wallMs)}`);
+  }
+  // Step 11 role map: shown only when a role overrides the session model
+  // (data.model is the session model; a role equal to it is not an override).
+  if (data.roleModels !== undefined) {
+    const overrides = Object.entries(data.roleModels).filter(([, m]) => m !== null && m !== data.model);
+    if (overrides.length > 0) {
+      out.push(`- **role models:** ${overrides.map(([role, m]) => `${role}: ${m}`).join(", ")}${overrides.length < 3 ? " (other roles: session model)" : ""}`);
+    }
+  }
+  if (data.mode !== undefined) {
+    out.push(`- **mode:** ${data.mode}${data.modeReason ? ` (${data.modeReason})` : ""}`);
   }
   out.push("");
   out.push(`**Aggregate:** ${data.aggregate.passCount}/${data.aggregate.total} pass, ${data.aggregate.totalTokens} tokens`);

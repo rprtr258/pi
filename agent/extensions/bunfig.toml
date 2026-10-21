@@ -1,0 +1,10 @@
+# Applies when bun runs from this directory (e.g. `bun test --parallel`).
+# bun reads bunfig.toml from the cwd only, so the exclusion in ../bunfig.toml
+# does not reach here. harness-self-improvement/runs/*/sandbox symlinks into
+# ~/.pi/agent/git and ~/.pi/agent/npm, which sweeps other projects' tests into
+# this suite (e.g. ponytail's band.test.tsx is written for Claude Code's
+# bundled bun runtime with the virtual `claude-code/testing` module and cannot
+# run on the system bun). Everything under runs/ is a gitignored harness
+# artifact, not part of this project's suite.
+[test]
+pathIgnorePatterns = ["harness-self-improvement/runs/**"]
