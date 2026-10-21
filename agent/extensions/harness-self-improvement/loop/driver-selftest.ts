@@ -95,7 +95,7 @@ function makeEnv(probe: RunProbeFn, over: Partial<RunLoopOptions> = {}): Selftes
   const opts: RunLoopOptions = {
     callModel: (async () => CANDIDATE_JSON) as CallModel,
     runProbeFn: probe,
-    snapshotFn: () => ({kinds: {agents: [{relPath: "AGENTS.md", content: "selftest agents md"}], skills: [], templates: [], subagents: [], extensions: []}}),
+    snapshotFn: () => ({kinds: {agents: [{relPath: "AGENTS.md", content: "selftest agents md"}], skills: [], templates: [], subagents: [], extensions: [], mcp: []}}),
     captureModelFn: () => "selftest/model",
     resolvePiBinaryFn: () => ({bin: "fake-pi", version: "selftest"}),
     tasksFn: () => [fakeTask("smoke-a"), fakeTask("smoke-b")],
@@ -369,7 +369,7 @@ async function scenarioFingerprintDrift(check: Check): Promise<void> {
     runProbeFn: makeProbe(WIN_PASS_MAP, probeCalls),
     // The agent config changed while the run was down: the recorded iteration
     // fingerprint no longer matches the current snapshot.
-    snapshotFn: () => ({kinds: {agents: [{relPath: "AGENTS.md", content: "CHANGED after the crash"}], skills: [], templates: [], subagents: [], extensions: []}}),
+    snapshotFn: () => ({kinds: {agents: [{relPath: "AGENTS.md", content: "CHANGED after the crash"}], skills: [], templates: [], subagents: [], extensions: [], mcp: []}}),
   });
   check(res.status === "failed", "run FAILS on fingerprint drift (no mismatched pairing)");
   check((res.stopReason ?? "").includes("snapshot changed between crash and resume"), "failure reason names the snapshot change");
@@ -479,7 +479,140 @@ async function scenarioCodeMinWin(check: Check): Promise<void> {
   check(readState(env2.runsDir, res2.runId!).iterations[0]!.candidates[0]!.win === true, "+2 pass wins with code.minWin 2");
 }
 
+// ---------------------------------------------------------------------------
+// Step 9b: mcp startup-probe gate scenarios (mcp.json kind)
+
+/** A shape-valid mcp.json candidate whose server cannot connect (broken stdio command). */
+const MCP_BROKEN_CANDIDATE_JSON = JSON.stringify([
+  {
+    rationale: "selftest mcp candidate",
+    edits: [{path: "mcp.json", content: `${JSON.stringify({mcpServers: {broken: {command: "/nonexistent/binary"}}})}\n`}],
+  },
+]);
+
+/** A shape-INVALID mcp.json candidate (non-string command) — rejected at validation time. */
+const MCP_SHAPE_INVALID_JSON = JSON.stringify([
+  {rationale: "selftest mcp candidate", edits: [{path: "mcp.json", content: '{"mcpServers":{"x":{"command":42}}}'}]},
+]);
+
+async function scenarioMcpStartupFailure(check: Check): Promise<void> {
+  console.log("== scenario: mcp startup-probe failure rejects the candidate before any suite probe ==");
+  const probeCalls: string[] = [];
+  const env = makeEnv(makeProbe(WIN_PASS_MAP, probeCalls), {callModel: (async () => MCP_BROKEN_CANDIDATE_JSON) as CallModel});
+  const gateCalls: string[] = [];
+  const startupCalls: string[] = [];
+  const res = await runLoop({
+    ...env.opts,
+    codeGatesFn: async (sandboxDir, extName) => {
+      gateCalls.push(`${sandboxDir}:${extName}`);
+      return {ok: true, failedGate: null, output: "", timedOut: false};
+    },
+    startupProbeFn: async (sandboxDir) => {
+      startupCalls.push(sandboxDir);
+      // Phase-b usage (review fix): must land in budgetSpent + the ledger.
+      return {ok: false, failedPhase: "mcp-list" as const, timedOut: false, error: 'MCP server "broken" failed to connect: spawn /nonexistent/binary ENOENT', usageTokens: 123};
+    },
+  });
+  check(res.status === "stopped" && res.stopReason === "no-valid-candidates", "run stops with no scored candidates");
+  const iter = readState(env.runsDir, res.runId!).iterations[0]!;
+  check(iter.candidates[0]!.decision === "gates-failed", "candidate decision gates-failed (mcp startup probe)");
+  check(iter.candidates[0]!.reasons[0]!.includes("mcp startup probe failed"), "startup-probe failure reason recorded");
+  check(iter.candidates[0]!.reasons[0]!.includes("failed to connect"), "captured connect error in candidate reasons");
+  check(iter.candidates[0]!.scores === null && iter.candidates[0]!.win === null, "candidate was never scored");
+  check(probeCalls.filter((c) => c.startsWith("candidate/")).length === 0, "suite probe NOT run after the startup-probe failure (zero rollout spend)");
+  check(startupCalls.length === 1, "startup probe ran exactly once");
+  check(gateCalls.length === 0, "tsc/bun-test gates not run for an mcp-only candidate");
+  // Step 9b review fix: the startup probe's phase-b usage is budget-accounted
+  // even when the probe fails, and recorded in the code-gate ledger entry.
+  // (Baseline probes cost 2 tasks × 1000 tokens; the startup probe adds 123.)
+  check(res.budgetSpent === 2123, "startup probe usage (123 tokens) accounted into budgetSpent even on failure (2000 baseline + 123)");
+  const gateEntry = readLedger(env.ledgerPath).find((e) => e.kind === "code-gate-failed");
+  check(gateEntry?.usage?.totalTokens === 123, "code-gate ledger entry carries the startup probe usage");
+  check(existsSync(join(env.runsDir, res.runId!, "iter-1", "cand-0", "report.md")), "startup-probe-failure report.md written");
+  const kinds = readLedger(env.ledgerPath).map((e) => e.kind);
+  check(kinds.filter((k) => k === "code-gate-failed").length === 1, "one code-gate-failed ledger entry (gate: startup-probe)");
+  // The candidate sandbox had the CANDIDATE mcp.json staged (overlay check).
+  const staged = readFileSync(join(env.runsDir, res.runId!, "sandbox-0", "mcp.json"), "utf8");
+  check(staged.includes("/nonexistent/binary"), "candidate mcp.json staged into the sandbox");
+}
+
+async function scenarioMcpShapeFailNoStartupProbe(check: Check): Promise<void> {
+  console.log("== scenario: shape-invalid mcp candidate is rejected at validation time, startup probe never runs ==");
+  const probeCalls: string[] = [];
+  const env = makeEnv(makeProbe(WIN_PASS_MAP, probeCalls), {callModel: (async () => MCP_SHAPE_INVALID_JSON) as CallModel});
+  const startupCalls: string[] = [];
+  const res = await runLoop({
+    ...env.opts,
+    startupProbeFn: async (sandboxDir) => {
+      startupCalls.push(sandboxDir);
+      return {ok: true, failedPhase: null, timedOut: false, error: "", usageTokens: 0};
+    },
+  });
+  check(res.status === "stopped" && res.stopReason === "no-valid-candidates", "shape-invalid proposal stops the loop");
+  const iter = readState(env.runsDir, res.runId!).iterations[0]!;
+  check(iter.candidates[0]!.verdict === "rejected", "candidate rejected at validation");
+  check(iter.candidates[0]!.reasons.some((r) => r.includes('"command" must be a string')), "shape validator reason recorded");
+  check(startupCalls.length === 0, "startup probe NOT run for a shape-failed candidate (gate 1 is validation-time)");
+  check(probeCalls.filter((c) => c.startsWith("candidate/")).length === 0, "suite probe NOT run");
+}
+
+async function scenarioMcpHealthyPathAndMinWin(check: Check): Promise<void> {
+  console.log("== scenario: healthy mcp candidate passes the startup probe; code.minWin applies ==");
+  // mcp-bearing candidate = code-bearing: +1 pass (below code.minWin 2) must NOT win.
+  const probeCalls: string[] = [];
+  const env = makeEnv(makeProbe(WIN_PASS_MAP, probeCalls), {callModel: (async () => MCP_BROKEN_CANDIDATE_JSON) as CallModel});
+  const startupCalls: string[] = [];
+  const res = await runLoop({
+    ...env.opts,
+    startupProbeFn: async (sandboxDir) => {
+      startupCalls.push(sandboxDir);
+      return {ok: true, failedPhase: null, timedOut: false, error: "", usageTokens: 0};
+    },
+  });
+  check(startupCalls.length === 1, "startup probe ran for the mcp-bearing candidate");
+  const iter = readState(env.runsDir, res.runId!).iterations[0]!;
+  check(iter.candidates[0]!.decision === "loser", "healthy mcp candidate was scored");
+  check(iter.candidates[0]!.win === false, "+1 pass does NOT win with code.minWin 2 (mcp-bearing = code-bearing)");
+  check(iter.candidates[0]!.reasons.some((r) => r.includes("minWin 2")), "selection reasons reference code.minWin 2");
+  check(probeCalls.filter((c) => c.startsWith("candidate/")).length === 2, "suite probe ran after the startup probe passed");
+}
+
+async function scenarioMcpMixedCandidateGateOrder(check: Check): Promise<void> {
+  console.log("== scenario: mixed mcp+extension candidate runs startup probe BEFORE tsc/bun test ==");
+  const mixedJson = JSON.stringify([
+    {
+      rationale: "selftest mixed candidate",
+      edits: [
+        {path: "mcp.json", content: `${JSON.stringify({mcpServers: {a: {command: "a-server"}}})}\n`},
+        {path: "extensions/sample-ext/index.ts", content: "export default function (pi: unknown) { void pi; }\n"},
+      ],
+    },
+  ]);
+  const probeCalls: string[] = [];
+  const env = makeEnv(makeProbe(WIN_PASS_MAP, probeCalls), {callModel: (async () => mixedJson) as CallModel, configOverride: codeConfig()});
+  stageGatedExtension(env.opts.agentDir!);
+  const order: string[] = [];
+  const res = await runLoop({
+    ...env.opts,
+    startupProbeFn: async () => {
+      order.push("startup-probe");
+      return {ok: true, failedPhase: null, timedOut: false, error: "", usageTokens: 0};
+    },
+    codeGatesFn: async () => {
+      order.push("code-gates");
+      return {ok: true, failedGate: null, output: "", timedOut: false};
+    },
+  });
+  check(order.join(",") === "startup-probe,code-gates", "cheapest-first gate order: startup probe → tsc/bun test → suite probe");
+  const iter = readState(env.runsDir, res.runId!).iterations[0]!;
+  check(iter.candidates[0]!.decision === "loser", "mixed candidate scored (both gates passed)");
+  check(iter.candidates[0]!.win === false, "+1 pass does not meet code.minWin 2 for the mixed candidate");
+  const staged = readFileSync(join(env.runsDir, res.runId!, "sandbox-0", "mcp.json"), "utf8");
+  check(staged.includes("a-server"), "candidate mcp.json staged for the mixed candidate");
+}
+
 export async function runSelftest(): Promise<number> {
+
   const failures: string[] = [];
   let passed = 0;
   const check: Check = (cond, label) => {
@@ -506,6 +639,10 @@ export async function runSelftest(): Promise<number> {
     await scenarioCodeGateFailure(check);
     await scenarioCodeLoadError(check);
     await scenarioCodeMinWin(check);
+    await scenarioMcpStartupFailure(check);
+    await scenarioMcpShapeFailNoStartupProbe(check);
+    await scenarioMcpHealthyPathAndMinWin(check);
+    await scenarioMcpMixedCandidateGateOrder(check);
   } catch (err) {
     failures.push(`unhandled selftest error: ${err instanceof Error ? err.stack : String(err)}`);
     console.error(err);

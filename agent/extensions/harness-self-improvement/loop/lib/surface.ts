@@ -51,6 +51,33 @@
  *              (gates.ts stageExtensionForSandbox). gitPath "extensions/" is
  *              still registered so apply's dirty-tree preflight, explicit
  *              pathspec git add, and revert fallback cover code applies.
+ *   mcp        mcp.json (Step 9b) — the agent-dir MCP server config, ONE
+ *              file at the agent-dir root (allowlist ^mcp\.json$, 256KB cap).
+ *              Validated against the REAL pi 1.3.0 shape (verified in
+ *              dist/core/mcp-servers.js validateMcpServerConfig +
+ *              dist/extensions/mcp/config.js readConfigFile): top-level
+ *              object with an `mcpServers` object; each entry keyed by a
+ *              server name /^[A-Za-z0-9_-]+$/ and shaped as EITHER a stdio
+ *              server ({command: string, args?: string[]}) OR a streamable
+ *              HTTP server ({url: string}); unknown extra fields (exposure,
+ *              oauth, type, enabled, timeout, env, cwd, description, …) are
+ *              tolerated — this validator is a SHAPE gate, pi re-validates
+ *              deeply at load. Deleting mcp.json is rejected outright (an
+ *              empty mcpServers map is the legitimate way to disable all
+ *              servers). mcp.json is a CODE-bearing kind: mcp-bearing
+ *              candidates run the startup-probe gate (loop/lib/gates.ts
+ *              runStartupProbe, BEFORE the suite probe — a broken config
+ *              must never burn rollout spend) and select with code.minWin
+ *              (selectionConfigForEdits). There is NO per-name allowlist:
+ *              mcp is one file, editing it is enabled by the kind's
+ *              existence (config code.allow does not apply).
+ *              Snapshot policy: mcp.json IS part of the ambient sandbox
+ *              snapshot (unlike extensions) — probes must run against the
+ *              same MCP config the loop scores against. An ABSENT real
+ *              mcp.json snapshots as an EMPTY list (the absence flag): the
+ *              sandbox then has no mcp.json at all, exactly like the real
+ *              dir — staging an empty file would be a parse error, so
+ *              absence is expressed by contributing no file.
  *
  * File identity convention: every SurfaceFile.relPath is relative to the
  * AGENT DIR (POSIX separators), e.g. "AGENTS.md", "skills/x/SKILL.md",
@@ -67,7 +94,7 @@ export type SurfaceFile = {
   content: string,
 }
 
-export type SurfaceKindName = "agents" | "skills" | "templates" | "subagents" | "extensions";
+export type SurfaceKindName = "agents" | "skills" | "templates" | "subagents" | "extensions" | "mcp";
 
 export type SurfaceCaps = {
   /** Maximum UTF-8 byte size of one file's content. */
@@ -99,6 +126,7 @@ export const SKILLS_MD_CAP_BYTES = 100 * 1024;
 export const TEMPLATE_CAP_BYTES = 100 * 1024;
 export const SUBAGENT_CAP_BYTES = 100 * 1024;
 export const EXTENSION_CAP_BYTES = 100 * 1024;
+export const MCP_CAP_BYTES = 256 * 1024;
 
 /**
  * Recursively walk `dir`, collecting files as SurfaceFiles with `relBase`-prefixed
@@ -236,6 +264,81 @@ export function validateExtensionFile(content: string | null, relPath: string): 
   return [];
 }
 
+/** pi's isStringRecord: a plain-object map whose every value is a string. */
+function isStringRecord(value: unknown): boolean {
+  return value !== null && typeof value === "object" && !Array.isArray(value) && Object.values(value).every((v) => typeof v === "string");
+}
+
+/**
+ * mcp.json validation (Step 9b): mirrors the REAL pi 1.3.0 mcp.json shape
+ * (see the mcp kind header). Rejections:
+ *   - deletion (null content) — mcp.json cannot be deleted; disable servers
+ *     by writing an empty mcpServers map instead.
+ *   - non-JSON / non-object top level / missing or non-object mcpServers.
+ *   - server entries that are not objects, or whose name is not
+ *     /^[A-Za-z0-9_-]+$/ (pi's SERVER_NAME rule — an invalid name would fail
+ *     pi's own validation at startup-probe time anyway, but catching it here
+ *     is free).
+ *   - entries with neither a string `command` (stdio) nor a string `url`
+ *     (streamable HTTP), a non-string `command`, or a non-string-array
+ *     `args`.
+ *   - a `url` entry whose url does not parse (URL.canParse) or whose protocol
+ *     is not http/https, a stdio entry whose `env` (when present) is not a
+ *     string record, or a url entry whose `headers` (when present) is not a
+ *     string record — all three mirror pi 1.3.0 validateMcpServerConfig
+ *     (dist/core/mcp-servers.js: `url must be an http or https URL`,
+ *     `env must map names to strings`, `headers must map names to strings`).
+ * Unknown extra fields are tolerated (pi ignores them too).
+ */
+export function validateMcpJson(content: string | null, _relPath: string): string[] {
+  if (content === null) return ["mcp.json cannot be deleted — write an empty mcpServers map ({\"mcpServers\":{}}) to disable all servers instead"];
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(content);
+  } catch (err) {
+    return [`mcp.json is not valid JSON: ${err instanceof Error ? err.message : String(err)}`];
+  }
+  if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) return ["mcp.json must be a JSON object"];
+  const servers = (parsed as Record<string, unknown>)["mcpServers"];
+  if (servers === null || typeof servers !== "object" || Array.isArray(servers)) {
+    return [`mcp.json: top-level "mcpServers" must be an object`];
+  }
+  const reasons: string[] = [];
+  for (const [name, entry] of Object.entries(servers as Record<string, unknown>)) {
+    const prefix = `mcp.json: server "${name}":`;
+    if (!/^[A-Za-z0-9_-]+$/.test(name)) {
+      reasons.push(`${prefix} invalid server name (pi requires letters, digits, "_" and "-")`);
+      continue;
+    }
+    if (entry === null || typeof entry !== "object" || Array.isArray(entry)) {
+      reasons.push(`${prefix} must be an object`);
+      continue;
+    }
+    const e = entry as Record<string, unknown>;
+    const hasCommand = typeof e["command"] === "string";
+    const hasUrl = typeof e["url"] === "string";
+    if (!hasCommand && !hasUrl) {
+      reasons.push(`${prefix} needs either "command" (stdio) or "url" (streamable HTTP)`);
+    }
+    if (e["command"] !== undefined && typeof e["command"] !== "string") {
+      reasons.push(`${prefix} "command" must be a string`);
+    }
+    if (e["args"] !== undefined && !(Array.isArray(e["args"]) && e["args"].every((arg) => typeof arg === "string"))) {
+      reasons.push(`${prefix} "args" must be an array of strings`);
+    }
+    if (hasUrl && (!URL.canParse(e["url"] as string) || !/^https?:$/.test(new URL(e["url"] as string).protocol))) {
+      reasons.push(`${prefix} "url" must be an http or https URL`);
+    }
+    if (hasCommand && e["env"] !== undefined && !isStringRecord(e["env"])) {
+      reasons.push(`${prefix} "env" must map names to strings`);
+    }
+    if (hasUrl && e["headers"] !== undefined && !isStringRecord(e["headers"])) {
+      reasons.push(`${prefix} "headers" must map names to strings`);
+    }
+  }
+  return reasons;
+}
+
 // ---------------------------------------------------------------------------
 // Registry
 
@@ -307,6 +410,21 @@ export const SURFACE_KINDS: readonly SurfaceKind[] = [
     stage: stageFiles,
     gitPath: "extensions/",
     applyDir: "extensions",
+  },
+  {
+    name: "mcp",
+    allowlist: /^mcp\.json$/,
+    caps: {maxFileBytes: MCP_CAP_BYTES},
+    validate: validateMcpJson,
+    // Absent real file → empty list (the absence flag — see the kind header):
+    // the sandbox simply has no mcp.json, like the real dir.
+    snapshot: (absDir) => {
+      const path = join(absDir, "mcp.json");
+      return existsSync(path) ? [{relPath: "mcp.json", content: readFileSync(path, "utf8")}] : [];
+    },
+    stage: stageFiles, // stages mcp.json only when the snapshot has one
+    gitPath: "mcp.json",
+    applyDir: "",
   },
 ];
 

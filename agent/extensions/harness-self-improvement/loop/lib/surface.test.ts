@@ -14,6 +14,7 @@ import {
   parseFrontmatterField,
   SURFACE_KINDS,
   surfaceKind,
+  validateMcpJson,
   validateSubagent,
   validateTemplate,
   type SurfaceKindName,
@@ -242,5 +243,119 @@ describe("extensions kind (Step 9a)", () => {
     const sandbox = tempDir();
     surfaceKind("extensions").stage(sandbox, [{relPath: "extensions/sample/index.ts", content: "export {}\n"}]);
     expect(readFileSync(join(sandbox, "extensions", "sample", "index.ts"), "utf8")).toBe("export {}\n");
+  });
+});
+
+describe("mcp kind (Step 9b)", () => {
+  // The REAL pi 1.3.0 shape (read from ~/.pi/agent/mcp.json + pi's own
+  // validateMcpServerConfig): stdio {command, args}, streamable HTTP {url,
+  // oauth}, plus tolerated extra fields like exposure.
+  const REAL_SHAPED = `${JSON.stringify(
+    {
+      mcpServers: {
+        "chrome-devtools": {command: "bunx", args: ["-y", "chrome-devtools-mcp@latest"]},
+        fetch: {command: "uvx", args: ["mcp-server-fetch"]},
+        "sequential-thinking": {exposure: "direct", command: "bunx", args: ["-y", "@modelcontextprotocol/server-sequential-thinking"]},
+        logging: {url: "https://mcp-gateway.example/logging/mcp", oauth: {clientId: "k8s.mcp-gateway", callbackUrl: "http://localhost:6274/oauth/callback"}},
+      },
+    },
+    null,
+    2,
+  )}\n`;
+
+  test("static allowlist routes mcp.json only", () => {
+    expect(kindForPath("mcp.json")!.name).toBe("mcp");
+    for (const path of ["mcp.json.bak", "MCP.JSON", "mcp/config.json", ".mcp.json", "sub/mcp.json"]) {
+      expect(kindForPath(path)).toBeNull();
+    }
+  });
+
+  test("valid real-shaped mcp.json passes the shape validator (empty server map too)", () => {
+    expect(validateMcpJson(REAL_SHAPED, "mcp.json")).toEqual([]);
+    expect(validateMcpJson('{"mcpServers":{}}\n', "mcp.json")).toEqual([]); // empty server map is legitimate
+  });
+
+  test("malformed JSON rejected", () => {
+    expect(validateMcpJson("{ not json", "mcp.json")[0]).toContain("not valid JSON");
+  });
+
+  test("non-object top level and missing/non-object mcpServers rejected", () => {
+    expect(validateMcpJson("[]", "mcp.json")[0]).toContain("must be a JSON object");
+    expect(validateMcpJson('"str"', "mcp.json")[0]).toContain("must be a JSON object");
+    expect(validateMcpJson("{}", "mcp.json")[0]).toContain('"mcpServers" must be an object');
+    expect(validateMcpJson('{"mcpServers":[]}', "mcp.json")[0]).toContain('"mcpServers" must be an object');
+  });
+
+  test("server entry with non-string command rejected", () => {
+    const reasons = validateMcpJson('{"mcpServers":{"x":{"command":42}}}', "mcp.json");
+    expect(reasons.some((r) => r.includes('server "x"') && r.includes('"command" must be a string'))).toBe(true);
+  });
+
+  test("non-string-array args rejected; string array args accepted", () => {
+    const bad = validateMcpJson('{"mcpServers":{"x":{"command":"c","args":[1,"ok"]}}}', "mcp.json");
+    expect(bad.some((r) => r.includes('"args" must be an array of strings'))).toBe(true);
+    const bad2 = validateMcpJson('{"mcpServers":{"x":{"command":"c","args":"-y"}}}', "mcp.json");
+    expect(bad2.some((r) => r.includes('"args" must be an array of strings'))).toBe(true);
+    expect(validateMcpJson('{"mcpServers":{"x":{"command":"c","args":["-y"]}}}', "mcp.json")).toEqual([]);
+  });
+
+  test("url entries: unparseable/non-http url rejected; http/https accepted (pi 1.3.0 alignment)", () => {
+    for (const url of ["not a url", "/local/path", "ftp://x/y", "file:///etc/passwd"]) {
+      const reasons = validateMcpJson(`{"mcpServers":{"x":{"url":${JSON.stringify(url)}}}}`, "mcp.json");
+      expect(reasons.some((r) => r.includes('server "x"') && r.includes('"url" must be an http or https URL'))).toBe(true);
+    }
+    expect(validateMcpJson('{"mcpServers":{"x":{"url":"https://example.com/mcp"}}}', "mcp.json")).toEqual([]);
+    expect(validateMcpJson('{"mcpServers":{"x":{"url":"http://localhost:6274/mcp"}}}', "mcp.json")).toEqual([]);
+  });
+
+  test("stdio env and url headers must be string records when present (pi 1.3.0 alignment)", () => {
+    const badEnv = validateMcpJson('{"mcpServers":{"x":{"command":"c","env":{"A":1}}}}', "mcp.json");
+    expect(badEnv.some((r) => r.includes('server "x"') && r.includes('"env" must map names to strings'))).toBe(true);
+    expect(validateMcpJson('{"mcpServers":{"x":{"command":"c","env":{"A":"b"}}}}', "mcp.json")).toEqual([]);
+    const badHeaders = validateMcpJson('{"mcpServers":{"x":{"url":"https://example.com/mcp","headers":{"Authorization":42}}}}', "mcp.json");
+    expect(badHeaders.some((r) => r.includes('server "x"') && r.includes('"headers" must map names to strings'))).toBe(true);
+    expect(validateMcpJson('{"mcpServers":{"x":{"url":"https://example.com/mcp","headers":{"Authorization":"Bearer t"}}}}', "mcp.json")).toEqual([]);
+  });
+
+  test("non-object server entries and missing command+url rejected", () => {
+    expect(validateMcpJson('{"mcpServers":{"x":"stdio"}}', "mcp.json")[0]).toContain('server "x": must be an object');
+    expect(validateMcpJson('{"mcpServers":{"x":{}}}', "mcp.json")[0]).toContain('needs either "command" (stdio) or "url" (streamable HTTP)');
+    expect(validateMcpJson('{"mcpServers":{"x":{"command":null}}}', "mcp.json")[0]).toContain('needs either "command"');
+  });
+
+  test("invalid server names rejected (pi's SERVER_NAME rule)", () => {
+    expect(validateMcpJson('{"mcpServers":{"bad name!":{"command":"c"}}}', "mcp.json")[0]).toContain("invalid server name");
+  });
+
+  test("deleting mcp.json rejected outright (empty server map is the disable path)", () => {
+    expect(validateMcpJson(null, "mcp.json")[0]).toContain("mcp.json cannot be deleted");
+  });
+
+  test("the REAL ~/.pi/agent/mcp.json passes the shape validator (read-only check)", () => {
+    const realPath = join(process.env["HOME"] ?? "", ".pi", "agent", "mcp.json");
+    let real: string;
+    try {
+      real = readFileSync(realPath, "utf8");
+    } catch {
+      console.log("  (no real ~/.pi/agent/mcp.json — shape check skipped)");
+      return;
+    }
+    expect(validateMcpJson(real, "mcp.json")).toEqual([]);
+  });
+
+  test("256KB cap; snapshot returns the file or nothing (absence flag); gitPath/applyDir at the agent-dir root", () => {
+    expect(surfaceKind("mcp").caps.maxFileBytes).toBe(256 * 1024);
+    const dir = tempDir();
+    expect(surfaceKind("mcp").snapshot(dir)).toEqual([]); // absent real file → empty list
+    writeFileSync(join(dir, "mcp.json"), REAL_SHAPED);
+    expect(surfaceKind("mcp").snapshot(dir)).toEqual([{relPath: "mcp.json", content: REAL_SHAPED}]);
+    expect(surfaceKind("mcp").gitPath).toBe("mcp.json");
+    expect(surfaceKind("mcp").applyDir).toBe("");
+  });
+
+  test("stage writes mcp.json at the sandbox root", () => {
+    const sandbox = tempDir();
+    surfaceKind("mcp").stage(sandbox, [{relPath: "mcp.json", content: REAL_SHAPED}]);
+    expect(readFileSync(join(sandbox, "mcp.json"), "utf8")).toBe(REAL_SHAPED);
   });
 });

@@ -164,14 +164,26 @@ describe("buildSandbox", () => {
     expect(readFileSync(join(dir, "agents", "scout.md"), "utf8")).toBe("---\nname: scout\n---\n");
   });
 
-  test("auth.json and models.json copies are read-only (0o444)", () => {
+  test("auth.json, mcp-auth.json and models.json copies are read-only (0o444)", () => {
     const agentDir = makeAgentDir(tempRoot());
+    writeFileSync(join(agentDir, "mcp-auth.json"), '{"mcp-gateway":{"accessToken":"t"}}');
     const dir = join(tempRoot(), "sandbox");
     buildSandbox(snapshotReal(agentDir), dir, agentDir);
     expect(statSync(join(dir, "auth.json")).mode & 0o777).toBe(0o444);
+    // mcp-auth.json staged READ-ONLY too (Step 9b review fix): OAuth servers
+    // authenticate in sandbox probes instead of always reporting needs-auth.
+    expect(readFileSync(join(dir, "mcp-auth.json"), "utf8")).toBe('{"mcp-gateway":{"accessToken":"t"}}');
+    expect(statSync(join(dir, "mcp-auth.json")).mode & 0o777).toBe(0o444);
     expect(statSync(join(dir, "models.json")).mode & 0o777).toBe(0o444);
     // Settings and skills stay writable.
     expect(statSync(join(dir, "settings.json")).mode & 0o777).not.toBe(0o444);
+  });
+
+  test("mcp-auth.json is NOT staged when absent in the real agent dir (Step 9b review fix)", () => {
+    const agentDir = makeAgentDir(tempRoot()); // no mcp-auth.json written
+    const dir = join(tempRoot(), "sandbox");
+    buildSandbox(snapshotReal(agentDir), dir, agentDir);
+    expect(existsSync(join(dir, "mcp-auth.json"))).toBe(false);
   });
 
   test("settings.json contains the captured provider/model", () => {
@@ -283,5 +295,18 @@ describe("buildSandbox", () => {
     const dir = join(root, "sandbox");
     buildSandbox(snapshotReal(agentDir), dir, agentDir);
     expect(relativeFiles(dir)).toEqual(["AGENTS.md", "settings.json", "skills/s/SKILL.md"]);
+  });
+
+  test("stages the real mcp.json at the sandbox root when present; nothing when absent (Step 9b)", () => {
+    const agentDir = makeAgentDir(tempRoot());
+    writeFileSync(join(agentDir, "mcp.json"), '{"mcpServers":{"fs":{"command":"fs-server"}}}\n');
+    const dir = join(tempRoot(), "sandbox");
+    buildSandbox(snapshotReal(agentDir), dir, agentDir);
+    expect(readFileSync(join(dir, "mcp.json"), "utf8")).toBe('{"mcpServers":{"fs":{"command":"fs-server"}}}\n');
+    // Absent real file → no mcp.json in the sandbox at all (never an empty file).
+    const agentDir2 = makeAgentDir(tempRoot());
+    const dir2 = join(tempRoot(), "sandbox");
+    buildSandbox(snapshotReal(agentDir2), dir2, agentDir2);
+    expect(existsSync(join(dir2, "mcp.json"))).toBe(false);
   });
 });

@@ -17,9 +17,18 @@
  *       the sandbox, then `bunx tsc --noEmit` (120s) and `bun test` (120s) on
  *       the sandbox copy; the full-suite probe follows only after both pass,
  *       and a nested-pi extension load error captured from the probe output
- *       rejects the candidate post-suite. Gate failures are recorded as
- *       decision "gates-failed" with the captured output; code-bearing
- *       candidates select with config code.minWin instead of minWin.
+ *       rejects the candidate post-suite. STEP 9b: a candidate touching
+ *       mcp.json FIRST runs the startup probe (runStartupProbe: an eager
+ *       `pi mcp list --json` connect check — zero model tokens — then a
+ *       minimal-token OK-prompt nested pi run), also BEFORE the suite probe;
+ *       mixed candidates run every applicable gate cheapest-first (shape
+ *       validation → startup probe → tsc/bun test → suite probe). Gate
+ *       failures are recorded as decision "gates-failed" with the captured
+ *       output; the startup probe's phase-b usage (StartupProbeResult
+ *       .usageTokens, Step 9b review fix) is accounted into state.budgetSpent
+ *       and the code-gate ledger entry — probe spend is real spend even when
+ *       the probe fails. Code-bearing candidates (extensions OR mcp.json)
+ *       select with config code.minWin instead of minWin.
  *   (5) selectWinner vs baseline (loop/lib/score.ts)
  *   (6) applyCandidate (winner) or appendProposalRejectedEntry (no winner)
  *   (7) ledger entries + report.md per iteration and per candidate
@@ -65,7 +74,7 @@ import {buildLedgerDigest, propose, type CallModel, type ProposedCandidate} from
 import {appendProposalRejectedEntry, applyCandidate, loadLoopConfig, type LoopConfig} from "./lib/apply.ts";
 import {baselineCacheDir, baselineCachePath, cacheMatchesTaskSet, fingerprintSnapshot, readBaselineCache, writeBaselineCache} from "./baseline.ts";
 import {resolvePiBinary, runProbe} from "./lib/probe.ts";
-import {runCodeGates, scanProbeLoadErrors, selectionConfigForEdits, stageExtensionForSandbox, touchedExtensionNames} from "./lib/gates.ts";
+import {runCodeGates, isMcpPath, runStartupProbe, scanProbeLoadErrors, selectionConfigForEdits, stageExtensionForSandbox, stageMcpForSandbox, touchedExtensionNames, type StartupProbeResult} from "./lib/gates.ts";
 
 // ---------------------------------------------------------------------------
 // Public types
@@ -77,7 +86,7 @@ export type IterationPhase = "baseline" | "propose" | "score" | "decide" | "done
 export type CandidateDecision =
   | "pending"           // accepted, not yet scored
   | "rejected-invalid"  // failed proposer validation
-  | "gates-failed"      // failed the Step 9a code gate pipeline (tsc / bun test / load-error capture)
+  | "gates-failed"      // failed the Step 9a/9b gate pipeline (tsc / bun test / mcp startup probe / load-error capture)
   | "not-scored"        // accepted but beyond candidates.maxPerIteration
   | "loser"             // scored, did not win
   | "winner-dry-run"    // won, applyCandidate returned dry-run
@@ -194,6 +203,8 @@ export type RunLoopOptions = {
   isPidAliveFn?: (pid: number) => boolean,
   /** Code gate runner override (selftest); default = the real gates pipeline. */
   codeGatesFn?: typeof runCodeGates,
+  /** mcp startup-probe runner override (selftest); default = the real runStartupProbe. */
+  startupProbeFn?: (sandboxDir: string, options?: Parameters<typeof runStartupProbe>[1]) => Promise<StartupProbeResult>,
 }
 
 // ---------------------------------------------------------------------------
@@ -624,12 +635,39 @@ export async function runLoop(opts: RunLoopOptions): Promise<LoopRunResult> {
         const sandboxDir = join(runDir, `sandbox-${candIdx}`); // self-created; buildSandbox wipes it
         buildSandbox(scoreSnapshot, sandboxDir);
         log(`[hloop] iter ${index}: scoring candidate ${candIdx + 1}...`);
-        // Step 9a code gates (BEFORE the suite probe). A candidate touching
+        // Step 9a/9b gates (BEFORE the suite probe). A candidate touching
         // extensions/<name>/ must touch exactly one extension, be staged into
-        // the sandbox, then pass gates 2+3 (tsc, bun test) — any failure
-        // rejects the candidate with the captured output and skips the probe.
+        // the sandbox, then pass tsc + bun test. A candidate touching
+        // mcp.json is staged first and must pass the startup probe (an eager
+        // `pi mcp list` connect check + a minimal-token OK run) — a broken
+        // config must never burn rollout spend. Mixed candidates run every
+        // applicable gate cheapest-first (startup probe before tsc/bun test;
+        // both before the suite probe). Any failure rejects the candidate
+        // with the captured output and skips the probe.
         const touchedExts = touchedExtensionNames(cState.edits);
+        const touchedMcp = cState.edits.some((e) => isMcpPath(e.path));
         let gateExt: string | null = null;
+        if (touchedMcp) {
+          // Candidate mcp.json on top of the sandbox's real staged copy.
+          stageMcpForSandbox(sandboxDir, cState.edits);
+          log(`[hloop] iter ${index}: running mcp startup probe...`);
+          const startup = await (opts.startupProbeFn ?? runStartupProbe)(sandboxDir);
+          // The startup probe's phase-b model call is real spend: account it
+          // into the run budget (Step 9b review fix) whatever the outcome.
+          state.budgetSpent += startup.usageTokens;
+          persist();
+          if (!startup.ok) {
+            const gateName = startup.failedPhase === "mcp-list" ? "startup-probe:mcp-list" : "startup-probe";
+            const reasons = [`mcp startup probe failed${startup.timedOut ? " (timed out, process group killed)" : ""}:\n${startup.error}`];
+            cState.decision = "gates-failed";
+            cState.reasons = reasons;
+            cState.reportPath = writeGateFailureReport(candIdx, "mcp startup probe failed", reasons);
+            appendEntry({runId, ts: now(), kind: "code-gate-failed", iteration: index, candidateIndex: candIdx, reasons, gate: gateName, usage: {totalTokens: startup.usageTokens}}, ledger);
+            log(`[hloop] iter ${index}: candidate ${candIdx + 1} REJECTED by the mcp startup probe`);
+            persist();
+            continue;
+          }
+        }
         if (touchedExts.length > 0) {
           if (touchedExts.length > 1) {
             const reasons = [`candidate touches ${touchedExts.length} extensions (${touchedExts.join(", ")}) — at most one extension per code candidate`];
@@ -691,8 +729,8 @@ export async function runLoop(opts: RunLoopOptions): Promise<LoopRunResult> {
         }
         cState.scores = {passCount: scored.aggregate.passCount, total: scored.aggregate.total};
         cState.totalTokens = scored.aggregate.totalTokens;
-        // Step 9a selection: code-bearing candidates need code.minWin passes
-        // (default 2) instead of the global minWin.
+        // Step 9a/9b selection: code-bearing candidates (extensions OR
+        // mcp.json) need code.minWin passes (default 2) instead of minWin.
         const selection = selectWinner(baselineResults, scored.results, selectionConfigForEdits(cState.edits, selectionConfig, runConfig.code.minWin));
         cState.win = selection.win;
         cState.reasons = selection.reasons;
