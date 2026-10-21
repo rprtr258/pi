@@ -8,8 +8,15 @@
  */
 import type {ExtensionAPI, ExtensionCommandContext} from "@earendil-works/pi-coding-agent";
 import {Type} from "@earendil-works/pi-ai";
-import {existsSync, readFileSync} from "node:fs";
+import {existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync} from "node:fs";
 import {join} from "node:path";
+// === harness-loop (S4): /hloop-propose debug command (superseded by S6 driver) ===
+// Generates + validates improvement candidates against a fixture baseline run.
+// Debug-only: prints candidates to the console and writes NOTHING (S5 owns
+// apply + ledger bookkeeping).
+import {buildLedgerDigest, buildPrompt, loadBaselineFromRunDir, propose, type BuiltPrompt} from "./loop/lib/proposer.ts";
+import {extensionRoot, readLedger} from "./loop/lib/ledger.ts";
+import {captureModelSettings, realPiAgentDir, snapshotReal, type ComponentSnapshot} from "./loop/lib/stage.ts";
 
 const CYCLE_PROMPT = `Run one agent harness improvement cycle.
 
@@ -28,14 +35,6 @@ Read PLAN.md first — it defines scope, evidence rules, and the cycle.
    report. Then call the harness_annotate_findings tool with that file — it opens the browser
    annotation UI and returns my notes and next-step marks.
    Wait — no change without my explicit per-change approval (my annotations and my reply both count).`;
-
-// === harness-loop (S4): /hloop-propose debug command (superseded by S6 driver) ===
-// Generates + validates improvement candidates against a fixture baseline run.
-// Debug-only: prints candidates to the console and writes NOTHING (S5 owns
-// apply + ledger bookkeeping).
-import {buildLedgerDigest, buildPrompt, loadBaselineFromRunDir, propose, type BuiltPrompt} from "./loop/lib/proposer.ts";
-import {extensionRoot, readLedger} from "./loop/lib/ledger.ts";
-import {captureModelSettings, realPiAgentDir, snapshotReal, type ComponentSnapshot} from "./loop/lib/stage.ts";
 
 function byteLen(text: string): number {
   return new TextEncoder().encode(text).length;
@@ -179,8 +178,202 @@ function registerHloopPropose(pi: ExtensionAPI): void {
 }
 // === end harness-loop (S4) ===
 
+// === harness-loop (S6): /hloop command group — driver, budget, UX ===
+// Runs the recursive optimization loop's state machine (loop/driver.ts
+// runLoop) to completion INSIDE the command handler — synchronous, like
+// /hloop-propose: the session blocks for the whole loop (nested pi probes +
+// proposer model calls; expect minutes). Long-running by design.
+import {runLoop, type LoopState} from "./loop/driver.ts";
+import {loadLoopConfig, revertByRunId} from "./loop/lib/apply.ts";
+import {ledgerPath} from "./loop/lib/ledger.ts"; // readLedger/extensionRoot already imported in the S4 block above
+
+function hloopRunsDir(): string {
+  return join(extensionRoot, "runs");
+}
+
+function hloopStopFlagPath(): string {
+  return join(extensionRoot, "loop", ".stop");
+}
+
+/** The run whose state.json has the newest updatedTs, or null. */
+function hloopLatestRun(): {runId: string, state: LoopState} | null {
+  const runsDir = hloopRunsDir();
+  if (!existsSync(runsDir)) return null;
+  let best: {runId: string, state: LoopState} | null = null;
+  for (const entry of readdirSync(runsDir, {withFileTypes: true})) {
+    if (!entry.isDirectory()) continue;
+    const statePath = join(runsDir, entry.name, "state.json");
+    if (!existsSync(statePath)) continue;
+    try {
+      const state = JSON.parse(readFileSync(statePath, "utf8")) as LoopState;
+      if (typeof state.updatedTs !== "string") continue;
+      if (best === null || state.updatedTs > best.state.updatedTs) best = {runId: entry.name, state};
+    } catch {
+      // unreadable state file — not a candidate for "latest"
+    }
+  }
+  return best;
+}
+
+async function hloopStart(argv: string[], ctx: ExtensionCommandContext): Promise<void> {
+  let iterations: number | undefined;
+  let suiteGlob: string | undefined;
+  let maxCandidates: number | undefined;
+  let resumeRunId: string | undefined;
+  for (let i = 0; i < argv.length; i++) {
+    const arg = argv[i]!;
+    if (arg === "--iterations") iterations = Number(argv[++i]);
+    else if (arg === "--suite") {
+      const value = argv[++i];
+      if (value === undefined || value.startsWith("-")) {
+        console.error(`/hloop start: --suite requires a value (a task-name glob like "smoke-*"), not another flag`);
+        return;
+      }
+      suiteGlob = value;
+    }
+    else if (arg === "--max-candidates") maxCandidates = Number(argv[++i]);
+    else if (arg === "--resume") {
+      const value = argv[++i];
+      if (value === undefined || value.startsWith("-")) {
+        console.error(`/hloop start: --resume requires a value (a run id), not another flag`);
+        return;
+      }
+      resumeRunId = value;
+    }
+    else {
+      console.error(`/hloop start: unknown argument '${arg}'`);
+      return;
+    }
+  }
+  for (const [name, value] of [["--iterations", iterations], ["--max-candidates", maxCandidates]] as const) {
+    if (value !== undefined && (!Number.isInteger(value) || value < 1)) {
+      console.error(`/hloop start: ${name} must be an integer >= 1`);
+      return;
+    }
+  }
+
+  const config = loadLoopConfig();
+  console.log("[hloop] COST WARNING: /hloop runs the whole loop synchronously in this handler — the session BLOCKS until it finishes (nested pi probes + proposer model calls, real tokens).");
+  console.log(`[hloop] budget metric: TOKENS (cost.total is always 0 on this gateway); config budget.maxTotalTokens=${config.budget.maxTotalTokens}, budget.maxIterations=${config.budget.maxIterations}, candidates.maxPerIteration=${config.candidates.maxPerIteration}${iterations !== undefined ? ` (--iterations ${iterations} overrides maxIterations)` : ""}`);
+  console.log(`[hloop] apply.dryRun is currently ${config.apply.dryRun}${config.apply.dryRun ? " — winners are NOT written to the live agent config; to enable real apply edit loop/config.json (\"apply\": {\"dryRun\": false})" : " — winners WILL be committed to the live agent config"}`);
+  console.log(`[hloop] suite: ${suiteGlob ?? "<full suite>"} — the first live run should use --suite "smoke-*"`);
+
+  try {
+    const result = await runLoop({
+      iterations,
+      suiteGlob,
+      maxCandidates,
+      resumeRunId,
+      callModel: (system, user, options) => callModelViaRegistry(ctx, system, user, options),
+      log: (line) => console.log(line),
+    });
+    console.log(`[hloop] finished: status ${result.status}${result.stopReason ? ` (${result.stopReason})` : ""}, ${result.iterationsCompleted} iteration(s) completed, ${result.budgetSpent} tokens spent`);
+    if (result.statePath !== null) console.log(`[hloop] state: ${result.statePath}`);
+    if (!result.ok && result.stopReason !== null) console.error(`[hloop] run did not complete: ${result.stopReason}`);
+  } catch (err) {
+    console.error(`[hloop] runLoop failed: ${err instanceof Error ? err.message : String(err)}`);
+  }
+}
+
+function hloopStatus(): void {
+  const runsDir = hloopRunsDir();
+  const latest = hloopLatestRun();
+  if (latest === null) {
+    console.log("[hloop] no runs recorded (no state.json under runs/)");
+  } else {
+    const s = latest.state;
+    console.log(`[hloop] latest run ${s.runId}: status ${s.status}${s.stopReason ? ` (${s.stopReason})` : ""}`);
+    console.log(`  started ${s.startedTs}, updated ${s.updatedTs}, model ${s.model ?? "<pi default>"}, suite ${s.suiteGlob ?? "<full>"}`);
+    console.log(`  budget: ${s.budgetSpent}/${s.config.maxTotalTokens} tokens; config: maxIterations ${s.config.maxIterations}, maxCandidates ${s.config.maxCandidates}, dryRun ${s.config.dryRun}`);
+    for (const it of s.iterations) {
+      const base = it.baseline === null ? "?" : `${it.baseline.passCount}/${it.baseline.total}${it.baseline.cached ? " (cached)" : ""}`;
+      const cands = it.candidates.map((c) => `#${c.index}:${c.decision}`).join(", ") || "none";
+      console.log(`  iter ${it.index} [${it.phase}] baseline ${base}${it.decision ? ` — decision: ${it.decision}` : ""}; candidates: ${cands}`);
+    }
+    console.log(`  state: ${join(runsDir, s.runId, "state.json")}`);
+  }
+  const entries = readLedger(ledgerPath).slice(-5);
+  console.log(`[hloop] last ${entries.length} ledger entr${entries.length === 1 ? "y" : "ies"}:`);
+  for (const e of entries) console.log(`  ${JSON.stringify(e)}`);
+}
+
+function hloopStop(): void {
+  mkdirSync(join(extensionRoot, "loop"), {recursive: true});
+  writeFileSync(hloopStopFlagPath(), `${new Date().toISOString()}\n`);
+  console.log(`[hloop] stop flag created: ${hloopStopFlagPath()} — a running loop stops before its next probe/iteration and deletes the flag.`);
+}
+
+function hloopRevert(argv: string[]): void {
+  const runId = argv[0];
+  if (runId === undefined || runId.startsWith("-")) {
+    console.error("usage: /hloop revert <runId>");
+    return;
+  }
+  const res = revertByRunId(runId);
+  if (res.ok) {
+    console.log(`[hloop] reverted run ${runId}: method ${res.method}${res.sha !== undefined ? `, commit ${res.sha}` : ""}`);
+  } else {
+    console.error(`[hloop] revert failed for run ${runId}: ${res.error ?? "unknown error"}`);
+  }
+}
+
+function hloopReport(argv: string[]): void {
+  const runId = argv[0] ?? hloopLatestRun()?.runId;
+  if (runId === undefined) {
+    console.error("[hloop] report: no runId given and no runs recorded");
+    return;
+  }
+  const runDir = join(hloopRunsDir(), runId);
+  if (!existsSync(runDir)) {
+    console.error(`[hloop] report: no run directory ${runDir}`);
+    return;
+  }
+  const reports: string[] = [];
+  const walk = (dir: string): void => {
+    for (const entry of readdirSync(dir, {withFileTypes: true}).sort((a, b) => (a.name < b.name ? -1 : 1))) {
+      const full = join(dir, entry.name);
+      if (entry.isDirectory()) walk(full);
+      else if (entry.name === "report.md") reports.push(full);
+    }
+  };
+  walk(runDir);
+  console.log(`[hloop] report for run ${runId} (${reports.length} report.md file(s)):`);
+  for (const r of reports) console.log(`  ${r}`);
+  const statePath = join(runDir, "state.json");
+  if (existsSync(statePath)) {
+    try {
+      const s = JSON.parse(readFileSync(statePath, "utf8")) as LoopState;
+      for (const it of s.iterations) {
+        if (it.baseline === null) continue;
+        console.log(`  iter ${it.index}: baseline ${it.baseline.passCount}/${it.baseline.total} (${it.baseline.totalTokens} tokens${it.baseline.cached ? ", cached" : ""}) — ${it.decision ?? it.phase}`);
+      }
+      console.log(`  budget spent: ${s.budgetSpent} tokens; status ${s.status}${s.stopReason ? ` (${s.stopReason})` : ""}`);
+    } catch {
+      // state unreadable — reports above still listed
+    }
+  }
+}
+
+function registerHloop(pi: ExtensionAPI): void {
+  pi.registerCommand("hloop", {
+    description: "harness-loop S6: recursive optimization loop — start | status | stop | revert <runId> | report [runId]",
+    handler: async (args: string, ctx: ExtensionCommandContext) => {
+      const argv = args.trim().split(/\s+/).filter(Boolean);
+      const sub = argv.shift() ?? "";
+      if (sub === "start") return hloopStart(argv, ctx);
+      if (sub === "status") return hloopStatus();
+      if (sub === "stop") return hloopStop();
+      if (sub === "revert") return hloopRevert(argv);
+      if (sub === "report") return hloopReport(argv);
+      console.error("usage: /hloop start [--iterations N] [--suite <glob>] [--max-candidates K] [--resume <runId>] | status | stop | revert <runId> | report [runId]");
+    },
+  });
+}
+// === end harness-loop (S6) ===
+
 export default function (pi: ExtensionAPI) {
   registerHloopPropose(pi);
+  registerHloop(pi);
 
   pi.registerCommand("harness", {
     description: "Run an agent harness improvement cycle (see PLAN.md)",
