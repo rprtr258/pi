@@ -97,9 +97,14 @@ try {
   check("apply entry decision=applied with sha", applyEntry?.["decision"] === "applied" && applyEntry?.["sha"] === applied.sha);
 
   // --- Revert --------------------------------------------------------------
-  const reverted = revertByRunId(runId, {agentDir});
+  const reverted = revertByRunId(runId, {agentDir, ledgerPath: ledger});
   check("revert succeeded", reverted.ok, `method=${reverted.method} error=${reverted.error ?? ""}`);
   check("revert sha is the marker commit", reverted.sha !== undefined && markerLog.stdout.split("\n").some((l) => l.startsWith(`${reverted.sha} ${marker}`)));
+  const revertEntry = ledgerLines.concat(
+    readFileSync(ledger, "utf8").trim().split("\n").filter((l) => l !== "").map((l) => JSON.parse(l) as Record<string, unknown>),
+  ).find((e) => e["kind"] === "revert");
+  check("ledger has the revert entry", revertEntry !== undefined);
+  check("revert entry decision=reverted with sha+method", revertEntry?.["decision"] === "reverted" && revertEntry?.["sha"] === reverted.sha && revertEntry?.["method"] === "revert");
 
   const treeAfter = git(agentDir, ["rev-parse", "HEAD^{tree}"]).stdout.trim();
   check("tree sha byte-identical after revert", treeAfter === treeBefore, `${treeBefore} vs ${treeAfter}`);
