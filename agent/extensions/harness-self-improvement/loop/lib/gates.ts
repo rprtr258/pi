@@ -39,7 +39,11 @@
  *     extension dir (bun discovers only that dir's *.test.ts files and
  *     excludes node_modules). Timeout BUN_TEST_GATE_TIMEOUT_S; process group
  *     killed on hang. Cannot run for an untested extension — gate 1c already
- *     rejected it.
+ *     rejected it. VACUOUS-RUN SEMANTICS (empirical, bun 1.4.2): `bun test`
+ *     in a directory with ZERO test files prints "No tests found!" and exits
+ *     NON-ZERO, so the status !== 0 check below already fails a vacuous run —
+ *     the gate can never pass with 0 tests collected (regression-tested in
+ *     gates.test.ts).
  *
  *   Gate 4: the full suite probe (existing driver flow) with the candidate
  *     extension staged into the sandbox extensions/ (probes run nested pi
@@ -163,9 +167,64 @@ export function extensionValidationReasons(edits: ProposedEdit[], opts: Extensio
     }
     if (!existsSync(join(realExtDir, "node_modules"))) {
       reasons.push(`extension "${name}" is not editable: no node_modules directory — its imports may not resolve and the loop never runs bun install; fix the extension's dependencies manually first`);
+      continue;
+    }
+    // Deleting the LAST remaining test file must be rejected at gate 1: gate 3
+    // would otherwise run vacuously on the sandbox copy (0 tests collected).
+    // Count the REAL test files vs the test files this candidate deletes.
+    const realTestFiles = extensionTestFilePaths(realExtDir);
+    const deletedTestFiles = new Set(
+      edits.filter((e) => e.content === null && isExtensionTestFilePath(name, e.path)).map((e) => e.path),
+    ).size;
+    if (realTestFiles.length > 0 && deletedTestFiles >= realTestFiles.length) {
+      reasons.push(`extension "${name}" is not editable: candidate deletes the last remaining test file (${realTestFiles.length} test file(s) on disk, ${deletedTestFiles} deleted by this candidate)`);
     }
   }
   return reasons;
+}
+
+/**
+ * Test files of one real extension dir (gate 1): `*.test.ts` directly in the
+ * dir, or any file under its `test/` directory — same discovery as
+ * extensionHasTestFile, but enumerated so candidate deletions can be counted
+ * against the real set.
+ */
+export function extensionTestFilePaths(extDir: string): string[] {
+  const out: string[] = [];
+  let entries: Dirent[];
+  try {
+    entries = readdirSync(extDir, {withFileTypes: true});
+  } catch {
+    return out;
+  }
+  const walkTestDir = (dir: string, relBase: string): void => {
+    let sub: Dirent[];
+    try {
+      sub = readdirSync(dir, {withFileTypes: true});
+    } catch {
+      return;
+    }
+    for (const entry of sub) {
+      if (entry.name === "node_modules" || entry.name.startsWith(".")) continue;
+      const rel = `${relBase}/${entry.name}`;
+      if (entry.isFile()) out.push(rel);
+      else if (entry.isDirectory()) walkTestDir(join(dir, entry.name), rel);
+    }
+  };
+  for (const entry of entries) {
+    if (entry.name === "node_modules" || entry.name.startsWith(".")) continue;
+    if (entry.isFile() && /\.test\.ts$/.test(entry.name)) out.push(entry.name);
+    else if (entry.isDirectory() && entry.name === "test") walkTestDir(join(extDir, "test"), "test");
+  }
+  return out;
+}
+
+/** True when `path` (agent-dir-relative) is a test file of extension `name`. */
+function isExtensionTestFilePath(name: string, path: string): boolean {
+  const prefix = `extensions/${name}/`;
+  if (!path.startsWith(prefix)) return false;
+  const rest = path.slice(prefix.length);
+  return /\.test\.ts$/.test(rest) || rest.startsWith("test/");
 }
 
 // ---------------------------------------------------------------------------
@@ -192,7 +251,9 @@ function walkExtensionFiles(extDir: string, relBase: string, out: SurfaceFile[])
  * Stage the touched extension into a probe sandbox at its agent-dir-relative
  * path (sandbox/extensions/<name>/...): the extension's REAL files (minus
  * node_modules), overlaid with the candidate's edits (writes + deletes), plus
- * a READ-ONLY node_modules symlink to the REAL node_modules (realpath so a
+ * a node_modules symlink to the REAL node_modules (read-by-convention — gates
+ * are quality gates, not a security sandbox: allowlisted extensions execute
+ * with the loop's privileges; realpath so a
  * symlinked real node_modules resolves once, not relatively into the sandbox).
  * Throws when the real extension dir or its node_modules is missing — the
  * driver treats a throw as a gate failure (it should be unreachable: gate 1

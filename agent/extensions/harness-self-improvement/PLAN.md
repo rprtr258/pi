@@ -167,6 +167,8 @@ session by the `/hloop` command group in `index.ts`.
 
 ### Config (loop/config.json, tolerant loader — per-field fallback to defaults)
 
+> Fresh-clone caveat: `extensions/harness-loop-sample/node_modules` is a committed symlink (git mode 120000) into the gitignored `extensions/node_modules` store — dangling on fresh clones; gate 1 then rejects the sample as un-editable (fails safe).
+
 ```json
 {
   "minWin": 1, "minQualityGain": null, "usageFactor": 1.5,

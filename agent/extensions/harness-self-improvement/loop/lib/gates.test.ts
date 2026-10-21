@@ -121,6 +121,31 @@ describe("gate 1: extensionValidationReasons", () => {
     const reasons = extensionValidationReasons([{path: "AGENTS.md", content: "x"}], {agentDir: join(tempDir("gates1g-"), "missing"), codeAllow: []});
     expect(reasons).toEqual([]);
   });
+
+  test("candidate deleting the LAST remaining test file is rejected (review fix)", () => {
+    const agentDir = tempDir("gates1h-");
+    makeGatedExtension(agentDir);
+    const reasons = extensionValidationReasons([{path: "extensions/sample-ext/index.test.ts", content: null}], {agentDir, codeAllow: ["sample-ext"]});
+    expect(reasons.some((r) => r.includes("deletes the last remaining test file"))).toBe(true);
+    // A test/ directory file counts as a test file too — deleting it when it
+    // is the last one is equally rejected.
+    const agentDir2 = tempDir("gates1i-");
+    const extDir2 = makeGatedExtension(agentDir2);
+    rmSync(join(extDir2, "index.test.ts"));
+    mkdirSync(join(extDir2, "test"));
+    writeFileSync(join(extDir2, "test", "unit.test.ts"), "ok\n");
+    const reasons2 = extensionValidationReasons([{path: "extensions/sample-ext/test/unit.test.ts", content: null}], {agentDir: agentDir2, codeAllow: ["sample-ext"]});
+    expect(reasons2.some((r) => r.includes("deletes the last remaining test file"))).toBe(true);
+  });
+
+  test("deleting one of several test files is allowed; non-delete edits never trigger the check", () => {
+    const agentDir = tempDir("gates1j-");
+    const extDir = makeGatedExtension(agentDir);
+    writeFileSync(join(extDir, "more.test.ts"), "ok\n");
+    expect(extensionValidationReasons([{path: "extensions/sample-ext/index.test.ts", content: null}], {agentDir, codeAllow: ["sample-ext"]})).toEqual([]);
+    // Rewriting (not deleting) a test file never triggers the last-test-file check.
+    expect(extensionValidationReasons([{path: "extensions/sample-ext/index.test.ts", content: "ok\n"}], {agentDir, codeAllow: ["sample-ext"]})).toEqual([]);
+  });
 });
 
 describe("gate 1 wired into validateCandidate (proposer pipeline)", () => {
@@ -335,6 +360,24 @@ describe("gate 4: load-error capture", () => {
   test("scanProbeLoadErrors is empty for a clean candidate dir", () => {
     const candDir = tempDir("gate4-clean-");
     expect(scanProbeLoadErrors(candDir, "anything")).toEqual([]);
+  });
+});
+
+describe("gate 3: vacuous test-run semantics (empirical: bun 1.4.2 exits 1 on zero tests)", () => {
+  // Empirical result (scratch dir, no test files): `bun test` prints
+  // "No tests found!" and EXITS 1 — so gate 3's status !== 0 check already
+  // fails a run with 0 tests collected. This test pins that semantics.
+  test("a zero-tests bun run ('No tests found!', exit 1) fails the gate", async () => {
+    const run = async (args: string[]): Promise<CommandResult> =>
+      args[0] === "bunx"
+        ? {status: 0, stdout: "", stderr: "", timedOut: false}
+        : {status: 1, stdout: "No tests found!\n", stderr: "error: test run failed", timedOut: false};
+    const sandbox = tempDir("gates23-vac-");
+    mkdirSync(join(sandbox, "extensions", "e"), {recursive: true});
+    const res = await runCodeGates(sandbox, "e", {runCmd: run, tscTimeoutS: 1, testTimeoutS: 1});
+    expect(res.ok).toBe(false);
+    expect(res.failedGate).toBe("bun-test");
+    expect(res.output).toContain("No tests found!");
   });
 });
 

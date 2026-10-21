@@ -31,6 +31,16 @@ import {buildSandbox, captureModelFlag, realPiAgentDir, snapshotReal} from "./st
 
 const CHECKER_TIMEOUT_MS = 30_000;
 const DEFAULT_PROBE_TIMEOUT_S = 120;
+/**
+ * Capture cap for the nested-pi stderr tail, persisted verbatim (redacted) as
+ * ProbeResult.stderrExcerpt. Gate 4's load-error scan (gates.ts
+ * scanProbeLoadErrors) reads this field from tasks/<task>.json: the earlier
+ * 5-line/2000-char excerpt could truncate the window ABOVE where nested pi
+ * prints an extension load error, so the whole 8KB tail is kept and scanned.
+ * The raw JSONL file already carries everything; this excerpt cap was the
+ * bottleneck for stderr-only failure shapes.
+ */
+const STDERR_TAIL_CAP = 8 * 1024;
 
 export type ProbeUsage = {
   input: number,
@@ -58,7 +68,7 @@ export type ProbeResult = {
   piBinary: {bin: string, version: string | null} | null,
   /** True when the probe hit the timeout and the process group was killed. */
   timedOut: boolean,
-  /** Short stderr excerpt; null when the run produced no stderr. */
+  /** Redacted stderr tail (up to 8KB — see STDERR_TAIL_CAP); null when the run produced no stderr. */
   stderrExcerpt: string | null,
   /** Where the raw JSONL was recorded, when a location was provided. */
   rawJsonlPath: string | null,
@@ -347,7 +357,7 @@ export async function runProbe(task: LoadedTask, sandboxDir: string, wsDir: stri
       storeChunk(chunk);
     });
     child.stderr!.on("data", (chunk: string) => {
-      stderrTail = (stderrTail + chunk).slice(-2000);
+      stderrTail = (stderrTail + chunk).slice(-STDERR_TAIL_CAP);
     });
 
     const exit = await new Promise<number | null>((resolve) => {
@@ -387,7 +397,7 @@ export async function runProbe(task: LoadedTask, sandboxDir: string, wsDir: stri
       checkerResult,
       piBinary,
       timedOut,
-      stderrExcerpt: stderrTail.trim() === "" ? null : redact(stderrTail.trim().split("\n").slice(-5).join("\n")),
+      stderrExcerpt: stderrTail.trim() === "" ? null : redact(stderrTail.trim()),
       rawJsonlPath: options.rawJsonlPath ?? null,
     };
   } catch (err) {

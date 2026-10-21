@@ -131,6 +131,10 @@ async function scenarioHappyPath(check: Check): Promise<void> {
   const runId = res.runId!;
   const state = readState(env.runsDir, runId);
   check(state.status === "completed", "state.json status completed");
+  // Fix: config.code (allow + minWin) snapshotted into state.config at run
+  // start so resumed runs keep the same code thresholds.
+  check(state.config.code !== undefined && state.config.code.minWin === DEFAULT_LOOP_CONFIG.code.minWin, "config.code.minWin snapshotted into state.config at run start");
+  check(Array.isArray(state.config.code?.allow), "config.code.allow snapshotted into state.config at run start");
   const iter1 = state.iterations[0]!;
   check(iter1.candidates.length === 1, "1 candidate proposed");
   check(iter1.candidates[0]!.win === true, "candidate wins selection");

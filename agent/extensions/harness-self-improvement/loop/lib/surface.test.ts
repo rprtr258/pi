@@ -206,6 +206,22 @@ describe("extensions kind (Step 9a)", () => {
     expect(surfaceKind("extensions").validate(null, "extensions/sample/index.ts")).toEqual([]); // deletion allowed (gate 4 catches breakage)
   });
 
+  test("the loop's own extension is hard-rejected (self-modification ban, independent of code.allow)", () => {
+    for (const p of [
+      "extensions/harness-self-improvement/index.ts",
+      "extensions/harness-self-improvement/loop/lib/gates.ts",
+      "extensions/harness-self-improvement/run-history.jsonl",
+    ]) {
+      const reasons = surfaceKind("extensions").validate("x", p);
+      expect(reasons).toHaveLength(1);
+      expect(reasons[0]).toContain("not loop-editable");
+      // Deletions of the loop's own files are equally banned.
+      expect(surfaceKind("extensions").validate(null, p)).toHaveLength(1);
+    }
+    // Sanity: a normal extension file still passes.
+    expect(surfaceKind("extensions").validate("x", "extensions/other/index.ts")).toEqual([]);
+  });
+
   test("caps: 100KB/file", () => {
     expect(surfaceKind("extensions").caps.maxFileBytes).toBe(100 * 1024);
   });

@@ -40,6 +40,10 @@
  *              manifests and NEVER runs `bun install`: an extension whose
  *              imports do not resolve from its EXISTING node_modules is not
  *              editable (gate 1 rejects candidates on such extensions).
+ *              extensions/harness-self-improvement/ (the loop's OWN extension)
+ *              is likewise hard-rejected — the loop never edits itself
+ *              (self-modification ban, same tier as the package.json
+ *              exclusion, enforced regardless of code.allow).
  *              Snapshot policy: the extensions kind contributes NO files to
  *              the ambient sandbox snapshot (snapshot returns []) — sandbox
  *              probes stay minimal; only the touched candidate extension is
@@ -211,9 +215,14 @@ export function validateSkillsFile(content: string | null, _relPath: string): st
  *     never runs `bun install`.
  *   - anything under node_modules/ — vendored dependency code is never
  *     editable.
+ *   - extensions/harness-self-improvement/ — the loop's own extension is not
+ *     loop-editable (self-modification ban, independent of code.allow).
  * File deletion is allowed (a load-erroring extension is caught by gate 4).
  */
 export function validateExtensionFile(content: string | null, relPath: string): string[] {
+  if (relPath.startsWith("extensions/harness-self-improvement/")) {
+    return [`extension edit rejected: ${relPath} — the loop's own extension is not loop-editable (self-modification ban, independent of code.allow)`];
+  }
   const rest = relPath.replace(/^extensions\/[^/]+\//, "");
   if (rest === "package.json") {
     return [`extension edit rejected: ${relPath} — package.json is never editable (dependency changes are out of scope; the loop never runs bun install)`];

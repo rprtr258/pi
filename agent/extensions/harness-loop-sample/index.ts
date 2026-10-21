@@ -12,6 +12,10 @@
  * runs it) and is dependency-free beyond pi's extension API, which resolves
  * from the shared extensions/node_modules via this directory's node_modules
  * symlink (the loop never runs bun install — see gates.ts).
+ *
+ * FRESH-CLONE CAVEAT: node_modules here is a committed SYMLINK (git mode
+ * 120000) to the gitignored extensions/node_modules store — dangling on fresh
+ * clones; gate 1 then rejects the sample as un-editable (fails safe).
  */
 import type {ExtensionAPI} from "@earendil-works/pi-coding-agent";
 import {Type} from "@earendil-works/pi-ai";

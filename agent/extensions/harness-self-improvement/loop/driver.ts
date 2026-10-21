@@ -142,6 +142,11 @@ export interface LoopState {
     minWin: number;
     minQualityGain: number | null;
     usageFactor: number;
+    /** Snapshotted at run start (Step 9a review fix) so resumed runs keep the same code thresholds/allowlist. */
+    code: {
+      allow: string[];
+      minWin: number;
+    };
   };
   /** SUM of fresh probe usage.totalTokens across the run (budget metric). */
   budgetSpent: number;
@@ -368,6 +373,7 @@ export async function runLoop(opts: RunLoopOptions): Promise<LoopRunResult> {
         minWin: config.minWin,
         minQualityGain: config.minQualityGain,
         usageFactor: config.usageFactor,
+        code: {allow: [...config.code.allow], minWin: config.code.minWin},
       },
       budgetSpent: 0,
       iterations: [],
@@ -378,6 +384,11 @@ export async function runLoop(opts: RunLoopOptions): Promise<LoopRunResult> {
   const statePath = join(runDir, "state.json");
   mkdirSync(runDir, {recursive: true});
   const model = state.model;
+  // Resume uses the code config SNAPSHOTTED at run start (state.config.code) so
+  // a resumed run keeps the same allowlist + minWin threshold; states persisted
+  // before this snapshot existed fall back to the freshly loaded config.
+  const codeConfig = state.config.code ?? {allow: [...config.code.allow], minWin: config.code.minWin};
+  const runConfig: LoopConfig = {...config, code: codeConfig};
   const selectionConfig: SelectionConfig = {
     minWin: state.config.minWin,
     minQualityGain: state.config.minQualityGain,
@@ -549,7 +560,7 @@ export async function runLoop(opts: RunLoopOptions): Promise<LoopRunResult> {
         callModel: opts.callModel,
         // Gate 1 (Step 9a) at propose time: dynamic extensions-kind checks
         // against the same agent dir apply later re-validates against.
-        validationLimits: {extensionEnv: {agentDir: opts.agentDir ?? realPiAgentDir(), codeAllow: config.code.allow}},
+        validationLimits: {extensionEnv: {agentDir: opts.agentDir ?? realPiAgentDir(), codeAllow: runConfig.code.allow}},
       });
       if (result.parseError !== undefined) log(`[hloop] iter ${index}: proposer parse error: ${result.parseError}`);
       iter.proposalFingerprint = result.proposalFingerprint;
@@ -682,7 +693,7 @@ export async function runLoop(opts: RunLoopOptions): Promise<LoopRunResult> {
         cState.totalTokens = scored.aggregate.totalTokens;
         // Step 9a selection: code-bearing candidates need code.minWin passes
         // (default 2) instead of the global minWin.
-        const selection = selectWinner(baselineResults, scored.results, selectionConfigForEdits(cState.edits, selectionConfig, config.code.minWin));
+        const selection = selectWinner(baselineResults, scored.results, selectionConfigForEdits(cState.edits, selectionConfig, runConfig.code.minWin));
         cState.win = selection.win;
         cState.reasons = selection.reasons;
         const reportPath = join(iterDir, `cand-${candIdx}`, "report.md");
@@ -753,7 +764,7 @@ export async function runLoop(opts: RunLoopOptions): Promise<LoopRunResult> {
           candidates: allCandidates,
           winner: winnerCandidate,
           runId,
-          config,
+          config: runConfig,
           scores: winner.scores ?? undefined,
           usage: {totalTokens: winner.totalTokens},
           agentDir: opts.agentDir,

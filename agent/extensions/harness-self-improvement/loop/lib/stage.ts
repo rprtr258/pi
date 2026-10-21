@@ -154,10 +154,12 @@ export interface BuildSandboxResult {
 }
 
 /**
- * Symlink a real package store into the sandbox READ-ONLY — pi reads through
- * the link; PI_OFFLINE=1 in the probe env prevents any write. A dangling real
- * store fails staging loudly; no real store at all skips replication (nothing
- * to replicate).
+ * Symlink a real package store into the sandbox for read-by-convention use —
+ * pi reads through the link and PI_OFFLINE=1 in the probe env prevents
+ * writes, but this is NOT a security sandbox: gates are quality gates, not a
+ * security boundary, and allowlisted extensions execute with the loop's
+ * privileges. A dangling real store fails staging loudly; no real store at
+ * all skips replication (nothing to replicate).
  */
 function replicateStore(real: string, link: string, label: string): void {
   let realStat: ReturnType<typeof lstatSync>;
