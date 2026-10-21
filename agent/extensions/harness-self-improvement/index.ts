@@ -224,9 +224,23 @@ async function hloopStart(argv: string[], ctx: ExtensionCommandContext): Promise
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i]!;
     if (arg === "--iterations") iterations = Number(argv[++i]);
-    else if (arg === "--suite") suiteGlob = argv[++i];
+    else if (arg === "--suite") {
+      const value = argv[++i];
+      if (value === undefined || value.startsWith("-")) {
+        console.error(`/hloop start: --suite requires a value (a task-name glob like "smoke-*"), not another flag`);
+        return;
+      }
+      suiteGlob = value;
+    }
     else if (arg === "--max-candidates") maxCandidates = Number(argv[++i]);
-    else if (arg === "--resume") resumeRunId = argv[++i];
+    else if (arg === "--resume") {
+      const value = argv[++i];
+      if (value === undefined || value.startsWith("-")) {
+        console.error(`/hloop start: --resume requires a value (a run id), not another flag`);
+        return;
+      }
+      resumeRunId = value;
+    }
     else {
       console.error(`/hloop start: unknown argument '${arg}'`);
       return;
