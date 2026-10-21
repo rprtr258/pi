@@ -39,6 +39,8 @@ carefully, they are your primary evidence.
 
 {{BASELINE}}
 
+{{FOCUS}}
+
 # Already-rejected proposals
 
 These combined proposal fingerprints were proposed before and REJECTED. Do not

@@ -935,16 +935,28 @@ export function computeAgreement(rows: Array<{checkerPass: boolean; judgeScore: 
 export const MIN_CALIBRATION_SAMPLE = 8;
 
 /**
- * Judge-calibration gate: reads the latest judge-calibration ledger entry.
- * A CALIBRATED verdict requires ≥ MIN_CALIBRATION_SAMPLE judged rows AND a
- * fresh (non-cache-only) measurement basis — entries labeled
- * "cached-trajectories" or with too small a sample can never calibrate.
- * Older entries predating the gate (no sample field) stay advisory.
+ * Judge-calibration gate: reads the latest judge-calibration ledger entry for
+ * `judgeModel` (Step 11: calibration is KEYED BY JUDGE MODEL — an entry
+ * recorded with judgeModel A does NOT calibrate judge model B; entries
+ * without a judgeModel field only match an undefined/null request, so
+ * pre-S11 ledgers keep their old advisory/calibrated meaning only when no
+ * judge model is configured). A CALIBRATED verdict requires ≥
+ * MIN_CALIBRATION_SAMPLE judged rows AND a fresh (non-cache-only)
+ * measurement basis — entries labeled "cached-trajectories" or with too
+ * small a sample can never calibrate. Older entries predating the gate (no
+ * sample field) stay advisory.
  */
-export function isCalibrated(entries: LedgerEntry[], minAgreement = 0.8): {calibrated: boolean; agreement: number | null; ts: string | null} {
+export function isCalibrated(entries: LedgerEntry[], minAgreement = 0.8, judgeModel?: string | null): {calibrated: boolean; agreement: number | null; ts: string | null} {
   for (let i = entries.length - 1; i >= 0; i--) {
     const entry = entries[i]!;
     if (entry.kind !== "judge-calibration") continue;
+    if (judgeModel !== undefined) {
+      // Step 11: a calibration measured with a DIFFERENT judge model never
+      // satisfies this one — skip it and keep looking for a matching entry.
+      const entryJudgeModel = entry["judgeModel"];
+      const entryKey = typeof entryJudgeModel === "string" && entryJudgeModel !== "" ? entryJudgeModel : null;
+      if (entryKey !== (judgeModel ?? null)) continue;
+    }
     const agreement = entry["agreement"];
     if (typeof agreement !== "number" || !Number.isFinite(agreement)) continue;
     const sample = entry["sample"];
@@ -997,6 +1009,20 @@ export interface CalibrateOptions {
   callModel: CallModel;
   /** Nested-run --model override. */
   model?: string;
+  /**
+   * Step 11: the judge model this calibration measures (roles.judge). The
+   * caller binds it into callModel via `options.model`; here it is recorded
+   * on the ledger entry + report so isCalibrated(ledger, minAgreement,
+   * judgeModel) can key the verdict to THIS model. Null/absent = session
+   * model (pre-S11 shape, ledger entry judgeModel null).
+   */
+  judgeModel?: string | null;
+  /**
+   * Step 11: the probe model for fresh-trajectory rollouts (roles.probe).
+   * Also the model hashed into the baseline fingerprint, so cached
+   * trajectories replay only when probed under the SAME probe model.
+   */
+  probeModel?: string;
   /** Judge implementation override (tests). */
   judgeFn?: typeof defaultJudge;
   /** Probe implementation override (tests; used when no cached trajectory). */
@@ -1028,6 +1054,9 @@ export async function calibrateJudge(opts: CalibrateOptions): Promise<Calibratio
 
   type Traj = {task: string; pass: boolean; trajectory: string; source: "cache" | "fresh"};
   const trajs: Traj[] = [];
+  // Step 11: the resolved probe model (roles.probe) — used for fresh rollouts
+  // AND hashed into the baseline fingerprint; null when no model applies.
+  const probeModel: string | undefined = opts.probeModel ?? opts.model ?? captureModelFlag();
 
   if (opts.resultsOverride !== undefined) {
     // Pre-scored fixtures (tests / pre-scored runs).
@@ -1041,14 +1070,15 @@ export async function calibrateJudge(opts: CalibrateOptions): Promise<Calibratio
     // first, then ANY baseline cache payload with a matching fingerprint whose
     // result set covers the sampled tasks (e.g. the full-suite cache).
     const piBinary = resolvePiBinary();
-    const model = opts.model ?? captureModelFlag();
-    const fingerprint = fingerprintSnapshot(snapshotReal(), model, piBinary);
+    // Step 11: probe rollouts run on the resolved probe model, and the
+    // fingerprint must reflect it (baselines are cached per probe model).
+    const fingerprint = fingerprintSnapshot(snapshotReal(), probeModel, piBinary);
     const cachedByName = findCachedTrajectories(fingerprint, taskNames);
     let freshTasks = sampled.filter((t) => !cachedByName.has(t.name));
     if (freshTasks.length > 0) {
       const sandboxDir = join(opts.runDir, "sandbox"); // self-created; buildSandbox wipes it
       defaultBuildSandbox(snapshotReal(), sandboxDir);
-      const scored = await scoreSuite(freshTasks, sandboxDir, join(opts.runDir, "calibration"), {model, runProbeFn: opts.runProbeFn});
+      const scored = await scoreSuite(freshTasks, sandboxDir, join(opts.runDir, "calibration"), {model: probeModel, runProbeFn: opts.runProbeFn});
       for (const r of scored.results) cachedByName.set(r.task, {pass: r.pass, trajectory: r.trajectory});
       log(`[calibrate] fresh probes: ${freshTasks.length} task(s)`);
     } else {
@@ -1092,14 +1122,18 @@ export async function calibrateJudge(opts: CalibrateOptions): Promise<Calibratio
   const calibrated = condition === "fresh" && rows.length >= MIN_CALIBRATION_SAMPLE && agreement !== null && agreement >= minAgreement;
 
   mkdirSync(opts.runDir, {recursive: true});
+  const judgeModel = opts.judgeModel ?? null;
   const reportPath = join(opts.runDir, "calibration.md");
-  writeFileSync(reportPath, renderCalibrationReport(rows, agreement, calibrated, minAgreement, opts.model ?? null, trajSources(trajs), condition, abstainedRows));
+  writeFileSync(reportPath, renderCalibrationReport(rows, agreement, calibrated, minAgreement, judgeModel, trajSources(trajs), condition, abstainedRows));
   appendEntry({
     runId: basename(opts.runDir),
     ts: new Date().toISOString(),
     kind: "judge-calibration",
     agreement,
-    judgeModel: opts.model ?? null,
+    // Step 11: judgeModel keys the calibration — isCalibrated(ledger,
+    // minAgreement, judgeModel) only trusts entries recorded for that model.
+    judgeModel,
+    probeModel: probeModel ?? null,
     sample: rows.length,
     cacheHits: rows.filter((r) => r.trajectorySource === "cache").length,
     freshProbes: rows.filter((r) => r.trajectorySource === "fresh").length,
@@ -1111,7 +1145,7 @@ export async function calibrateJudge(opts: CalibrateOptions): Promise<Calibratio
         ? `sample too small (N<${MIN_CALIBRATION_SAMPLE}) — advisory regardless of agreement`
         : undefined,
   }, opts.ledgerPath);
-  return {rows, agreement, calibrated, reportPath, judgeModel: opts.model ?? null, cacheHits: rows.filter((r) => r.trajectorySource === "cache").length, freshProbes: rows.filter((r) => r.trajectorySource === "fresh").length, condition};
+  return {rows, agreement, calibrated, reportPath, judgeModel, cacheHits: rows.filter((r) => r.trajectorySource === "cache").length, freshProbes: rows.filter((r) => r.trajectorySource === "fresh").length, condition};
 }
 
 function trajSources(trajs: Array<{source?: string}>): string {
@@ -1160,6 +1194,10 @@ export interface ReplayRunOptions {
   runId?: string;
   callModel: CallModel;
   model?: string;
+  /** Step 11: judge model (roles.judge) — bound into the judge callModel via options.model and shown on the report. */
+  judgeModel?: string | null;
+  /** Step 11: probe-rollout model (roles.probe) — passed to probeReplayTask's --model. */
+  probeModel?: string;
   runsDir?: string;
   outDir?: string;
   sessionsRootOverride?: string;
@@ -1208,7 +1246,7 @@ export async function runReplayChannel(opts: ReplayRunOptions): Promise<ReplayRu
     const wsDir = join(wsRoot, task.id);
     const started = performance.now();
     const result = await probeReplayTask(loaded, sandboxDir, wsDir, {
-      model: opts.model,
+      model: opts.probeModel ?? opts.model,
       rawJsonlPath: join(wsRoot, `${task.id}.raw.jsonl`),
       runProbeFn: opts.runProbeFn,
     });
@@ -1219,7 +1257,7 @@ export async function runReplayChannel(opts: ReplayRunOptions): Promise<ReplayRu
       prompt: task.prompt,
       trajectory: result.trajectory,
       workspaceState: captureWorkspaceState(wsDir),
-    }, {callModel: opts.callModel});
+    }, {callModel: (system, user, options) => opts.callModel(system, user, {...options, model: opts.judgeModel ?? undefined})});
     rows.push({
       taskId: task.id,
       quality: task.quality,
@@ -1248,15 +1286,16 @@ export async function runReplayChannel(opts: ReplayRunOptions): Promise<ReplayRu
 
   mkdirSync(runDir, {recursive: true});
   const reportPath = join(runDir, "replay-report.md");
-  writeFileSync(reportPath, renderReplayReport(runId, rows, opts.model ?? null));
+  writeFileSync(reportPath, renderReplayReport(runId, rows, opts.judgeModel ?? opts.model ?? null, opts.probeModel ?? opts.model ?? null));
   return {runId, rows, reportPath};
 }
 
-function renderReplayReport(runId: string, rows: ReplayRunRow[], model: string | null): string {
+function renderReplayReport(runId: string, rows: ReplayRunRow[], judgeModel: string | null, probeModel: string | null): string {
   const out: string[] = [];
   out.push(`# Replay run ${runId}`);
   out.push("");
-  out.push(`- **model:** ${model ?? "<pi default>"}`);
+  out.push(`- **judge model:** ${judgeModel ?? "<pi default>"}`);
+  out.push(`- **probe model:** ${probeModel ?? "<pi default>"}`);
   out.push(`- **tasks:** ${rows.length}`);
   out.push("");
   out.push("| task | quality | judge | abstained | tokens | duration |");

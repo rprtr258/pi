@@ -11,7 +11,7 @@
  *
  *   bun run loop/driver.ts selftest
  */
-import {existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync} from "node:fs";
+import {existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync} from "node:fs";
 import {tmpdir} from "node:os";
 import {join} from "node:path";
 import {runLoop, type LoopState, type RunLoopOptions} from "./driver.ts";
@@ -710,6 +710,145 @@ async function scenarioCompositionFailedFallback(check: Check): Promise<void> {
   check(iter.decision === "dry-run", "iteration decision reflects the single-winner fallback");
 }
 
+// ---------------------------------------------------------------------------
+// Step 11: role models + recursion modes
+
+/** probe fn that also records the --model option each probe was given. */
+function makeRecordingProbe(passMap: Record<string, boolean>, probeCalls: string[], probeModels: string[]): RunProbeFn {
+  return async (task, sandboxDir, _wsDir, options) => {
+    const side = sandboxDir.endsWith("sandbox-composed") ? "composed" : /sandbox-\d+$/.test(sandboxDir) ? "candidate" : "baseline";
+    probeCalls.push(`${side}/${task.name}`);
+    probeModels.push(`${side}:${options?.model ?? "<none>"}`);
+    return fakeProbeResult(passMap[`${side}/${task.name}`] ?? false, 1000);
+  };
+}
+
+async function scenarioRoleModels(check: Check): Promise<void> {
+  console.log("== scenario: role models — proposer/probe overrides honored, session default for judge ==");
+  const probeCalls: string[] = [];
+  const probeModels: string[] = [];
+  const modelCalls: Array<{system: string; optionsModel: string | undefined}> = [];
+  const env = makeEnv(makeRecordingProbe(WIN_PASS_MAP, probeCalls, probeModels), {
+    callModel: (async (system: string, _user: string, options?: {model?: string}) => {
+      modelCalls.push({system, optionsModel: options?.model});
+      return CANDIDATE_JSON;
+    }) as CallModel,
+  });
+  const config = structuredClone(DEFAULT_LOOP_CONFIG);
+  config.roles = {proposer: "role/proposer", probe: "role/probe"};
+  const res = await runLoop({...env.opts, configOverride: config, iterations: 1});
+  check(res.status === "completed", "role-model run completes");
+  const state = readState(env.runsDir, res.runId!);
+  check(state.roles !== null, "resolved role map persisted in state.json");
+  check(state.roles!.proposer === "role/proposer" && state.roles!.probe === "role/probe", "role overrides honored");
+  check(state.roles!.judge === "selftest/model", "unset judge role falls back to the session model");
+  check(modelCalls.length === 1 && modelCalls[0]!.optionsModel === "role/proposer", "proposer callModel adapter receives the resolved proposer role model");
+  check(probeModels.every((m) => m.endsWith(":role/probe")), "every probe (baseline + candidate) runs on the resolved probe role model");
+  // Fingerprint consistency: the baseline cache payload is keyed/written under the PROBE model.
+  const cacheFiles = readdirSync(join(env.opts.cacheDir!)).filter((f) => f.startsWith("baseline-"));
+  check(cacheFiles.length === 1, "one baseline cache payload written");
+  const payload = JSON.parse(readFileSync(join(env.opts.cacheDir!, cacheFiles[0]!), "utf8")) as {model: string | null};
+  check(payload.model === "role/probe", "fingerprint/baseline cache records the RESOLVED probe model");
+  const report = readFileSync(join(env.runsDir, res.runId!, "iter-1", "report.md"), "utf8");
+  check(report.includes("proposer: role/proposer, probe: role/probe (other roles: session model)"), "report.md shows the role map when overrides are active");
+}
+
+async function scenarioTargetedExplicit(check: Check): Promise<void> {
+  console.log("== scenario: explicit --mode targeted — union probing, FOCUS section, post-targeted-confirmation ==");
+  // baseline: f1/f2 FAIL, p1/p2 PASS; candidate fixes everything.
+  const passMap: Record<string, boolean> = {
+    "baseline/f1": false, "baseline/f2": false, "baseline/p1": true, "baseline/p2": true,
+    "candidate/f1": true, "candidate/f2": true, "candidate/p1": true, "candidate/p2": true,
+  };
+  const probeCalls: string[] = [];
+  const env = makeEnv(makeProbe(passMap, probeCalls));
+  const config = structuredClone(DEFAULT_LOOP_CONFIG);
+  config.targeted = {sampleSize: 1};
+  const systems: string[] = [];
+  const res = await runLoop({
+    ...env.opts,
+    configOverride: config,
+    tasksFn: () => [fakeTask("f1"), fakeTask("f2"), fakeTask("p1"), fakeTask("p2")],
+    iterations: 2,
+    mode: "targeted",
+    callModel: (async (system: string) => {
+      systems.push(system);
+      return CANDIDATE_JSON;
+    }) as CallModel,
+  });
+  check(res.status === "completed", "targeted run completes");
+  const state = readState(env.runsDir, res.runId!);
+  check(state.iterations[0]!.mode === "targeted" && state.iterations[0]!.modeReason === "explicit-flag", "iter1 runs targeted (explicit flag recorded)");
+  // Explicit --mode ALWAYS wins over auto behavior — even over the
+  // post-targeted-confirmation forcing (iter1 auto-applied in dry-run).
+  check(state.iterations[1]!.mode === "targeted" && state.iterations[1]!.modeReason === "explicit-flag", "explicit --mode targeted wins over post-targeted-confirmation in iter2");
+  // Union in iter1 (index 1, sampleSize 1): failing {f1,f2} + passing [p1,p2] offset 1 → sample {p2}.
+  // Union in iter2 (index 2): offset 0 → sample {p1}.
+  check(probeCalls.filter((c) => c === "candidate/p2").length === 1 && !probeCalls.slice(0, 7).includes("candidate/p1"), "iter1 candidate probed ONLY the failing subset + the deterministic regression sample");
+  check(probeCalls.filter((c) => c === "candidate/p1").length === 1, "iter2's rotated sample picked p1 (seeded by iteration index)");
+  check(probeCalls.filter((c) => c.startsWith("candidate/")).length === 6, "each targeted candidate probed exactly its 3-task union");
+  check(systems[0]!.includes("## FOCUS") && systems[1]!.includes("## FOCUS"), "targeted proposer input contains the FOCUS section");
+  check(systems[0]!.includes("### f1 (FAIL)") && systems[0]!.includes("### f2 (FAIL)"), "FOCUS lists the failing tasks verbatim");
+  const iter1Report = readFileSync(join(env.runsDir, res.runId!, "iter-1", "report.md"), "utf8");
+  check(iter1Report.includes("**mode:** targeted (explicit-flag)"), "report.md shows the per-iteration mode + reason");
+  check(state.iterations[0]!.candidates[0]!.win === true, "candidate cleared selection on the union (passDelta vs the paired baseline cut)");
+}
+
+async function scenarioTargetedAutoSwitch(check: Check): Promise<void> {
+  console.log("== scenario: auto-switch on baseline failures + post-targeted-confirmation cycle ==");
+  const passMap: Record<string, boolean> = {
+    "baseline/f1": false, "baseline/f2": false, "baseline/p1": true, "baseline/p2": true, "baseline/p3": true, "baseline/p4": true,
+    "candidate/f1": true, "candidate/f2": true, "candidate/p1": true, "candidate/p2": true, "candidate/p3": true, "candidate/p4": true,
+  };
+  const probeCalls: string[] = [];
+  const env = makeEnv(makeProbe(passMap, probeCalls));
+  const res = await runLoop({
+    ...env.opts,
+    tasksFn: () => [fakeTask("f1"), fakeTask("f2"), fakeTask("p1"), fakeTask("p2"), fakeTask("p3"), fakeTask("p4")],
+    iterations: 3,
+  }); // defaults: mode.auto true, sampleSize 6
+  check(res.status === "completed", "auto-switch run completes");
+  const state = readState(env.runsDir, res.runId!);
+  check(state.iterations[0]!.mode === "surface" && state.iterations[0]!.modeReason === "config-default", "iter1 defaults to surface (config-default)");
+  check(state.iterations[1]!.mode === "targeted" && state.iterations[1]!.modeReason === "auto-switch", "iter2 auto-switches to targeted (iter1 baseline had failures)");
+  check(state.iterations[2]!.mode === "surface" && state.iterations[2]!.modeReason === "post-targeted-confirmation", "iter3 forced back to surface after the targeted auto-apply");
+  // sampleSize 6 > 4 passing → ALL passing tasks sampled; union = full suite.
+  check(probeCalls.filter((c) => c.startsWith("candidate/")).length === 6 + 6 + 6, "sampleSize ≥ passing count → union covers the whole suite (6 probed per candidate)");
+
+  // With a smaller sampleSize the union is a strict subset (sample probed).
+  const probeCalls2: string[] = [];
+  const env2 = makeEnv(makeProbe(passMap, probeCalls2));
+  const config = structuredClone(DEFAULT_LOOP_CONFIG);
+  config.targeted = {sampleSize: 2};
+  const res2 = await runLoop({
+    ...env2.opts,
+    configOverride: config,
+    tasksFn: () => [fakeTask("f1"), fakeTask("f2"), fakeTask("p1"), fakeTask("p2"), fakeTask("p3"), fakeTask("p4")],
+    iterations: 2,
+  });
+  const state2 = readState(env2.runsDir, res2.runId!);
+  check(state2.iterations[1]!.mode === "targeted", "iter2 targeted with sampleSize 2");
+  // iter2 (index 2): passing sorted [p1..p4], k=2, offset 2 → picks {p3, p1}.
+  check(probeCalls2.filter((c) => c.startsWith("candidate/")).length === 6 + 4, "iter2 candidate probed only the union (failing subset + 2-task regression sample)");
+  check(probeCalls2.filter((c) => c === "candidate/p2").length === 1, "unsampled p2 probed only in the surface iteration");
+  check(state2.iterations[1]!.candidates[0]!.win === true, "targeted candidate wins on the union");
+
+  // mode.auto=false disables the auto-switch entirely.
+  const probeCalls3: string[] = [];
+  const env3 = makeEnv(makeProbe(passMap, probeCalls3));
+  const configOff = structuredClone(DEFAULT_LOOP_CONFIG);
+  configOff.mode = {default: "surface", auto: false};
+  const res3 = await runLoop({
+    ...env3.opts,
+    configOverride: configOff,
+    tasksFn: () => [fakeTask("f1"), fakeTask("f2"), fakeTask("p1"), fakeTask("p2"), fakeTask("p3"), fakeTask("p4")],
+    iterations: 2,
+  });
+  const state3 = readState(env3.runsDir, res3.runId!);
+  check(state3.iterations[1]!.mode === "surface" && state3.iterations[1]!.modeReason === "config-default", "mode.auto=false keeps every iteration surface");
+  check(probeCalls3.filter((c) => c.startsWith("candidate/")).length === 12, "both iterations probed the full suite");
+}
+
 export async function runSelftest(): Promise<number> {
 
   const failures: string[] = [];
@@ -745,6 +884,9 @@ export async function runSelftest(): Promise<number> {
     await scenarioCompositionDisjoint(check);
     await scenarioCompositionConflict(check);
     await scenarioCompositionFailedFallback(check);
+    await scenarioRoleModels(check);
+    await scenarioTargetedExplicit(check);
+    await scenarioTargetedAutoSwitch(check);
   } catch (err) {
     failures.push(`unhandled selftest error: ${err instanceof Error ? err.stack : String(err)}`);
     console.error(err);

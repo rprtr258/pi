@@ -219,6 +219,37 @@ describe("loadLoopConfig", () => {
     expect(good.minWin).toBe(3);
     expect(good.usageFactor).toBe(0.5);
   });
+
+  test("Step 11 roles: overrides honored; unknown keys and non-string values warned + ignored", () => {
+    const p = join(tempRoot("cfg-"), "roles.json");
+    writeFileSync(p, JSON.stringify({roles: {proposer: "p/prop", judge: "j/judge", probe: "pr/probe"}}));
+    expect(loadLoopConfig(p).roles).toEqual({proposer: "p/prop", judge: "j/judge", probe: "pr/probe"});
+
+    const p2 = join(tempRoot("cfg-"), "roles-partial.json");
+    writeFileSync(p2, JSON.stringify({roles: {judge: "j/judge"}}));
+    expect(loadLoopConfig(p2).roles).toEqual({judge: "j/judge"});
+
+    const p3 = join(tempRoot("cfg-"), "roles-bad.json");
+    writeFileSync(p3, JSON.stringify({roles: {proposer: "", judge: 42, typo: "x/ y"}}));
+    const bad = loadLoopConfig(p3);
+    expect(bad.roles.proposer).toBeUndefined(); // empty string → session model
+    expect(bad.roles.judge).toBeUndefined(); // non-string → session model
+    expect("typo" in bad.roles).toBe(false); // unknown key ignored
+  });
+
+  test("Step 11 mode + targeted: valid values honored; invalid fall back to defaults", () => {
+    const p = join(tempRoot("cfg-"), "mode.json");
+    writeFileSync(p, JSON.stringify({mode: {default: "targeted", auto: false}, targeted: {sampleSize: 3}}));
+    const cfg = loadLoopConfig(p);
+    expect(cfg.mode).toEqual({default: "targeted", auto: false});
+    expect(cfg.targeted).toEqual({sampleSize: 3});
+
+    const p2 = join(tempRoot("cfg-"), "mode-bad.json");
+    writeFileSync(p2, JSON.stringify({mode: {default: "chaos", auto: "yes"}, targeted: {sampleSize: 0}}));
+    const bad = loadLoopConfig(p2);
+    expect(bad.mode).toEqual(DEFAULT_LOOP_CONFIG.mode);
+    expect(bad.targeted).toEqual(DEFAULT_LOOP_CONFIG.targeted);
+  });
 });
 
 // ---------------------------------------------------------------------------

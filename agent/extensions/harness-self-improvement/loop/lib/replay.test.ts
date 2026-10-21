@@ -624,6 +624,34 @@ describe("calibrateJudge", () => {
     expect(readFileSync(result.reportPath, "utf8")).toContain("sample too small (N<8)");
   });
 
+  test("Step 11: calibration is keyed by judge model — agreement for model A does not calibrate model B", async () => {
+    const runDir = join(tempRoot(), "run-judgemodel");
+    const ledgerPath = join(tempRoot(), "ledger-judgemodel.jsonl");
+    const results = Array.from({length: 8}, (_, i) => ({task: `t${i}`, pass: true, trajectory: "t", source: "fresh" as const}));
+    const result = await calibrateJudge({
+      callModel: async () => "",
+      judgeFn: (async () => ({score: 9, rationale: "good", abstained: false})) as unknown as typeof judgeTrajectory,
+      runDir,
+      resultsOverride: results,
+      ledgerPath,
+      judgeModel: "prov/judge-a",
+    });
+    expect(result.calibrated).toBe(true);
+    expect(result.judgeModel).toBe("prov/judge-a");
+    const entry = JSON.parse(readFileSync(ledgerPath, "utf8").trim().split("\n").pop()!) as Record<string, unknown>;
+    expect(entry["judgeModel"]).toBe("prov/judge-a");
+
+    const entries = JSON.parse(`[${readFileSync(ledgerPath, "utf8").trim().split("\n").join(",")}]`) as Parameters<typeof isCalibrated>[0];
+    // The recorded judge model IS calibrated...
+    expect(isCalibrated(entries, 0.8, "prov/judge-a").calibrated).toBe(true);
+    // ...a DIFFERENT judge model is NOT (agreement never measured with it)...
+    const other = isCalibrated(entries, 0.8, "prov/judge-b");
+    expect(other.calibrated).toBe(false);
+    expect(other.agreement).toBeNull();
+    // ...and a pre-S11 style unkeyed gate still finds the entry (back-compat).
+    expect(isCalibrated(entries, 0.8).calibrated).toBe(true);
+  });
+
   test("abstained rows are excluded from the agreement denominator and reported separately", () => {
     const rows: CalibrationRow[] = [
       {task: "a", checkerPass: false, judgeScore: 5, judgePass: false, abstained: true, rationale: "abstain", trajectorySource: "cache"},
