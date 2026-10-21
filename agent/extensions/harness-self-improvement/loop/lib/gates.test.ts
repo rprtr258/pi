@@ -467,6 +467,18 @@ describe("mcpServerNames + mcpLoadErrorLines (Step 9b keyword scan)", () => {
     const raw = '{"type":"agent_start"}\n- mcp__broken_server (codemode)\nMCP servers whose tools are not declared';
     expect(mcpLoadErrorLines(raw, ["broken-server"])).toEqual([]);
   });
+
+  test("server names match on word boundaries only (review fix)", () => {
+    // A server named "log" must not match a line that only mentions
+    // "logging" — the substring match false-positived on name prefixes.
+    // (The line must avoid the "mcp" keyword, which would match on its own.)
+    const raw = 'server "logging" failed to connect: nope';
+    expect(mcpLoadErrorLines(raw, ["log"])).toEqual([]);
+    expect(mcpLoadErrorLines(raw, ["logging"]).length).toBe(1);
+    // Boundaries are the [A-Za-z0-9_-] class edges: "log-x" still matches
+    // a line about the server "log-x" itself.
+    expect(mcpLoadErrorLines('server "log-x" failed: nope', ["log-x"]).length).toBe(1);
+  });
 });
 
 describe("mcpListFailure (pi mcp list --json interpretation)", () => {
@@ -515,15 +527,30 @@ describe("runStartupProbe ordering + capture (fake runner)", () => {
     return {calls, run};
   }
 
-  test("both phases pass → ok", async () => {
-    const {calls, run} = recorder({stdout: OK_LIST}, {status: 0, stdout: '{"type":"agent_end"}'});
+  test("both phases pass → ok; phase-b usage is returned (review fix)", async () => {
+    const {calls, run} = recorder({stdout: OK_LIST}, {
+      status: 0,
+      stdout: [
+        '{"type":"message_end","message":{"role":"assistant","content":[{"type":"text","text":"OK"}],"usage":{"totalTokens":321,"cost":{}}}}',
+        '{"type":"agent_end"}',
+      ].join("\n"),
+    });
     const sandbox = tempDir("startup-a-");
     writeFileSync(join(sandbox, "mcp.json"), '{"mcpServers":{"s":{"command":"x"}}}');
     const res = await runStartupProbe(sandbox, {runCmd: run, piBin: "fake-pi", timeoutS: 1});
     expect(res.ok).toBe(true);
     expect(res.failedPhase).toBeNull();
+    expect(res.usageTokens).toBe(321);
     expect(calls[0]).toContain("mcp list --json");
     expect(calls[1]).toContain(`-- ${MCP_STARTUP_PROBE_PROMPT}`);
+  });
+
+  test("absent sandbox mcp.json: no throw, empty server-name list (review fix)", async () => {
+    const {run} = recorder({stdout: OK_LIST}, {status: 0, stdout: '{"type":"agent_end"}'});
+    const sandbox = tempDir("startup-no-mcp-"); // no mcp.json staged
+    const res = await runStartupProbe(sandbox, {runCmd: run, piBin: "fake-pi", timeoutS: 1});
+    expect(res.ok).toBe(true);
+    expect(res.usageTokens).toBe(0); // no usage in the fake's JSONL
   });
 
   test("gate ordering: mcp-list failure → the OK prompt run is NOT executed", async () => {

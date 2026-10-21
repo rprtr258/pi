@@ -24,8 +24,11 @@
  *       mixed candidates run every applicable gate cheapest-first (shape
  *       validation → startup probe → tsc/bun test → suite probe). Gate
  *       failures are recorded as decision "gates-failed" with the captured
- *       output; code-bearing candidates (extensions OR mcp.json) select with
- *       config code.minWin instead of minWin.
+ *       output; the startup probe's phase-b usage (StartupProbeResult
+ *       .usageTokens, Step 9b review fix) is accounted into state.budgetSpent
+ *       and the code-gate ledger entry — probe spend is real spend even when
+ *       the probe fails. Code-bearing candidates (extensions OR mcp.json)
+ *       select with config code.minWin instead of minWin.
  *   (5) selectWinner vs baseline (loop/lib/score.ts)
  *   (6) applyCandidate (winner) or appendProposalRejectedEntry (no winner)
  *   (7) ledger entries + report.md per iteration and per candidate
@@ -649,13 +652,17 @@ export async function runLoop(opts: RunLoopOptions): Promise<LoopRunResult> {
           stageMcpForSandbox(sandboxDir, cState.edits);
           log(`[hloop] iter ${index}: running mcp startup probe...`);
           const startup = await (opts.startupProbeFn ?? runStartupProbe)(sandboxDir);
+          // The startup probe's phase-b model call is real spend: account it
+          // into the run budget (Step 9b review fix) whatever the outcome.
+          state.budgetSpent += startup.usageTokens;
+          persist();
           if (!startup.ok) {
             const gateName = startup.failedPhase === "mcp-list" ? "startup-probe:mcp-list" : "startup-probe";
             const reasons = [`mcp startup probe failed${startup.timedOut ? " (timed out, process group killed)" : ""}:\n${startup.error}`];
             cState.decision = "gates-failed";
             cState.reasons = reasons;
             cState.reportPath = writeGateFailureReport(candIdx, "mcp startup probe failed", reasons);
-            appendEntry({runId, ts: now(), kind: "code-gate-failed", iteration: index, candidateIndex: candIdx, reasons, gate: gateName}, ledger);
+            appendEntry({runId, ts: now(), kind: "code-gate-failed", iteration: index, candidateIndex: candIdx, reasons, gate: gateName, usage: {totalTokens: startup.usageTokens}}, ledger);
             log(`[hloop] iter ${index}: candidate ${candIdx + 1} REJECTED by the mcp startup probe`);
             persist();
             continue;

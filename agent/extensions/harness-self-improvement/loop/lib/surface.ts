@@ -264,6 +264,11 @@ export function validateExtensionFile(content: string | null, relPath: string): 
   return [];
 }
 
+/** pi's isStringRecord: a plain-object map whose every value is a string. */
+function isStringRecord(value: unknown): boolean {
+  return value !== null && typeof value === "object" && !Array.isArray(value) && Object.values(value).every((v) => typeof v === "string");
+}
+
 /**
  * mcp.json validation (Step 9b): mirrors the REAL pi 1.3.0 mcp.json shape
  * (see the mcp kind header). Rejections:
@@ -277,6 +282,12 @@ export function validateExtensionFile(content: string | null, relPath: string): 
  *   - entries with neither a string `command` (stdio) nor a string `url`
  *     (streamable HTTP), a non-string `command`, or a non-string-array
  *     `args`.
+ *   - a `url` entry whose url does not parse (URL.canParse) or whose protocol
+ *     is not http/https, a stdio entry whose `env` (when present) is not a
+ *     string record, or a url entry whose `headers` (when present) is not a
+ *     string record — all three mirror pi 1.3.0 validateMcpServerConfig
+ *     (dist/core/mcp-servers.js: `url must be an http or https URL`,
+ *     `env must map names to strings`, `headers must map names to strings`).
  * Unknown extra fields are tolerated (pi ignores them too).
  */
 export function validateMcpJson(content: string | null, _relPath: string): string[] {
@@ -314,6 +325,15 @@ export function validateMcpJson(content: string | null, _relPath: string): strin
     }
     if (e["args"] !== undefined && !(Array.isArray(e["args"]) && e["args"].every((arg) => typeof arg === "string"))) {
       reasons.push(`${prefix} "args" must be an array of strings`);
+    }
+    if (hasUrl && (!URL.canParse(e["url"] as string) || !/^https?:$/.test(new URL(e["url"] as string).protocol))) {
+      reasons.push(`${prefix} "url" must be an http or https URL`);
+    }
+    if (hasCommand && e["env"] !== undefined && !isStringRecord(e["env"])) {
+      reasons.push(`${prefix} "env" must map names to strings`);
+    }
+    if (hasUrl && e["headers"] !== undefined && !isStringRecord(e["headers"])) {
+      reasons.push(`${prefix} "headers" must map names to strings`);
     }
   }
   return reasons;

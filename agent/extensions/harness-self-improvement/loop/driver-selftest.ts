@@ -509,7 +509,8 @@ async function scenarioMcpStartupFailure(check: Check): Promise<void> {
     },
     startupProbeFn: async (sandboxDir) => {
       startupCalls.push(sandboxDir);
-      return {ok: false, failedPhase: "mcp-list" as const, timedOut: false, error: 'MCP server "broken" failed to connect: spawn /nonexistent/binary ENOENT'};
+      // Phase-b usage (review fix): must land in budgetSpent + the ledger.
+      return {ok: false, failedPhase: "mcp-list" as const, timedOut: false, error: 'MCP server "broken" failed to connect: spawn /nonexistent/binary ENOENT', usageTokens: 123};
     },
   });
   check(res.status === "stopped" && res.stopReason === "no-valid-candidates", "run stops with no scored candidates");
@@ -521,6 +522,12 @@ async function scenarioMcpStartupFailure(check: Check): Promise<void> {
   check(probeCalls.filter((c) => c.startsWith("candidate/")).length === 0, "suite probe NOT run after the startup-probe failure (zero rollout spend)");
   check(startupCalls.length === 1, "startup probe ran exactly once");
   check(gateCalls.length === 0, "tsc/bun-test gates not run for an mcp-only candidate");
+  // Step 9b review fix: the startup probe's phase-b usage is budget-accounted
+  // even when the probe fails, and recorded in the code-gate ledger entry.
+  // (Baseline probes cost 2 tasks × 1000 tokens; the startup probe adds 123.)
+  check(res.budgetSpent === 2123, "startup probe usage (123 tokens) accounted into budgetSpent even on failure (2000 baseline + 123)");
+  const gateEntry = readLedger(env.ledgerPath).find((e) => e.kind === "code-gate-failed");
+  check(gateEntry?.usage?.totalTokens === 123, "code-gate ledger entry carries the startup probe usage");
   check(existsSync(join(env.runsDir, res.runId!, "iter-1", "cand-0", "report.md")), "startup-probe-failure report.md written");
   const kinds = readLedger(env.ledgerPath).map((e) => e.kind);
   check(kinds.filter((k) => k === "code-gate-failed").length === 1, "one code-gate-failed ledger entry (gate: startup-probe)");
@@ -538,7 +545,7 @@ async function scenarioMcpShapeFailNoStartupProbe(check: Check): Promise<void> {
     ...env.opts,
     startupProbeFn: async (sandboxDir) => {
       startupCalls.push(sandboxDir);
-      return {ok: true, failedPhase: null, timedOut: false, error: ""};
+      return {ok: true, failedPhase: null, timedOut: false, error: "", usageTokens: 0};
     },
   });
   check(res.status === "stopped" && res.stopReason === "no-valid-candidates", "shape-invalid proposal stops the loop");
@@ -559,7 +566,7 @@ async function scenarioMcpHealthyPathAndMinWin(check: Check): Promise<void> {
     ...env.opts,
     startupProbeFn: async (sandboxDir) => {
       startupCalls.push(sandboxDir);
-      return {ok: true, failedPhase: null, timedOut: false, error: ""};
+      return {ok: true, failedPhase: null, timedOut: false, error: "", usageTokens: 0};
     },
   });
   check(startupCalls.length === 1, "startup probe ran for the mcp-bearing candidate");
@@ -589,7 +596,7 @@ async function scenarioMcpMixedCandidateGateOrder(check: Check): Promise<void> {
     ...env.opts,
     startupProbeFn: async () => {
       order.push("startup-probe");
-      return {ok: true, failedPhase: null, timedOut: false, error: ""};
+      return {ok: true, failedPhase: null, timedOut: false, error: "", usageTokens: 0};
     },
     codeGatesFn: async () => {
       order.push("code-gates");

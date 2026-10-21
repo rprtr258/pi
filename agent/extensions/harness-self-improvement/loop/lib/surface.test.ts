@@ -299,6 +299,24 @@ describe("mcp kind (Step 9b)", () => {
     expect(validateMcpJson('{"mcpServers":{"x":{"command":"c","args":["-y"]}}}', "mcp.json")).toEqual([]);
   });
 
+  test("url entries: unparseable/non-http url rejected; http/https accepted (pi 1.3.0 alignment)", () => {
+    for (const url of ["not a url", "/local/path", "ftp://x/y", "file:///etc/passwd"]) {
+      const reasons = validateMcpJson(`{"mcpServers":{"x":{"url":${JSON.stringify(url)}}}}`, "mcp.json");
+      expect(reasons.some((r) => r.includes('server "x"') && r.includes('"url" must be an http or https URL'))).toBe(true);
+    }
+    expect(validateMcpJson('{"mcpServers":{"x":{"url":"https://example.com/mcp"}}}', "mcp.json")).toEqual([]);
+    expect(validateMcpJson('{"mcpServers":{"x":{"url":"http://localhost:6274/mcp"}}}', "mcp.json")).toEqual([]);
+  });
+
+  test("stdio env and url headers must be string records when present (pi 1.3.0 alignment)", () => {
+    const badEnv = validateMcpJson('{"mcpServers":{"x":{"command":"c","env":{"A":1}}}}', "mcp.json");
+    expect(badEnv.some((r) => r.includes('server "x"') && r.includes('"env" must map names to strings'))).toBe(true);
+    expect(validateMcpJson('{"mcpServers":{"x":{"command":"c","env":{"A":"b"}}}}', "mcp.json")).toEqual([]);
+    const badHeaders = validateMcpJson('{"mcpServers":{"x":{"url":"https://example.com/mcp","headers":{"Authorization":42}}}}', "mcp.json");
+    expect(badHeaders.some((r) => r.includes('server "x"') && r.includes('"headers" must map names to strings'))).toBe(true);
+    expect(validateMcpJson('{"mcpServers":{"x":{"url":"https://example.com/mcp","headers":{"Authorization":"Bearer t"}}}}', "mcp.json")).toEqual([]);
+  });
+
   test("non-object server entries and missing command+url rejected", () => {
     expect(validateMcpJson('{"mcpServers":{"x":"stdio"}}', "mcp.json")[0]).toContain('server "x": must be an object');
     expect(validateMcpJson('{"mcpServers":{"x":{}}}', "mcp.json")[0]).toContain('needs either "command" (stdio) or "url" (streamable HTTP)');

@@ -82,9 +82,12 @@
  *       --json` is the actual health check: it costs ZERO model tokens and
  *       fails on config errors ("config error: …") or any enabled server
  *       whose state is not connected/needs-auth/disabled. needs-auth is
- *       tolerated because the real config's OAuth servers legitimately sit
- *       unsigned in a sandbox (plain `pi mcp list` would exit 1 on them —
- *       its exit code is unusable; the parsed JSON states are used instead).
+ *       tolerated because the real config's OAuth servers sit unsigned in a
+ *       sandbox — their mcp-auth.json token store IS staged read-only into
+ *       the sandbox by buildSandbox (Step 9b review fix), so a REAL
+ *       needs-auth means an expired/absent token rather than a staging
+ *       artifact. Plain `pi mcp list` would exit 1 on needs-auth servers —
+ *       its exit code is unusable; the parsed JSON states are used instead.
  *     Phase b: a nested pi run with the prompt "Reply with OK and nothing
  *       else." (minimal tokens — COST: this phase costs one tiny model call
  *       per mcp-bearing candidate; document in PLAN.md, S12). SUCCESS = the
@@ -94,7 +97,12 @@
  *       keywords). JSON event lines are exempt from the scan — the system
  *       event legitimately contains the words "mcp" and "error" in MCP
  *       tool descriptions. Startup failure/hang = candidate failure with
- *       the captured output.
+ *       the captured output. COST ACCOUNTING (review fix): phase b's usage
+ *       (parsed from its JSONL stream with probe.ts parseJsonlEvents) is
+ *       returned as StartupProbeResult.usageTokens; the driver adds it to
+ *       state.budgetSpent (the run's budget metric) and records it in the
+ *       code-gate-failed ledger entry — probe spend is real spend even
+ *       when the probe fails.
  *
  *   Gate 3: the full suite probe with the candidate mcp.json staged into the
  *     sandbox (buildSandbox stages the REAL mcp.json via the registry;
@@ -112,7 +120,7 @@ import {existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathS
 import {tmpdir} from "node:os";
 import {dirname, join} from "node:path";
 import {kindForPath, surfaceKind, type SurfaceFile} from "./surface.ts";
-import {killProcessGroup, nestedPiEnv, resolvePiBinary} from "./probe.ts";
+import {killProcessGroup, nestedPiEnv, parseJsonlEvents, resolvePiBinary} from "./probe.ts";
 import type {SelectionConfig} from "./score.ts";
 import type {ProposedEdit} from "./proposer.ts";
 
@@ -596,10 +604,14 @@ export function mcpServerNames(content: string): string[] {
  */
 export function mcpLoadErrorLines(raw: string, serverNames: string[]): string[] {
   const out: string[] = [];
+  // Word-boundary match (review fix): a server named "log" must not match a
+  // line that only mentions "logging". Server names are validated to
+  // [A-Za-z0-9_-] at gate 1, but escape defensively anyway.
+  const namePatterns = serverNames.map((name) => new RegExp(`\\b${name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`));
   for (const line of raw.split("\n")) {
     const trimmed = line.trim();
     if (trimmed === "") continue;
-    const mentionsMcp = /\bmcp\b/i.test(trimmed) || serverNames.some((name) => trimmed.includes(name));
+    const mentionsMcp = /\bmcp\b/i.test(trimmed) || namePatterns.some((pattern) => pattern.test(trimmed));
     if (!mentionsMcp) continue;
     if (/failed to load extension/i.test(trimmed) || /error|failed|exception/i.test(trimmed)) out.push(trimmed);
   }
@@ -661,6 +673,14 @@ export interface StartupProbeResult {
   /** Captured failure output (tail); "" on success. */
   error: string;
   timedOut: boolean;
+  /**
+   * Phase b's model usage in tokens (review fix): parsed from the OK run's
+   * JSONL event stream with probe.ts parseJsonlEvents; 0 when the phase
+   * never ran, timed out, or reported no assistant usage. The driver adds
+   * this to state.budgetSpent and the code-gate ledger entry — probe spend
+   * is real spend even when the probe fails.
+   */
+  usageTokens: number;
 }
 
 /**
@@ -683,17 +703,20 @@ export async function runStartupProbe(sandboxDir: string, options: StartupProbeO
     // Phase a: eager MCP connect report (no model tokens).
     const list = await run([bin, "mcp", "list", "--json"], {cwd: scratch, timeoutS, env});
     if (list.timedOut) {
-      return {ok: false, failedPhase: "mcp-list", timedOut: true, error: `startup probe (pi mcp list) timed out after ${timeoutS}s and its process group was killed\n${(list.stdout + list.stderr).trim()}`};
+      return {ok: false, failedPhase: "mcp-list", timedOut: true, error: `startup probe (pi mcp list) timed out after ${timeoutS}s and its process group was killed\n${(list.stdout + list.stderr).trim()}`, usageTokens: 0};
     }
     const listProblem = mcpListFailure(list.stdout);
     if (listProblem !== null) {
-      return {ok: false, failedPhase: "mcp-list", timedOut: false, error: listProblem};
+      return {ok: false, failedPhase: "mcp-list", timedOut: false, error: listProblem, usageTokens: 0};
     }
-    // Phase b: minimal-token startup run (one tiny model call).
+    // Phase b: minimal-token startup run (one tiny model call). Its usage is
+    // parsed from the JSONL stream and returned even on failure — the driver
+    // accounts it into the run budget (review fix, see the module header).
     const prompt = await run([bin, "--mode", "json", "--no-session", "--", MCP_STARTUP_PROBE_PROMPT], {cwd: scratch, timeoutS, env});
     if (prompt.timedOut) {
-      return {ok: false, failedPhase: "prompt", timedOut: true, error: `startup probe timed out after ${timeoutS}s and its process group was killed\n${(prompt.stdout + prompt.stderr).trim()}`};
+      return {ok: false, failedPhase: "prompt", timedOut: true, error: `startup probe timed out after ${timeoutS}s and its process group was killed\n${(prompt.stdout + prompt.stderr).trim()}`, usageTokens: 0};
     }
+    const usageTokens = parseJsonlEvents(prompt.stdout).usage?.totalTokens ?? 0;
     // The load-error scan covers stderr plus any stray non-JSON stdout
     // lines — pi's load failures go to stderr (empirical 9a shape), and
     // scanning the JSON EVENT lines themselves would false-positive: the
@@ -712,15 +735,19 @@ export async function runStartupProbe(sandboxDir: string, options: StartupProbeO
         }
       })
       .join("\n");
-    const names = mcpServerNames(readFileSync(join(sandboxDir, "mcp.json"), "utf8"));
+    // An absent sandbox mcp.json (excluded by the snapshot's absence flag) is
+    // not an error — it simply defines no server names for the scan (review
+    // fix: existsSync guard instead of a readFileSync throw).
+    const mcpJsonPath = join(sandboxDir, "mcp.json");
+    const names = existsSync(mcpJsonPath) ? mcpServerNames(readFileSync(mcpJsonPath, "utf8")) : [];
     const loadErrors = mcpLoadErrorLines(`${prompt.stderr}\n${stray}`, names);
     if (loadErrors.length > 0) {
-      return {ok: false, failedPhase: "prompt", timedOut: false, error: `mcp load errors in the startup run:\n${loadErrors.slice(0, 5).join("\n")}`};
+      return {ok: false, failedPhase: "prompt", timedOut: false, error: `mcp load errors in the startup run:\n${loadErrors.slice(0, 5).join("\n")}`, usageTokens};
     }
     if (prompt.status !== 0) {
-      return {ok: false, failedPhase: "prompt", timedOut: false, error: `startup probe exited ${prompt.status}\n${(prompt.stdout + prompt.stderr).trim().slice(-4000)}`};
+      return {ok: false, failedPhase: "prompt", timedOut: false, error: `startup probe exited ${prompt.status}\n${(prompt.stdout + prompt.stderr).trim().slice(-4000)}`, usageTokens};
     }
-    return {ok: true, failedPhase: null, error: "", timedOut: false};
+    return {ok: true, failedPhase: null, error: "", timedOut: false, usageTokens};
   } finally {
     rmSync(scratch, {recursive: true, force: true});
   }
