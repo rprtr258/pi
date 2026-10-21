@@ -489,8 +489,9 @@ export async function runLoop(opts: RunLoopOptions): Promise<LoopRunResult> {
   // once and scored on its own). The budget guard below still wraps EVERY
   // probe spawn: checkGuards() runs before each spawn, so once the budget is
   // exhausted no NEW probe starts — but probes already in flight run to
-  // completion, so real spend may overshoot the budget by at most
-  // (maxConcurrentProbes − 1) probes' tokens. Documented overshoot, accepted
+  // completion, so real spend may overshoot the budget by up to
+  // maxConcurrentProbes probes' tokens (all may pass the budget check before
+  // any completes). Documented overshoot, accepted
   // because in-flight model calls cannot be un-spent.
   const concurrency = config.parallel.enabled ? config.parallel.maxConcurrentProbes : 1;
 
@@ -992,6 +993,7 @@ export async function runLoop(opts: RunLoopOptions): Promise<LoopRunResult> {
             iteration: index,
             sources: composition.sources,
             fileAttribution: composition.fileAttribution,
+            fingerprint: composition.fingerprint,
             win: composedWin,
             decision: composedWin ? "won" : "failed",
             scores: composedAggregate !== null ? {passCount: composedAggregate.passCount, total: composedAggregate.total} : undefined,
@@ -1048,7 +1050,7 @@ export async function runLoop(opts: RunLoopOptions): Promise<LoopRunResult> {
               appendProposalRejectedEntry({
                 runId,
                 proposalFingerprint: iter.proposalFingerprint ?? "",
-                candidateFingerprints: iter.candidates.map((c) => c.fingerprint ?? "").filter((f) => f !== ""),
+                candidateFingerprints: [...iter.candidates.map((c) => c.fingerprint ?? "").filter((f) => f !== ""), composition.fingerprint],
                 scores: composedAggregate !== null ? {passCount: composedAggregate.passCount, total: composedAggregate.total} : {passCount: 0, total: 0},
                 usage: {totalTokens: composedAggregate?.totalTokens ?? 0},
                 reasons: applied.reasons,

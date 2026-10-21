@@ -92,6 +92,10 @@ export function composeWinners(winners: WinnerInput[]): Composition | null {
   // Rank = candidate index (proposal order): sort so conflicts always resolve
   // to the lower candidateIdx regardless of the caller's list order.
   const ranked = [...winners].sort((a, b) => a.candidateIdx - b.candidateIdx);
+  // Defensive: duplicate candidateIdx values are a caller bug (two winners
+  // claiming the same rank) — the per-candidate bookkeeping maps would merge
+  // them silently, so refuse the merge.
+  if (ranked.some((w, i) => i > 0 && w.candidateIdx === ranked[i - 1]!.candidateIdx)) return null;
   const supplied = new Map<string, {content: string | null; sourceIdx: number}>();
   const keptBySource = new Map<number, string[]>();
   const droppedBySource = new Map<number, string[]>();

@@ -96,6 +96,13 @@ describe("composeWinners", () => {
     expect(composition).toBeNull(); // single-winner path must be taken instead
   });
 
+  test("duplicate candidateIdx values are rejected (defensive rank guard)", () => {
+    expect(composeWinners([
+      winner(0, "zero", edit("AGENTS.md", "# zero")),
+      winner(0, "zero again", edit("prompts/p.md", "p")),
+    ])).toBeNull();
+  });
+
   test("composition is deterministic: same winners in rank order → same output", () => {
     const input = [
       winner(0, "zero", edit("AGENTS.md", "# zero")),

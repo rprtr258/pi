@@ -19,6 +19,7 @@ import {DEFAULT_LOOP_CONFIG, type LoopConfig} from "./lib/apply.ts";
 import {readLedger} from "./lib/ledger.ts";
 import type {RunProbeFn} from "./lib/score.ts";
 import type {CallModel} from "./lib/proposer.ts";
+import {candidateFingerprint} from "./lib/proposer.ts";
 import type {LoadedTask} from "./lib/suite.ts";
 import type {ProbeResult} from "./lib/probe.ts";
 
@@ -646,8 +647,12 @@ async function scenarioCompositionDisjoint(check: Check): Promise<void> {
   const composedIdx = entries.findIndex((e) => e.kind === "composed");
   const applyIdx = entries.findIndex((e) => e.kind === "apply-dryrun");
   check(composedIdx !== -1 && applyIdx !== -1 && composedIdx < applyIdx, "composed entry ledgered BEFORE the apply entry (scored before apply)");
-  const composed = entries[composedIdx] as (typeof entries)[number] & {sources?: number[]; fileAttribution?: Record<string, number>};
+  const composed = entries[composedIdx] as (typeof entries)[number] & {sources?: number[]; fileAttribution?: Record<string, number>; fingerprint?: string};
   check(composed.decision === "won" && composed.win === true, "composed result INDEPENDENTLY cleared selectWinner vs baseline");
+  check(composed.fingerprint === candidateFingerprint([
+    {path: "AGENTS.md", content: "# improved by cand zero\n"},
+    {path: "skills/extra/SKILL.md", content: "# extra skill from cand one\n"},
+  ]), "composed ledger entry carries the composed candidate's fingerprint");
   check(JSON.stringify(composed.sources) === "[0,1]", "composed sources recorded (both candidates)");
   check(JSON.stringify(composed.fileAttribution) === JSON.stringify({"AGENTS.md": 0, "skills/extra/SKILL.md": 1}), "per-file attribution recorded");
   check(entries.filter((e) => e.kind === "composed-out").length === 0, "no composed-out entries for a fully disjoint merge");
