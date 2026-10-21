@@ -8,6 +8,13 @@
  * surface as failed results with a short stderr excerpt. Raw JSONL from the
  * nested run is recorded next to the result for debugging.
  *
+ * Step 12 retry hardening: a PROVIDER-ISH failure (spawn error, non-zero exit
+ * with an empty trajectory, or no events parsed at all — see
+ * isProviderishFailure) is retried exactly ONCE after a 2s backoff; both
+ * attempts' info is recorded on the result (attemptedRetry, firstError).
+ * Deterministic outcomes — task timeouts, checker failures against real
+ * trajectories, setup errors — are never retried.
+ *
  * Usage:
  *   bun run loop/lib/probe.ts <task-name> [--sandbox <dir>] [--keep-sandbox]
  */
@@ -72,6 +79,21 @@ export type ProbeResult = {
   stderrExcerpt: string | null,
   /** Where the raw JSONL was recorded, when a location was provided. */
   rawJsonlPath: string | null,
+  /**
+   * Step 12 retry hardening: true when the FIRST attempt hit a provider-ish
+   * failure (see isProviderishFailure) and ONE retry attempt ran after the
+   * backoff. Absent/false when the first attempt was healthy or the failure
+   * was deterministic (timeout, checker failure, setup error) — those are
+   * never retried.
+   */
+  attemptedRetry?: boolean,
+  /**
+   * Step 12: what the FIRST (failed) attempt looked like, kept when a retry
+   * ran — the stderr excerpt, or a synthetic exit/trajectory summary when the
+   * first attempt produced no stderr. Both attempts' info is thus always
+   * recorded on the returned result.
+   */
+  firstError?: string | null,
 };
 
 export type RunProbeOptions = {
@@ -98,6 +120,14 @@ export type RunProbeOptions = {
    * caller (score.ts) creates a unique dir per probe and cleans it up.
    */
   tmpDir?: string,
+  /**
+   * Step 12 retry backoff: milliseconds to wait before the single retry of a
+   * provider-ish failure (spawn error, non-zero exit with empty trajectory,
+   * no events parsed). Default 2000ms; 0 is legal (tests). The retry runs at
+   * most ONCE per probe — a second consecutive provider-ish failure is
+   * recorded as the task failure.
+   */
+  retryBackoffMs?: number,
 };
 
 /**
@@ -284,17 +314,69 @@ function runChecker(checkTs: string, wsDir: string, env?: NodeJS.ProcessEnv): Ch
 
 /** Run one task probe. Resolves with a result for every outcome; never throws. */
 export async function runProbe(task: LoadedTask, sandboxDir: string, wsDir: string, options: RunProbeOptions = {}): Promise<ProbeResult> {
+  const first = await attemptProbe(task, sandboxDir, wsDir, options);
+  if (!first.retryable) return first.result;
+  // Step 12: ONE retry after a short backoff — only for provider-ish
+  // failures (spawn error / non-zero exit with empty trajectory / no events
+  // parsed). Deterministic outcomes (task timeout, checker failure, setup
+  // errors) never reach this branch. attemptProbe re-creates the workspace,
+  // so the retry starts from a clean staging state.
+  const backoffMs = options.retryBackoffMs ?? PROVIDER_RETRY_BACKOFF_MS;
+  if (backoffMs > 0) await new Promise<void>((resolve) => setTimeout(resolve, backoffMs));
+  const second = await attemptProbe(task, sandboxDir, wsDir, options);
+  return {
+    ...second.result,
+    attemptedRetry: true,
+    firstError: first.result.stderrExcerpt ??
+      `first attempt: exit ${first.result.exit ?? "<no exit>"}, no trajectory${first.result.usage === null ? ", no usage" : ""}`,
+  };
+}
+
+/** Backoff before the single provider-failure retry (Step 12). */
+const PROVIDER_RETRY_BACKOFF_MS = 2_000;
+
+/**
+ * Provider-ish failure (Step 12): the nested run shows no evidence that the
+ * MODEL ever did work — spawn error, killed by signal, non-zero exit with an
+ * empty trajectory, or no events parsed at all (no assistant text AND no
+ * usage). These are transient infra/provider shapes worth exactly one retry.
+ * NOT provider-ish (deterministic, never retried): a task timeout (the task
+ * genuinely ran out of budget), a checker failure against a real trajectory,
+ * a non-zero exit WITH trajectory output, and setup errors (unloadable task,
+ * staging failure, PI_BIN misconfig — they fail identically on retry).
+ */
+export function isProviderishFailure(result: ProbeResult): boolean {
+  if (result.timedOut) return false;
+  if (result.exit === null) return true; // spawn error or killed by signal
+  if (result.exit !== 0 && result.trajectory.trim() === "") return true;
+  if (result.trajectory.trim() === "" && result.usage === null) return true; // no events parsed
+  return false;
+}
+
+interface AttemptOutcome {
+  result: ProbeResult;
+  /** True when runProbe may retry this outcome once (provider-ish shape). */
+  retryable: boolean;
+}
+
+/** One probe attempt: the pre-Step-12 runProbe body. Never throws. */
+async function attemptProbe(task: LoadedTask, sandboxDir: string, wsDir: string, options: RunProbeOptions = {}): Promise<AttemptOutcome> {
   const timeoutS = options.timeoutS ?? task.meta?.timeoutS ?? DEFAULT_PROBE_TIMEOUT_S;
-  const failed = (partial: Partial<ProbeResult>): ProbeResult => ({
-    trajectory: "",
-    usage: null,
-    exit: null,
-    checkerResult: {pass: false, output: ""},
-    piBinary: null,
-    timedOut: false,
-    stderrExcerpt: null,
-    rawJsonlPath: null,
-    ...partial,
+  const failed = (partial: Partial<ProbeResult>): AttemptOutcome => ({
+    result: {
+      trajectory: "",
+      usage: null,
+      exit: null,
+      checkerResult: {pass: false, output: ""},
+      piBinary: null,
+      timedOut: false,
+      stderrExcerpt: null,
+      rawJsonlPath: null,
+      ...partial,
+    },
+    // Setup failures (unloadable task, staging error, PI_BIN misconfig) are
+    // deterministic — they fail identically on a retry.
+    retryable: false,
   });
   try {
     if (!existsSync(task.paths.taskMd) || !task.meta) {
@@ -398,13 +480,24 @@ export async function runProbe(task: LoadedTask, sandboxDir: string, wsDir: stri
       }
       rawFd = null;
     }
-    const parseInput =
-      truncatedBytes > 0
-        ? `${rawHead}\n==[raw JSONL truncated: ${truncatedBytes} middle bytes not retained in memory]==\n${rawTail}`
-        : rawHead + rawTail;
+    // Step 12 fix: assemble the parse input WITHOUT double-counting the
+    // head/tail overlap. rawHead holds the first ≤2MB and rawTail the last
+    // ≤8MB of the stream, so for output under 8MB rawTail alone IS the whole
+    // stream; between 8MB and 10MB the two windows overlap (emit the overlap
+    // once); beyond 10MB a real gap opens between them (marked inline).
+    let parseInput: string;
+    if (truncatedBytes === 0) {
+      parseInput = rawTail; // ≤ 8MB: rawTail is the complete stream
+    } else if (truncatedBytes <= RAW_HEAD_LIMIT) {
+      const overlap = RAW_HEAD_LIMIT - truncatedBytes;
+      parseInput = rawHead.slice(0, Math.max(0, rawHead.length - overlap)) + rawTail;
+    } else {
+      const gapBytes = truncatedBytes - RAW_HEAD_LIMIT;
+      parseInput = `${rawHead}\n==[raw JSONL truncated: ${gapBytes} middle bytes not retained in memory]==\n${rawTail}`;
+    }
     const parsed = parseJsonlEvents(parseInput);
     const checkerResult = runChecker(task.paths.checkTs, wsDir, options.tmpDir === undefined ? undefined : {...process.env, TMPDIR: options.tmpDir, TMP: options.tmpDir, TEMP: options.tmpDir});
-    return {
+    const result: ProbeResult = {
       trajectory: parsed.trajectoryLines.join("\n"),
       usage: parsed.usage,
       exit,
@@ -414,6 +507,7 @@ export async function runProbe(task: LoadedTask, sandboxDir: string, wsDir: stri
       stderrExcerpt: stderrTail.trim() === "" ? null : redact(stderrTail.trim()),
       rawJsonlPath: options.rawJsonlPath ?? null,
     };
+    return {result, retryable: isProviderishFailure(result)};
   } catch (err) {
     return failed({stderrExcerpt: redact(err instanceof Error ? err.message : String(err))});
   }

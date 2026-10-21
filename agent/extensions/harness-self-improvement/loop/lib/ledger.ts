@@ -180,16 +180,28 @@ export function renderReport(data: RunReportData): string {
       out.push(`| ${t.task} | ${t.category} | ${t.pass} | ${fmtDuration(t.durationMs)} | ${t.tokens} |`);
     }
   }
-  const failed = data.tasks.filter((t) => !t.pass && (t.checkerOutput ?? "").trim() !== "");
+  const failed = data.tasks.filter((t) => !t.pass && ((t.checkerOutput ?? "").trim() !== "" || t.tokens <= 0));
   if (failed.length > 0) {
     out.push("");
     out.push("## Failure excerpts");
     for (const t of failed) {
       out.push("");
       out.push(`### ${t.task}`);
-      out.push("```");
-      for (const line of failureExcerpt(t.checkerOutput ?? "")) out.push(line);
-      out.push("```");
+      // Step 12 (S6 review follow-up): a failed result with null/zero token
+      // usage never produced model events — that shape is a suspected probe
+      // failure (provider/spawn breakdown), not evidence about the task.
+      // Flag it explicitly so report readers do not mistake it for a real
+      // task failure. Such tasks are listed even without checker output.
+      if (t.tokens <= 0) {
+        out.push(">");
+        out.push("> **suspected probe failure (no usage events)** — pass=false with null/zero token usage;");
+        out.push("> the nested run likely never produced model events. Not a real task failure.");
+      }
+      if ((t.checkerOutput ?? "").trim() !== "") {
+        out.push("```");
+        for (const line of failureExcerpt(t.checkerOutput ?? "")) out.push(line);
+        out.push("```");
+      }
     }
   }
   out.push("");

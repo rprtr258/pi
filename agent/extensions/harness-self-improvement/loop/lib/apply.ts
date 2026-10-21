@@ -119,7 +119,7 @@
  *                             shape proposer.ts's buildLedgerDigest reads.
  */
 import {spawnSync} from "node:child_process";
-import {closeSync, existsSync, lstatSync, mkdirSync, openSync, readFileSync, rmSync, rmdirSync, statSync, unlinkSync, writeFileSync, writeSync} from "node:fs";
+import {closeSync, existsSync, lstatSync, mkdirSync, openSync, readdirSync, readFileSync, rmSync, rmdirSync, statSync, unlinkSync, writeFileSync, writeSync} from "node:fs";
 import {homedir} from "node:os";
 import {dirname, join} from "node:path";
 import {fileURLToPath} from "node:url";
@@ -211,6 +211,11 @@ export interface LoopConfig {
     /** Deterministic regression-sample size probed alongside the failing subset. */
     sampleSize: number;
   };
+  /** Runs-directory retention (Step 12). */
+  retention: {
+    /** After each successful runLoop completion, prune runs/ to this many most-recent run dirs. */
+    maxRunDirs: number;
+  };
 }
 
 export const DEFAULT_LOOP_CONFIG: LoopConfig = {
@@ -226,6 +231,7 @@ export const DEFAULT_LOOP_CONFIG: LoopConfig = {
   roles: {},
   mode: {default: "surface", auto: true},
   targeted: {sampleSize: 6},
+  retention: {maxRunDirs: 10},
 };
 
 function defaultConfigPath(): string {
@@ -270,6 +276,7 @@ export function loadLoopConfig(path: string = defaultConfigPath()): LoopConfig {
     roles: {...DEFAULT_LOOP_CONFIG.roles},
     mode: {...DEFAULT_LOOP_CONFIG.mode},
     targeted: {...DEFAULT_LOOP_CONFIG.targeted},
+    retention: {...DEFAULT_LOOP_CONFIG.retention},
   };
   const p = parsed as Record<string, unknown>;
   if (p["minWin"] === undefined) {
@@ -463,7 +470,56 @@ export function loadLoopConfig(path: string = defaultConfigPath()): LoopConfig {
   } else {
     warnField("targeted", "not an object");
   }
+  const retention = p["retention"];
+  if (retention === undefined) {
+    // keep default
+  } else if (retention !== null && typeof retention === "object" && !Array.isArray(retention)) {
+    const r = retention as Record<string, unknown>;
+    if (r["maxRunDirs"] === undefined) {
+      // keep default
+    } else if (typeof r["maxRunDirs"] === "number" && Number.isInteger(r["maxRunDirs"]) && r["maxRunDirs"] >= 1) {
+      cfg.retention.maxRunDirs = r["maxRunDirs"]!;
+    } else {
+      warnField("retention.maxRunDirs", "not an integer ≥ 1");
+    }
+  } else {
+    warnField("retention", "not an object");
+  }
   return cfg;
+}
+
+/**
+ * Step 12 retention cap: prune `runsDir` to the `maxRunDirs` most-recent run
+ * directories. Run ids are `<YYYYMMDD>-<HHMMSS>-<hex>` (ledger.ts newRunId),
+ * so lexicographic name order IS chronological order. Invariants:
+ *   - the most recent run dir is NEVER deleted, even when it is the only one
+ *     and the cap were somehow already violated;
+ *   - `keepRunId` (the just-completed run) is never deleted — normally it IS
+ *     the most recent, but a resumed older run completing out of order is
+ *     protected too;
+ *   - a non-integer/`< 1` cap is a loader bug — fail safe by doing nothing;
+ *   - only direct subdirectories are considered (files and other entries in
+ *     runs/ are never touched).
+ * Returns the deleted directory names. Never throws for individual removals
+ * being impossible — rmSync failures propagate (the caller logs non-fatally).
+ */
+export function pruneRunDirs(runsDir: string, maxRunDirs: number, keepRunId?: string): string[] {
+  if (!existsSync(runsDir)) return [];
+  if (!Number.isInteger(maxRunDirs) || maxRunDirs < 1) return []; // fail safe
+  const dirs = readdirSync(runsDir, {withFileTypes: true})
+    .filter((e) => e.isDirectory())
+    .map((e) => e.name)
+    .sort();
+  const excess = dirs.length - maxRunDirs;
+  if (excess <= 0) return [];
+  const neverDelete = new Set<string>();
+  const mostRecent = dirs[dirs.length - 1]!;
+  neverDelete.add(mostRecent);
+  if (keepRunId !== undefined) neverDelete.add(keepRunId);
+  const deletable = dirs.filter((d) => !neverDelete.has(d));
+  const toDelete = deletable.slice(0, excess);
+  for (const name of toDelete) rmSync(join(runsDir, name), {recursive: true, force: true});
+  return toDelete;
 }
 
 // ---------------------------------------------------------------------------

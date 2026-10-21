@@ -104,7 +104,7 @@ import {buildSandbox, captureModelFlag, realPiAgentDir, snapshotReal, type Compo
 import {listTaskDirs, loadTask, suiteRoot, type LoadedTask} from "./lib/suite.ts";
 import {scoreSuite, selectWinner, type RunProbeFn, type ScoreSuiteResult, type SelectionConfig, type SelectionResult, type TaskScoreResult} from "./lib/score.ts";
 import {buildLedgerDigest, propose, type CallModel, type ProposedCandidate} from "./lib/proposer.ts";
-import {appendProposalRejectedEntry, applyCandidate, loadLoopConfig, type LoopConfig} from "./lib/apply.ts";
+import {appendProposalRejectedEntry, applyCandidate, loadLoopConfig, pruneRunDirs, type LoopConfig} from "./lib/apply.ts";
 import {resolveIterationMode, resolveRoleModels, type LoopMode, type RoleModels} from "./lib/roles.ts";
 import {selectTargetedTasks} from "./lib/targeted.ts";
 import {baselineCacheDir, baselineCachePath, cacheMatchesTaskSet, fingerprintSnapshot, readBaselineCache, writeBaselineCache} from "./baseline.ts";import {resolvePiBinary, runProbe} from "./lib/probe.ts";
@@ -509,6 +509,18 @@ export async function runLoop(opts: RunLoopOptions): Promise<LoopRunResult> {
     state.status = status;
     state.stopReason = stopReason;
     persist();
+    // Step 12 retention: after a SUCCESSFUL completion, prune runs/ to the
+    // config.retention.maxRunDirs most-recent run dirs (this run and the
+    // most recent dir are always kept — see pruneRunDirs). Non-fatal: a
+    // prune failure never changes the run's outcome.
+    if (status === "completed") {
+      try {
+        const pruned = pruneRunDirs(runsDir, config.retention.maxRunDirs, runId);
+        if (pruned.length > 0) log(`[hloop] retention: pruned ${pruned.length} old run dir(s) beyond the cap of ${config.retention.maxRunDirs}: ${pruned.join(", ")}`);
+      } catch (err) {
+        log(`[hloop] retention prune failed (non-fatal): ${err instanceof Error ? err.message : String(err)}`);
+      }
+    }
     return {
       ok: status === "completed",
       runId,

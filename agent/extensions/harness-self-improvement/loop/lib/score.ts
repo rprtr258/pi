@@ -43,6 +43,14 @@ export interface TaskScoreResult {
    * Absent in pre-S6 result files and in baseline-cache payloads.
    */
   boundTo?: string;
+  /**
+   * Step 12 retry hardening (probe.ts): true when the probe needed its single
+   * provider-failure retry; `firstError` then carries the FIRST attempt's
+   * stderr excerpt (or a synthetic exit/trajectory summary). Absent when no
+   * retry ran.
+   */
+  attemptedRetry?: boolean;
+  firstError?: string | null;
 }
 
 export interface SuiteAggregate {
@@ -198,6 +206,11 @@ export async function scoreSuite(tasks: LoadedTask[], sandboxDir: string, runDir
           trajectory: probeResult.trajectory,
         };
         if (options.boundTo !== undefined) result.boundTo = options.boundTo;
+        // Step 12: keep both retry attempts' info on the recorded result.
+        if (probeResult.attemptedRetry === true) {
+          result.attemptedRetry = true;
+          result.firstError = probeResult.firstError ?? null;
+        }
         // Written as soon as the task completes: a crash between probes
         // leaves every completed task's result on disk for resume.
         writeFileSync(join(tasksDir, `${item.task.name}.json`), `${JSON.stringify(result, null, 2)}\n`);
