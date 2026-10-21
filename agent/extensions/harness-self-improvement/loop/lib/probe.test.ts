@@ -328,11 +328,14 @@ describe("runProbe provider-failure retry (Step 12)", () => {
       trajectory: "", usage: null, exit: 0, checkerResult: {pass: false, output: ""},
       piBinary: null, timedOut: false, stderrExcerpt: null, rawJsonlPath: null,
     };
+    const usage = {input: 1, output: 1, cacheRead: 0, cacheWrite: 0, totalTokens: 2, cost: {input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0}};
     expect(isProviderishFailure(base)).toBe(true); // no events parsed
-    expect(isProviderishFailure({...base, exit: 1})).toBe(true); // non-zero, empty trajectory
-    expect(isProviderishFailure({...base, exit: null})).toBe(true); // spawn error / signal
+    expect(isProviderishFailure({...base, exit: 1})).toBe(true); // non-zero, empty trajectory, no usage
+    expect(isProviderishFailure({...base, exit: null})).toBe(true); // spawn error / signal, no usage
+    expect(isProviderishFailure({...base, exit: null, usage})).toBe(false); // signal-killed WITH usage → real model work, NO retry
+    expect(isProviderishFailure({...base, exit: 3, usage})).toBe(false); // non-zero exit WITH usage → NO retry
     expect(isProviderishFailure({...base, timedOut: true})).toBe(false); // deterministic timeout
-    expect(isProviderishFailure({...base, trajectory: "did it", usage: {input: 1, output: 1, cacheRead: 0, cacheWrite: 0, totalTokens: 2, cost: {input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0}}})).toBe(false);
+    expect(isProviderishFailure({...base, trajectory: "did it", usage})).toBe(false);
     expect(isProviderishFailure({...base, exit: 3, trajectory: "did it"})).toBe(false); // real failure
   });
 });

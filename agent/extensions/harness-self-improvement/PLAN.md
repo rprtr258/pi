@@ -178,7 +178,13 @@ failure semantics); the task suite itself: [loop/suite/README.md](loop/suite/REA
   "apply": {"dryRun": true},
   "budget": {"maxTotalTokens": 5000000, "maxIterations": 3},
   "candidates": {"maxPerIteration": 3},
-  "replay": {"enabled": false, "minAgreement": 0.8}
+  "replay": {"enabled": false, "minAgreement": 0.8},
+  "code": {"allow": ["harness-loop-sample"], "minWin": 2},
+  "parallel": {"enabled": true, "maxConcurrentProbes": 2},
+  "roles": {},
+  "mode": {"default": "surface", "auto": true},
+  "targeted": {"sampleSize": 6},
+  "retention": {"maxRunDirs": 10}
 }
 ```
 
@@ -258,20 +264,10 @@ reasons: `iterations-reached`, `stop-flag` (flag file seen + consumed),
 candidates stops the whole loop).
 
 **Overshoot bound:** the check runs BEFORE each spawn; probes already in
-flight when the threshold is crossed are not killed, so real spend may
-overshoot the cap by at most `maxConcurrentProbes − 1` probes (documented,
-accepted).
-
-### Budget semantics
-
-The budget metric is the SUM of probe `usage.totalTokens` across the run
-(baseline + candidate probes) — NOT cost: `cost.total` is always 0 on this
-gateway, so tokens are the only meaningful meter. The loop checks the budget
-between iterations and before each probe spawn, and stops with reason
-`budget-exceeded` when the sum reaches `budget.maxTotalTokens`. Other stop
-reasons: `iterations-reached`, `stop-flag` (flag file seen + consumed),
-`no-valid-candidates` (an iteration whose proposal had zero validated
-candidates stops the whole loop).
+flight when the threshold is crossed are not killed, and up to
+`maxConcurrentProbes` probes may all pass the check before any of them
+completes — so real spend may overshoot the cap by up to `maxConcurrentProbes`
+probes' tokens (documented, accepted).
 
 ### State, ledger, reports
 
@@ -321,8 +317,10 @@ invalidates it.
 
 1. `/hloop status` (or `git -C ~/.pi/agent log --grep 'harness-loop(run'`) to
    find the runId.
-2. `/hloop revert <runId>` — refuses on a dirty tree under AGENTS.md/skills/,
-   reverts only the marker commit, records a `revert` ledger entry.
+2. `/hloop revert <runId>` — refuses on a dirty tree under any managed
+   gitPath (AGENTS.md, skills/, prompts/, agents/, extensions/, mcp.json),
+   excluding the loop's own subtree; reverts only the marker commit, records
+   a `revert` ledger entry.
    (In dry-run mode there is nothing to revert — no commit was made.)
 
 ### Cost expectations
@@ -331,9 +329,10 @@ invalidates it.
   per fingerprint; cached afterwards.
 - `/hloop start --suite "smoke-*"`: ≈ 2–8 smoke probes + 1–2 proposer calls
   per iteration (tens of k tokens) — the intended first live run.
-- `bash loop/chaos.sh`: ≈ 6 min + real smoke-probe spend (~7 smoke baselines
-  across the five kill scenarios + the lock check; runs/ + cache redirected
-  to temp dirs, applies always dry-run).
+- `bash loop/chaos.sh`: ≈6 min wall; each killed scenario re-probes its
+  baseline on resume: ~20 smoke baselines + ~13 candidate probes,
+  ≈3M tokens total; runs/ + cache redirected to temp dirs, applies always
+  dry-run.
 - Unit/selftest layers (`bun test loop/lib/`, `driver.ts selftest`,
   `apply-test.ts`, `chaos-apply-refusal.ts`, `chaos-isolation.ts`): no model
   spend (fakes only).

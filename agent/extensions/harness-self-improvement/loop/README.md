@@ -92,13 +92,17 @@ Stage → Propose → Probe → Judge → Compose → Apply
   single-flight locks.
 - **Budget.** `budget.maxTotalTokens` meters probe usage (sum of
   `usage.totalTokens`, NOT cost); checked between iterations and before each
-  spawn. In-flight probes may overshoot by at most `maxConcurrentProbes − 1`
-  probes (documented overshoot bound). Stop reasons: `budget-exceeded`,
+  spawn. Up to `maxConcurrentProbes` probes' tokens may overshoot the cap
+  (all may pass the budget check before any completes; documented overshoot
+  bound). Stop reasons: `budget-exceeded`,
   `iterations-reached`, `stop-flag` (the `loop/.stop` flag, consumed when
   seen), `no-valid-candidates`.
-- **Retries.** Provider-ish probe failures (spawn error, non-zero exit with
-  empty trajectory, no events parsed) are retried exactly ONCE after a 2s
-  backoff; timeouts, checker failures, and setup errors are never retried.
+- **Retries.** Provider-ish probe failures (spawn error or signal-kill with NO
+  recorded usage, non-zero exit with empty trajectory and no usage, no events
+  parsed at all) are retried exactly ONCE after a 2s backoff; timeouts,
+  checker failures, any failure WITH recorded usage (signal-kill or non-zero
+  exit after real model work is deterministic — a retry would re-spend those
+  tokens), and setup errors are never retried.
   Retried results carry `attemptedRetry` + `firstError`.
 - **Retention.** After a successful run, `runs/` is pruned to the
   `retention.maxRunDirs` (default 10) most-recent run dirs; the most recent is

@@ -11,7 +11,7 @@
 #       (concurrency 1), then `--resume`; asserts state.json consistency,
 #       resume reuse, and no partial apply.
 #   (b) mid-PARALLEL-iteration — real: same, with concurrency 2 and BOTH
-#       probes observed in flight before the kill.
+#       probes asserted in flight (wait_nested_pis) before the kill.
 #   (c) during APPLY — per the S5 design, a kill between the file writes and
 #       the commit is simulated by a pre-dirty managed path (the exact residue
 #       such a crash leaves); asserts the next real (dryRun:false) apply
@@ -49,6 +49,7 @@ AGENT_DIR="$(cd "$EXT_DIR/../.." && pwd)"
 
 RUNS_DIR="$(mktemp -d /tmp/hloop-chaos-runs-XXXXXX)"
 LOG_DIR="$(mktemp -d /tmp/hloop-chaos-logs-XXXXXX)"
+TEMP_DIRS=("$RUNS_DIR" "$LOG_DIR") # every temp dir created below is tracked here
 FAILURES=0
 SCENARIOS_RUN=0
 
@@ -56,7 +57,13 @@ pass() { echo "  PASS: $1"; }
 fail() { echo "  FAIL: $1"; FAILURES=$((FAILURES + 1)); }
 check() { if [ "$1" = "0" ]; then pass "$2"; else fail "$2"; fi; }
 
-cleanup() { rm -rf "$RUNS_DIR" "$LOG_DIR"; }
+new_cache_dir() { # mktemp + track, so cleanup() removes every temp dir
+  local d; d="$(mktemp -d /tmp/hloop-chaos-cache-XXXXXX)"
+  TEMP_DIRS+=("$d")
+  echo "$d"
+}
+
+cleanup() { for d in "${TEMP_DIRS[@]}"; do rm -rf "$d"; done; }
 trap cleanup EXIT
 
 # --- polling helpers --------------------------------------------------------
@@ -96,11 +103,16 @@ wait_log_line() { # $1 = log file, $2 = grep pattern, $3 = timeout s
   return 1
 }
 
-wait_nested_pis() { # $1 = min count, $2 = timeout s
+# wait_nested_pis: count the RUN'S OWN in-flight nested pi probes. pi rewrites
+# its process title (comm "pi"), so a cmdline pattern (--mode json …) NEVER
+# matches the real probes — instead count pi processes that are DIRECT
+# CHILDREN of the run's driver pid (runProbe spawns pi as a direct child).
+# $1 = run pid (the bun chaos-run process), $2 = min count, $3 = timeout s.
+wait_nested_pis() { # $1 = run pid, $2 = min count, $3 = timeout s
   local i n
-  for i in $(seq 1 "$2"); do
-    n="$(pgrep -fc -- '--mode json --no-session' 2>/dev/null || true)"
-    [ "${n:-0}" -ge "$1" ] && return 0
+  for i in $(seq 1 "$3"); do
+    n="$(pgrep -P "$1" -x pi 2>/dev/null | wc -l)"
+    [ "${n:-0}" -ge "$2" ] && return 0
     sleep 1
   done
   return 1
@@ -158,21 +170,25 @@ assert_clean_tree() {
 SCENARIO_ARGS=() # set per scenario
 
 # run_kill_scenario <label> <concurrency> <candidate mode> <widener VAR=VAL or
-# ""> <log marker> <settle s> <timeout s>
+# ""> <log marker> <settle s> <timeout s> [expect_nested_pis]
 #
 # Generic (a)/(b)/(d)/(e) flow: launch (fresh per-scenario runs + cache dir so
 # the baseline always PROBES — a cache hit would leave nothing to kill mid-
 # phase) → wait for the phase marker → kill -9 → resume (SAME cache dir: the
 # killed run's partial per-task results are reused via boundTo, the baseline
 # cache is only written once the baseline completes) → assert.
+# When expect_nested_pis > 0, additionally assert that many nested pi probes
+# are concurrently in flight BEFORE the kill (scenario (b)'s parallelism
+# claim); a miss is recorded via fail() but the kill/resume flow continues.
 run_kill_scenario() {
   local label="$1" concurrency="$2" mode="$3" widener="$4" marker="$5" settle="$6" tmo="$7"
+  local expect_pis="${8:-0}"
   SCENARIOS_RUN=$((SCENARIOS_RUN + 1))
   echo ""
   echo "== scenario $label =="
   local first_log="$LOG_DIR/$label-first.log"
   local resume_log="$LOG_DIR/$label-resume.log"
-  local cache_dir; cache_dir="$(mktemp -d /tmp/hloop-chaos-cache-XXXXXX)"
+  local cache_dir; cache_dir="$(new_cache_dir)"
 
   local pid
   pid="$(setsid env HLOOP_CHAOS_RUNS_DIR="$RUNS_DIR" \
@@ -194,6 +210,17 @@ run_kill_scenario() {
     kill -9 -"$pid" 2>/dev/null; return 1
   fi
   sleep "$settle" # land INSIDE the phase, not on its boundary
+
+  # Optional parallelism assertion BEFORE the kill (scenario (b)): the
+  # concurrency must be real, not just configured.
+  if [ "$expect_pis" -gt 0 ]; then
+    if wait_nested_pis "$killed_pid" "$expect_pis" "$tmo"; then
+      pass "$label: $expect_pis nested probes observed in flight before the kill"
+    else
+      fail "$label: fewer than $expect_pis nested probes in flight before the kill"
+      pgrep -P "$killed_pid" -ax pi 2>/dev/null | sed 's/^/        /' || true
+    fi
+  fi
 
   kill -9 -"$pid" 2>/dev/null
   assert_process_dead "$killed_pid"
@@ -229,10 +256,11 @@ echo "== scenario (a): kill -9 mid-SERIAL-iteration, then --resume =="
 run_kill_scenario "a-serial" 1 "agents-md" "" "baseline probing" 3 180 || true
 
 # =============================================================================
-# (b) mid-parallel-iteration — real kill with BOTH probes in flight.
+# (b) mid-parallel-iteration — real kill with BOTH probes asserted in flight
+#     (wait_nested_pis) before the kill.
 # =============================================================================
 echo "== scenario (b): kill -9 mid-PARALLEL-iteration (concurrency 2) =="
-run_kill_scenario "b-parallel" 2 "agents-md" "" "baseline probing" 3 180 || true
+run_kill_scenario "b-parallel" 2 "agents-md" "" "baseline probing" 3 180 2 || true
 
 # =============================================================================
 # (c) during apply — kill between write and commit, per the S5 design:
@@ -285,12 +313,13 @@ fi
 echo ""
 echo "== extra: concurrent /hloop start → lock rejection =="
 a_log="$LOG_DIR/lock-a.log"; b_log="$LOG_DIR/lock-b.log"
+a_cache="$(new_cache_dir)"; b_cache="$(new_cache_dir)"
 a_pid="$(setsid env HLOOP_CHAOS_RUNS_DIR="$RUNS_DIR" \
-  HLOOP_CHAOS_CACHE_DIR="$(mktemp -d /tmp/hloop-chaos-cache-XXXXXX)" \
+  HLOOP_CHAOS_CACHE_DIR="$a_cache" \
   bun run "$EXT_DIR/chaos-run.ts" --suite "smoke-*" --concurrency 1 >"$a_log" 2>&1 & echo $!)"
 sleep 4 # A persists its running state well within this window
 b_pid="$(setsid env HLOOP_CHAOS_RUNS_DIR="$RUNS_DIR" \
-  HLOOP_CHAOS_CACHE_DIR="$(mktemp -d /tmp/hloop-chaos-cache-XXXXXX)" \
+  HLOOP_CHAOS_CACHE_DIR="$b_cache" \
   bun run "$EXT_DIR/chaos-run.ts" --suite "smoke-*" --concurrency 1 >"$b_log" 2>&1 & echo $!)"
 
 b_exit=0

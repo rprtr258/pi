@@ -47,9 +47,9 @@
  * config.parallel.maxConcurrentProbes; candidates stay sequential. Every
  * probe gets its own isolated TMPDIR (probe.ts RunProbeOptions.tmpDir) so
  * concurrent checkers cannot collide in the shared system temp dir. The
- * budget guard wraps every probe spawn; in-flight probes may overshoot the
- * budget by at most maxConcurrentProbes − 1 probes (documented overshoot —
- * running model calls cannot be un-spent).
+ * budget guard wraps every probe spawn; up to maxConcurrentProbes probes'
+ * tokens may overshoot the budget (all may pass the check before any
+ * completes — documented overshoot; running model calls cannot be un-spent).
  *
  * STEP 11 ROLES + RECURSION MODES: the role→model map is resolved ONCE per
  * run (resolveRoleModels — absent role = the session model) and persisted in

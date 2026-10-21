@@ -337,18 +337,20 @@ const PROVIDER_RETRY_BACKOFF_MS = 2_000;
 
 /**
  * Provider-ish failure (Step 12): the nested run shows no evidence that the
- * MODEL ever did work — spawn error, killed by signal, non-zero exit with an
- * empty trajectory, or no events parsed at all (no assistant text AND no
- * usage). These are transient infra/provider shapes worth exactly one retry.
- * NOT provider-ish (deterministic, never retried): a task timeout (the task
- * genuinely ran out of budget), a checker failure against a real trajectory,
- * a non-zero exit WITH trajectory output, and setup errors (unloadable task,
- * staging failure, PI_BIN misconfig — they fail identically on retry).
+ * MODEL ever did work — spawn error, killed by signal before any events, or
+ * non-zero exit with neither trajectory nor usage. These are transient
+ * infra/provider shapes worth exactly one retry. NOT provider-ish
+ * (deterministic, never retried): a task timeout (the task genuinely ran out
+ * of budget), a checker failure against a real trajectory, ANY failure where
+ * usage was recorded (a signal-kill or non-zero exit after real model work is
+ * deterministic — retrying would re-spend those tokens), a non-zero exit WITH
+ * trajectory output, and setup errors (unloadable task, staging failure,
+ * PI_BIN misconfig — they fail identically on retry).
  */
 export function isProviderishFailure(result: ProbeResult): boolean {
   if (result.timedOut) return false;
-  if (result.exit === null) return true; // spawn error or killed by signal
-  if (result.exit !== 0 && result.trajectory.trim() === "") return true;
+  if (result.exit === null) return result.usage === null; // spawn error or killed by signal — only retry when NO usage was recorded
+  if (result.exit !== 0 && result.trajectory.trim() === "" && result.usage === null) return true;
   if (result.trajectory.trim() === "" && result.usage === null) return true; // no events parsed
   return false;
 }
