@@ -143,3 +143,78 @@ is a normal implement-step candidate, not a special case.
 Each completed cycle appends one entry to `harness-log.md` (this directory):
 date, evidence scanned, findings, approved changes, verification results, reverted
 items. PLAN.md itself stays process-only — history lives in the log.
+
+## Recursive optimization loop (/hloop)
+
+Step 6 of the harness-loop plan turns the manual cycle into a measurable,
+closed loop: snapshot the agent components, score them with the task suite
+(`loop/suite/`), let the Proposer generate candidates, score the candidates in
+identical sandboxes, and auto-apply the winner — with budget, state, and
+revert machinery. Implemented in `loop/driver.ts` (`runLoop`), wired to the
+session by the `/hloop` command group in `index.ts`.
+
+### Commands
+
+| command | what it does |
+| --- | --- |
+| `/hloop start [--iterations N] [--suite <glob>] [--max-candidates K] [--resume <runId>]` | Runs the loop to completion, synchronously in the handler — the session BLOCKS for the whole loop (nested pi probes + proposer model calls). Prints a cost warning first. Refuses to start while another run's `state.json` says "running" with a live pid. `--resume` continues an interrupted (crashed) run: completed iterations are skipped, partially scored phases reuse their on-disk per-task results. |
+| `/hloop status` | Prints the latest run's `state.json` summary (status, budget, per-iteration decisions) plus the last ≤5 `run-history.jsonl` entries. |
+| `/hloop stop` | Creates the stop flag file `loop/.stop`; a running loop stops before its next probe/iteration and deletes the flag. |
+| `/hloop revert <runId>` | Reverts the apply commit of a run (`git revert` by the `harness-loop(run <runId>):` marker, checkout fallback on conflict). |
+| `/hloop report [runId]` | Lists `runs/<runId>/**/report.md` (default: latest run) and prints the per-iteration baseline aggregates + decisions. |
+
+### Config (loop/config.json, tolerant loader — per-field fallback to defaults)
+
+```json
+{
+  "minWin": 1, "minQualityGain": null, "usageFactor": 1.5,
+  "apply": {"dryRun": true},
+  "budget": {"maxTotalTokens": 5000000, "maxIterations": 3},
+  "candidates": {"maxPerIteration": 3}
+}
+```
+
+`apply.dryRun` is TRUE by default: winners are only diff-previewed (ledger
+kind `apply-dryrun`), nothing is written to the live agent config. To enable
+real apply, edit `loop/config.json` and set `"apply": {"dryRun": false}` —
+applies then commit to `~/.pi/agent` (git, single-flight lock, rollback on
+failure) and can be undone with `/hloop revert <runId>`.
+
+### Budget semantics
+
+The budget metric is the SUM of probe `usage.totalTokens` across the run
+(baseline + candidate probes) — NOT cost: `cost.total` is always 0 on this
+gateway, so tokens are the only meaningful meter. The loop checks the budget
+between iterations and before each probe spawn, and stops with reason
+`budget-exceeded` when the sum reaches `budget.maxTotalTokens`. Other stop
+reasons: `iterations-reached`, `stop-flag` (flag file seen + consumed),
+`no-valid-candidates` (an iteration whose proposal had zero validated
+candidates stops the whole loop).
+
+### State, ledger, reports
+
+Every run persists `runs/<runId>/state.json` after every mutation (iteration
+number, phase, budget spent, per-candidate decisions, proposed edits). Every
+scored run and decision appends to `run-history.jsonl` (kinds: `baseline`,
+`baseline-cached`, `candidate`, `apply`/`apply-dryrun`, `proposal-rejected`,
+`revert`). Each iteration writes `runs/<runId>/iter-<n>/report.md` (baseline)
+and per-candidate comparison reports `iter-<n>/cand-<i>/report.md`. The
+baseline result cache (`loop/.cache/baseline-<fingerprint>-<taskset>.json`)
+makes repeat baselines free (cache hit = no probes); a changed fingerprint
+(AGENTS.md/skills/pi version/model) invalidates it.
+
+### Revert procedure
+
+1. `/hloop status` (or `git -C ~/.pi/agent log --grep 'harness-loop(run'`) to
+   find the runId.
+2. `/hloop revert <runId>` — refuses on a dirty tree under AGENTS.md/skills/,
+   reverts only the marker commit, records a `revert` ledger entry.
+   (In dry-run mode there is nothing to revert — no commit was made.)
+
+### Cost expectations
+
+- Full-suite baseline probe: ≈ 300k tokens per run (12 real tasks + the 2
+  smoke tasks), once per fingerprint; cached afterwards.
+- `/hloop start --suite "smoke-*"`: ≈ 2–8 smoke probes + 1–2 proposer calls
+  per iteration (tens of k tokens) — the intended first live run.
+- The FIRST live run should be: `/hloop start --suite "smoke-*" --iterations 2`.
