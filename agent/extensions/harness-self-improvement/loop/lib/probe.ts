@@ -2,7 +2,7 @@
 /**
  * Probe runner for the harness self-improvement loop: executes one suite task
  * with a nested `pi` coding agent inside a staged sandbox (see stage.ts) and
- * scores the resulting workspace with the task's check.sh.
+ * scores the resulting workspace with the task's check.ts.
  *
  * The runner never throws — provider failures, missing events and spawn errors
  * surface as failed results with a short stderr excerpt. Raw JSONL from the
@@ -73,6 +73,12 @@ export type RunProbeOptions = {
    *  OUTSIDE the checked workspace (e.g. a sibling of wsDir) so checkers
    *  never see it. */
   rawJsonlPath?: string,
+  /** Optional workspace staging hook (replay channel): invoked AFTER the
+   *  fresh workspace is created and BEFORE the nested pi run spawns, so a
+   *  task can start from a materialized starting state instead of an empty
+   *  workspace. A throwing callback fails the probe with the error as the
+   *  stderr excerpt (never a partially staged silent run). */
+  stageWorkspace?: (wsDir: string) => void,
 };
 
 /**
@@ -256,6 +262,15 @@ export async function runProbe(task: LoadedTask, sandboxDir: string, wsDir: stri
     // Fresh workspace for every probe — only created after the task validated.
     rmSync(wsDir, {recursive: true, force: true});
     mkdirSync(wsDir, {recursive: true});
+    // Optional starting-state staging (replay channel) — before the prompt is
+    // read and the pi process spawns; failures fail the probe explicitly.
+    if (options.stageWorkspace !== undefined) {
+      try {
+        options.stageWorkspace(wsDir);
+      } catch (err) {
+        return failed({stderrExcerpt: `workspace staging failed: ${err instanceof Error ? err.message : String(err)}`});
+      }
+    }
     const prompt = stripFrontmatter(readFileSync(task.paths.taskMd, "utf8"));
     const args = ["--mode", "json", "--no-session"];
     if (options.model !== undefined) args.push("--model", options.model);
