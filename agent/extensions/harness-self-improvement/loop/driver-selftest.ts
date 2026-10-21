@@ -824,13 +824,23 @@ async function scenarioTargetedAutoSwitch(check: Check): Promise<void> {
     ...env2.opts,
     configOverride: config,
     tasksFn: () => [fakeTask("f1"), fakeTask("f2"), fakeTask("p1"), fakeTask("p2"), fakeTask("p3"), fakeTask("p4")],
-    iterations: 2,
+    iterations: 3,
   });
   const state2 = readState(env2.runsDir, res2.runId!);
   check(state2.iterations[1]!.mode === "targeted", "iter2 targeted with sampleSize 2");
   // iter2 (index 2): passing sorted [p1..p4], k=2, offset 2 → picks {p3, p1}.
-  check(probeCalls2.filter((c) => c.startsWith("candidate/")).length === 6 + 4, "iter2 candidate probed only the union (failing subset + 2-task regression sample)");
-  check(probeCalls2.filter((c) => c === "candidate/p2").length === 1, "unsampled p2 probed only in the surface iteration");
+  check(probeCalls2.filter((c) => c.startsWith("candidate/")).length === 6 + 4 + 6, "iter1 surface 6 + iter2 union 4 + iter3 surface 6 candidate probes");
+  // Baseline probes ran only in iter1 (6), so candidate probes for iter2 are
+  // exactly the 4 entries after iter1's 12 probes (6 baseline + 6 candidate):
+  // the union (failing subset + 2-task sample) is a STRICT SUBSET of the suite.
+  const iter2CandidateProbes = probeCalls2.slice(12, 16);
+  check(iter2CandidateProbes.length === 4 && new Set(iter2CandidateProbes).size === 4 && !iter2CandidateProbes.includes("candidate/p2"), "iter2 union is a strict subset: 4 distinct tasks, unsampled p2 absent");
+  check(probeCalls2.filter((c) => c === "candidate/p2").length === 2, "unsampled p2 probed only in the two surface iterations (iter1 + iter3)");
+  check(state2.iterations[2]!.mode === "surface" && state2.iterations[2]!.modeReason === "post-targeted-confirmation", "iter3 forced back to surface (post-targeted-confirmation) with sampleSize 2");
+  // iter3's candidate window: everything after iter2's 4 probes — the FULL
+  // suite, unlike iter2's strict-subset union (the distinction this pins).
+  const iter3CandidateProbes = probeCalls2.slice(16);
+  check(iter3CandidateProbes.length === 6 && new Set(iter3CandidateProbes).size === 6 && ["f1", "f2", "p1", "p2", "p3", "p4"].every((t) => iter3CandidateProbes.includes(`candidate/${t}`)), "iter3 (post-targeted-confirmation) probed ALL 6 tasks — full suite, not the targeted union");
   check(state2.iterations[1]!.candidates[0]!.win === true, "targeted candidate wins on the union");
 
   // mode.auto=false disables the auto-switch entirely.
