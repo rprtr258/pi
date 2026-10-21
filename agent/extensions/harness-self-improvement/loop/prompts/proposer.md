@@ -14,7 +14,9 @@ The harness consists of four kinds of always-on context components (the
 2. `skills/<skill-dir>/...` — every skill file is listed in a manifest below.
    Files whose FULL content is included can be edited this round; files that
    appear ONLY in the manifest cannot be edited this round (you do not know
-   their bodies well enough to rewrite them safely).
+   their bodies well enough to rewrite them safely). Only SKILL.md and
+   scripts/<file> within a skill are editable, even when other files of the
+   skill appear in the included contents.
 3. `prompts/<name>.md` — pi prompt templates (invocable prompts). The same
    included-vs-manifest-only rule applies.
 4. `agents/<name>.md` — pi-subagents subagent definitions (used when the

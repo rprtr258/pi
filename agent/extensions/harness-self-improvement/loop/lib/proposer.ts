@@ -351,8 +351,6 @@ export function proposalFingerprintOf(candidates: Array<{edits: ProposedEdit[]}>
 // ---------------------------------------------------------------------------
 // Prompt build
 
-export const AGENTS_MD_CAP_BYTES = 48 * 1024;
-export const FILE_CAP_BYTES = 100 * 1024;
 export const MAX_FILES_PER_CANDIDATE = 6;
 export const CHECKER_TAIL_LINES = 10;
 
@@ -538,10 +536,9 @@ function parseCandidates(value: unknown): {ok: true; candidates: Array<{rational
 // ---------------------------------------------------------------------------
 // Validation
 
-// Path allowlist lives in the surface registry (loop/lib/surface.ts): each
-// kind owns its full-match allowlist (AGENTS.md, skills/<dir>/SKILL.md |
-// scripts/<file>, prompts/<name>.md, agents/<name>.md). Case-sensitive on
-// purpose: case variants must be rejected.
+// Per-kind byte caps come from the surface registry (loop/lib/surface.ts
+// caps.maxFileBytes): 48KB for AGENTS.md, 100KB for everything else — one
+// source of truth, no duplicated constants here.
 
 /** Validate one edit's path (traversal, absolute, allowlist); returns a reject reason or null. */
 export function validatePath(path: string): string | null {
@@ -554,15 +551,11 @@ export function validatePath(path: string): string | null {
 }
 
 export interface ValidationLimits {
-  agentsMdCapBytes?: number;
-  fileCapBytes?: number;
   maxFilesPerCandidate?: number;
 }
 
 /** Validate one candidate's structure + caps; returns the list of reject reasons (empty = accept). */
 export function validateCandidate(edits: ProposedEdit[], limits: ValidationLimits = {}): string[] {
-  const agentsMdCap = limits.agentsMdCapBytes ?? AGENTS_MD_CAP_BYTES;
-  const fileCap = limits.fileCapBytes ?? FILE_CAP_BYTES;
   const maxFiles = limits.maxFilesPerCandidate ?? MAX_FILES_PER_CANDIDATE;
   const reasons: string[] = [];
   if (edits.length < 1) reasons.push("candidate has no edits (at least 1 required)");
@@ -578,7 +571,7 @@ export function validateCandidate(edits: ProposedEdit[], limits: ValidationLimit
     const kind = kindForPath(edit.path)!;
     reasons.push(...kind.validate(edit.content, edit.path));
     if (edit.content !== null) {
-      const cap = kind.name === "agents" ? agentsMdCap : fileCap;
+      const cap = kind.caps.maxFileBytes;
       if (byteSize(edit.content) > cap) {
         reasons.push(kind.name === "agents"
           ? `AGENTS.md edit is ${byteSize(edit.content)} bytes (cap ${cap})`

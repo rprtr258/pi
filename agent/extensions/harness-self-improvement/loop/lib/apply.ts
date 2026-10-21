@@ -375,7 +375,8 @@ function managedGitPaths(): string[] {
 function dirtyManagedPathsReason(agentDir: string): string | null {
   const st = git(agentDir, ["status", "--porcelain", "--", ...managedGitPaths()]);
   if (st.status !== 0) return null;
-  return st.stdout.trim() !== "" ? "working tree dirty under AGENTS.md/skills/prompts/agents — resolve before apply" : null;
+  const paths = managedGitPaths().map((p) => p.replace(/\/$/, "")).join("/");
+  return st.stdout.trim() !== "" ? `working tree dirty under ${paths} — resolve before apply` : null;
 }
 
 /**

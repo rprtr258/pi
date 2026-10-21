@@ -241,6 +241,38 @@ describe("buildSandbox", () => {
     expect(existsSync(join(dir, "npm"))).toBe(false);
   });
 
+  test("npm and git package stores are BOTH staged as resolving symlinks (S8 review fix)", () => {
+    const root = tempRoot();
+    const agentDir = join(root, "agent");
+    mkdirSync(join(agentDir, "npm", "node_modules", "pi-subagents"), {recursive: true});
+    writeFileSync(join(agentDir, "npm", "node_modules", "pi-subagents", "package.json"), '{"name":"pi-subagents"}');
+    mkdirSync(join(agentDir, "git", "github.com", "someone", "pi-tool"), {recursive: true});
+    writeFileSync(join(agentDir, "git", "github.com", "someone", "pi-tool", "package.json"), '{"name":"pi-tool"}');
+    const dir = join(root, "sandbox");
+    buildSandbox(snapshotReal(agentDir), dir, agentDir);
+    // Both links resolve to the REAL stores — pi reads through them read-only.
+    expect(realpathSync(join(dir, "npm", "node_modules"))).toBe(realpathSync(join(agentDir, "npm", "node_modules")));
+    expect(realpathSync(join(dir, "git"))).toBe(realpathSync(join(agentDir, "git")));
+    expect(existsSync(join(dir, "npm", "node_modules", "pi-subagents", "package.json"))).toBe(true);
+    expect(existsSync(join(dir, "git", "github.com", "someone", "pi-tool", "package.json"))).toBe(true);
+  });
+
+  test("a dangling real git store symlink FAILS staging loudly (S8 review fix)", () => {
+    const root = tempRoot();
+    const agentDir = join(root, "agent");
+    mkdirSync(agentDir, {recursive: true});
+    symlinkSync(join(root, "does-not-exist"), join(agentDir, "git"));
+    const dir = join(root, "sandbox");
+    expect(() => buildSandbox(snapshotReal(agentDir), dir, agentDir)).toThrow(/git store .* dangling symlink/);
+  });
+
+  test("no git replication when the real agent dir has no git store (S8 review fix)", () => {
+    const agentDir = makeAgentDir(tempRoot());
+    const dir = join(tempRoot(), "sandbox");
+    buildSandbox(snapshotReal(agentDir), dir, agentDir);
+    expect(existsSync(join(dir, "git"))).toBe(false);
+  });
+
   test("omits auth.json/models.json when absent in the source dir", () => {
     const root = tempRoot();
     const agentDir = join(root, "agent");

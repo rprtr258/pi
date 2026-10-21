@@ -18,18 +18,23 @@
  *   sandbox with packages in settings.json + PI_PACKAGE_DIR=<real npm> never
  *   loaded pi-subagents. The working replication is therefore:
  *     1. the real settings.json `packages` array is copied into the sandbox
- *        settings.json (so pi knows which packages to load), and
- *     2. <sandbox>/npm/node_modules is created as a SYMLINK to the real
- *        ~/.pi/agent/npm/node_modules — a READ-ONLY use of the real store:
- *        pi reads package code through the link and never writes there.
- *        Staging VERIFIES the link resolves; a dangling/broken real store
- *        fails staging loudly instead of silently degrading the probe.
+ *        settings.json (so pi knows which packages to load),
+ *     2. the real PACKAGE STORES are SYMLINKED into the sandbox READ-ONLY:
+ *        <sandbox>/npm/node_modules → real ~/.pi/agent/npm/node_modules and
+ *        <sandbox>/git → real ~/.pi/agent/git (the git-sourced package store,
+ *        replicated alongside npm because settings.json entries may be
+ *        `git:`-sourced too). Each store is symlinked only WHEN PRESENT —
+ *        not every install has one — but when the real store exists and is
+ *        broken (a dangling symlink), staging FAILS LOUDLY instead of
+ *        silently degrading the probe. pi reads package code through the
+ *        links and never writes there.
  *     3. probe.ts sets PI_OFFLINE=1 in the nested pi env — WITHOUT it, pi
- *        network-installs packages missing from <sandbox>/npm (verified) and
- *        update-checks the symlinked ones. PI_OFFLINE=1 is the write-protection
- *        mechanism for the shared real npm store; it only disables background
- *        network activity (installs/update checks), NOT model calls, so
- *        probes still run their normal model traffic.
+ *        network-installs packages missing from the sandbox stores (verified)
+ *        and update-checks the symlinked ones. PI_OFFLINE=1 is the
+ *        write-protection mechanism for BOTH shared real stores (npm and
+ *        git); it only disables background network activity
+ *        (installs/update checks), NOT model calls, so probes still run
+ *        their normal model traffic.
  *   Empirically verified (real nested pi run): with this replication a staged
  *   <sandbox>/agents/<name>.md test subagent is discovered by the subagent
  *   tool's `list` action.
@@ -48,7 +53,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import {homedir} from "node:os";
-import {join} from "node:path";
+import {dirname, join} from "node:path";
 import {SURFACE_KINDS, type SurfaceFile, type SurfaceKindName} from "./surface.ts";
 
 export interface ComponentSnapshot {
@@ -140,25 +145,23 @@ export interface BuildSandboxResult {
 }
 
 /**
- * Symlink <sandboxDir>/npm/node_modules → the real npm store (READ-ONLY —
- * pi reads through the link; PI_OFFLINE=1 in the probe env prevents any
- * write). A dangling real store fails staging loudly; no real store at all
- * skips replication (nothing to replicate).
+ * Symlink a real package store into the sandbox READ-ONLY — pi reads through
+ * the link; PI_OFFLINE=1 in the probe env prevents any write. A dangling real
+ * store fails staging loudly; no real store at all skips replication (nothing
+ * to replicate).
  */
-function replicateNpmStore(piAgentDir: string, sandboxDir: string): void {
-  const real = join(piAgentDir, "npm", "node_modules");
+function replicateStore(real: string, link: string, label: string): void {
   let realStat: ReturnType<typeof lstatSync>;
   try {
     realStat = lstatSync(real);
   } catch {
-    return; // no real npm store — nothing to replicate
+    return; // no real store — nothing to replicate
   }
   if (realStat.isSymbolicLink() && !existsSync(real)) {
-    throw new Error(`sandbox staging failed: real npm node_modules ${real} is a dangling symlink`);
+    throw new Error(`sandbox staging failed: real ${label} ${real} is a dangling symlink`);
   }
   if (!existsSync(real)) return;
-  const link = join(sandboxDir, "npm", "node_modules");
-  mkdirSync(join(sandboxDir, "npm"), {recursive: true});
+  mkdirSync(dirname(link), {recursive: true});
   symlinkSync(real, link);
   // Verify the link resolves: a broken replication must fail staging with a
   // clear error, never degrade the probe silently.
@@ -166,19 +169,29 @@ function replicateNpmStore(piAgentDir: string, sandboxDir: string): void {
   try {
     resolved = realpathSync(link);
   } catch (err) {
-    throw new Error(`sandbox staging failed: npm node_modules symlink does not resolve (${err instanceof Error ? err.message : String(err)})`);
+    throw new Error(`sandbox staging failed: ${label} symlink does not resolve (${err instanceof Error ? err.message : String(err)})`);
   }
   if (resolved !== realpathSync(real)) {
-    throw new Error(`sandbox staging failed: npm node_modules symlink resolves to ${resolved}, expected ${realpathSync(real)}`);
+    throw new Error(`sandbox staging failed: ${label} symlink resolves to ${resolved}, expected ${realpathSync(real)}`);
   }
+}
+
+/** npm store: <sandbox>/npm/node_modules → the real node_modules (see header). */
+function replicateNpmStore(piAgentDir: string, sandboxDir: string): void {
+  replicateStore(join(piAgentDir, "npm", "node_modules"), join(sandboxDir, "npm", "node_modules"), "npm node_modules");
+}
+
+/** git store: <sandbox>/git → the real ~/.pi/agent/git (see header). */
+function replicateGitStore(piAgentDir: string, sandboxDir: string): void {
+  replicateStore(join(piAgentDir, "git"), join(sandboxDir, "git"), "git store");
 }
 
 /**
  * Create a minimal sandbox at `dir` (recreated from scratch if it exists):
  * minimal settings.json with the captured model keys and the replicated
  * `packages` array, READ-ONLY copies of auth.json and models.json when
- * present, every registered surface kind's files, and the npm node_modules
- * symlink (packages replication — see the header).
+ * present, every registered surface kind's files, and the package-store
+ * symlinks (npm node_modules + git, each when present — see the header).
  *
  * WARNING: this wipes `dir` first. Call it only with a directory this tool
  * created itself (e.g. a fresh mkdtemp path) — never with a caller-supplied
@@ -200,5 +213,6 @@ export function buildSandbox(snapshot: ComponentSnapshot, dir: string, piAgentDi
   }
   for (const kind of SURFACE_KINDS) kind.stage(dir, snapshot.kinds[kind.name]);
   replicateNpmStore(piAgentDir, dir);
+  replicateGitStore(piAgentDir, dir);
   return {dir, captured, packages};
 }

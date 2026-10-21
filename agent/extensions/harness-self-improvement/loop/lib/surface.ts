@@ -10,7 +10,7 @@
  *
  * KINDS:
  *   agents     AGENTS.md — existing semantics: non-deletable, non-empty,
- *              ≤48KB (AGENTS_MD_CAP_BYTES in proposer.ts).
+ *              ≤48KB (the agents kind's caps.maxFileBytes).
  *   skills     skills/<dir>/SKILL.md and skills/<dir>/scripts/<file> —
  *              lowercase skill dirs, ≤100KB/file (Phase I allowlist, unchanged).
  *   templates  prompts/<name>.md — pi prompt templates. NO YAML frontmatter is

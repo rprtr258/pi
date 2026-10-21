@@ -11,12 +11,10 @@ import {tmpdir} from "node:os";
 import {join} from "node:path";
 import {afterAll, describe, expect, test} from "bun:test";
 import {
-  AGENTS_MD_CAP_BYTES,
   buildLedgerDigest,
   buildPrompt,
   candidateFingerprint,
   extractJsonArray,
-  FILE_CAP_BYTES,
   includeSkills,
   includeSubagents,
   includeTemplates,
@@ -28,6 +26,7 @@ import {
   type CallModel,
   type ProposeInput,
 } from "./proposer.ts";
+import {surfaceKind} from "./surface.ts";
 import type {ComponentSnapshot} from "./stage.ts";
 
 const tmpRoots: string[] = [];
@@ -197,19 +196,21 @@ describe("propose", () => {
   });
 
   test("file over 100KB rejected", async () => {
-    const candidate = {rationale: "r", edits: [{path: "skills/big/SKILL.md", content: "x".repeat(FILE_CAP_BYTES + 1)}]};
+    const skillsCap = surfaceKind("skills").caps.maxFileBytes;
+    const candidate = {rationale: "r", edits: [{path: "skills/big/SKILL.md", content: "x".repeat(skillsCap + 1)}]};
     const {callModel} = fakeModel([JSON.stringify([candidate])]);
     const result = await propose(makeInput(), {callModel, systemPromptTemplate: TEMPLATE});
     expect(result.candidates[0]!.verdict).toBe("rejected");
-    expect(result.candidates[0]!.reasons.some((r) => r.includes(`cap ${FILE_CAP_BYTES}`))).toBe(true);
+    expect(result.candidates[0]!.reasons.some((r) => r.includes(`cap ${skillsCap}`))).toBe(true);
   });
 
   test("AGENTS.md over 48KB rejected", async () => {
-    const candidate = {rationale: "r", edits: [{path: "AGENTS.md", content: "x".repeat(AGENTS_MD_CAP_BYTES + 1)}]};
+    const agentsCap = surfaceKind("agents").caps.maxFileBytes;
+    const candidate = {rationale: "r", edits: [{path: "AGENTS.md", content: "x".repeat(agentsCap + 1)}]};
     const {callModel} = fakeModel([JSON.stringify([candidate])]);
     const result = await propose(makeInput(), {callModel, systemPromptTemplate: TEMPLATE});
     expect(result.candidates[0]!.verdict).toBe("rejected");
-    expect(result.candidates[0]!.reasons.some((r) => r.includes(`cap ${AGENTS_MD_CAP_BYTES}`))).toBe(true);
+    expect(result.candidates[0]!.reasons.some((r) => r.includes(`cap ${agentsCap}`))).toBe(true);
   });
 
   test("duplicate combined fingerprint vs ledgerDigest rejected", async () => {
@@ -326,8 +327,10 @@ describe("per-kind validation routing (S8 surface registry)", () => {
   });
 
   test("per-kind caps: template over 100KB rejected; AGENTS.md over 48KB rejected", () => {
-    expect(validateCandidate([{path: "prompts/big.md", content: "x".repeat(FILE_CAP_BYTES + 1)}]).some((r) => r.includes(`cap ${FILE_CAP_BYTES}`))).toBe(true);
-    expect(validateCandidate([{path: "AGENTS.md", content: "x".repeat(AGENTS_MD_CAP_BYTES + 1)}]).some((r) => r.includes(`cap ${AGENTS_MD_CAP_BYTES}`))).toBe(true);
+    const templatesCap = surfaceKind("templates").caps.maxFileBytes;
+    const agentsCap = surfaceKind("agents").caps.maxFileBytes;
+    expect(validateCandidate([{path: "prompts/big.md", content: "x".repeat(templatesCap + 1)}]).some((r) => r.includes(`cap ${templatesCap}`))).toBe(true);
+    expect(validateCandidate([{path: "AGENTS.md", content: "x".repeat(agentsCap + 1)}]).some((r) => r.includes(`cap ${agentsCap}`))).toBe(true);
   });
 
   test("proposer end-to-end: invalid template candidate rejected through propose()", async () => {
