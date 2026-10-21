@@ -71,7 +71,8 @@ function fakeTask(name: string): LoadedTask {
  */
 function makeProbe(passMap: Record<string, boolean>, probeCalls: string[], tokens = 1000, onProbe?: (task: string, sandboxDir: string) => void): RunProbeFn {
   return async (task, sandboxDir) => {
-    const side = /sandbox-\d+$/.test(sandboxDir) ? "candidate" : "baseline";
+    // Step 10: sandbox-composed is the composed candidate's whole re-probe.
+    const side = sandboxDir.endsWith("sandbox-composed") ? "composed" : /sandbox-\d+$/.test(sandboxDir) ? "candidate" : "baseline";
     probeCalls.push(`${side}/${task.name}`);
     onProbe?.(task.name, sandboxDir);
     return fakeProbeResult(passMap[`${side}/${task.name}`] ?? false, tokens);
@@ -611,6 +612,99 @@ async function scenarioMcpMixedCandidateGateOrder(check: Check): Promise<void> {
   check(staged.includes("a-server"), "candidate mcp.json staged for the mixed candidate");
 }
 
+// ---------------------------------------------------------------------------
+// Step 10: composer merge scenarios
+
+/** Two DISJOINT winners: cand0 edits AGENTS.md, cand1 adds a skill. */
+const DISJOINT_CANDIDATES_JSON = JSON.stringify([
+  {rationale: "cand zero agents", edits: [{path: "AGENTS.md", content: "# improved by cand zero\n"}]},
+  {rationale: "cand one skill", edits: [{path: "skills/extra/SKILL.md", content: "# extra skill from cand one\n"}]},
+]);
+
+/** Partially-disjoint winners: BOTH edit AGENTS.md (different lengths, so the applied byte size proves which content won); cand1 also adds a prompt. */
+const CONFLICT_CANDIDATES_JSON = JSON.stringify([
+  {rationale: "conflict cand zero", edits: [{path: "AGENTS.md", content: "# zero wins the conflict\n"}]},
+  {rationale: "conflict cand one", edits: [{path: "AGENTS.md", content: "# one loses\n"}, {path: "prompts/extra.md", content: "say {{hi}}"}]},
+]);
+
+/** Baseline 1/2; each candidate 2/2 (+1 → both win); composed 2/2 (+2 → wins). */
+const COMPOSES_PASS_MAP: Record<string, boolean> = {...WIN_PASS_MAP, "composed/smoke-a": true, "composed/smoke-b": true};
+
+async function scenarioCompositionDisjoint(check: Check): Promise<void> {
+  console.log("== scenario: two disjoint winners compose; composed re-probed BEFORE any apply ==");
+  const probeCalls: string[] = [];
+  const env = makeEnv(makeProbe(COMPOSES_PASS_MAP, probeCalls), {callModel: (async () => DISJOINT_CANDIDATES_JSON) as CallModel});
+  const res = await runLoop({...env.opts, iterations: 1});
+  check(res.status === "completed", "run completes with composition");
+  const iter = readState(env.runsDir, res.runId!).iterations[0]!;
+  check(iter.candidates.length === 2 && iter.candidates.every((c) => c.win === true), "both candidates won selection independently");
+  // HARD RULE: the composed candidate is re-probed AS A WHOLE before any apply.
+  check(probeCalls.includes("composed/smoke-a") && probeCalls.includes("composed/smoke-b"), "composed candidate re-probed as a whole (composed sandbox, both tasks)");
+  check(iter.candidates.every((c) => c.decision === "winner-dry-run"), "both contributing winners recorded as applied (dry-run) via the composition");
+  check(iter.decision === "dry-run", "iteration decision dry-run (composed apply)");
+  const entries = readLedger(env.ledgerPath);
+  const composedIdx = entries.findIndex((e) => e.kind === "composed");
+  const applyIdx = entries.findIndex((e) => e.kind === "apply-dryrun");
+  check(composedIdx !== -1 && applyIdx !== -1 && composedIdx < applyIdx, "composed entry ledgered BEFORE the apply entry (scored before apply)");
+  const composed = entries[composedIdx] as (typeof entries)[number] & {sources?: number[]; fileAttribution?: Record<string, number>};
+  check(composed.decision === "won" && composed.win === true, "composed result INDEPENDENTLY cleared selectWinner vs baseline");
+  check(JSON.stringify(composed.sources) === "[0,1]", "composed sources recorded (both candidates)");
+  check(JSON.stringify(composed.fileAttribution) === JSON.stringify({"AGENTS.md": 0, "skills/extra/SKILL.md": 1}), "per-file attribution recorded");
+  check(entries.filter((e) => e.kind === "composed-out").length === 0, "no composed-out entries for a fully disjoint merge");
+  // apply called with the COMPOSED result: the apply entry carries BOTH files.
+  const applyEntry = entries[applyIdx] as (typeof entries)[number] & {files?: Array<{path: string}>};
+  const applyPaths = (applyEntry.files ?? []).map((f) => f.path).sort();
+  check(JSON.stringify(applyPaths) === JSON.stringify(["AGENTS.md", "skills/extra/SKILL.md"]), "apply called with the composed file set (both winners' files)");
+  check(existsSync(join(env.runsDir, res.runId!, "iter-1", "composed", "report.md")), "composed report.md written");
+  const iterReport = readFileSync(join(env.runsDir, res.runId!, "iter-1", "report.md"), "utf8");
+  check(iterReport.includes("## Composition"), "iteration report.md notes the composition");
+  check(iterReport.includes("AGENTS.md ← cand-0"), "report.md records per-file attribution");
+  check(res.budgetSpent === 8000, "budget = 4 scored sandboxes × 2 tasks × 1000 tokens (baseline + 2 candidates + composed)");
+}
+
+async function scenarioCompositionConflict(check: Check): Promise<void> {
+  console.log("== scenario: conflicting winners — rank-1 file wins, partial candidate composed-out ==");
+  const probeCalls: string[] = [];
+  const env = makeEnv(makeProbe(COMPOSES_PASS_MAP, probeCalls), {callModel: (async () => CONFLICT_CANDIDATES_JSON) as CallModel});
+  const res = await runLoop({...env.opts, iterations: 1});
+  check(res.status === "completed", "run completes with a conflicting merge");
+  const entries = readLedger(env.ledgerPath);
+  const composed = entries.find((e) => e.kind === "composed") as (typeof entries)[number] & {fileAttribution?: Record<string, number>};
+  check(composed !== undefined && composed.decision === "won", "composed candidate won");
+  check(JSON.stringify(composed.fileAttribution) === JSON.stringify({"AGENTS.md": 0, "prompts/extra.md": 1}), "conflicting file attributed to rank-1, other file to cand-1");
+  const co = entries.find((e) => e.kind === "composed-out") as (typeof entries)[number] & {candidateIdx?: number; filesDropped?: string[]; filesKept?: string[]};
+  check(co !== undefined, "composed-out entry ledgered for the partial candidate");
+  check(co.candidateIdx === 1 && JSON.stringify(co.filesDropped) === '["AGENTS.md"]' && JSON.stringify(co.filesKept) === '["prompts/extra.md"]', "composed-out records dropped + kept files");
+  // The applied (dry-run) AGENTS.md content is the RANK-1 candidate's content
+  // (its content is 25 bytes; cand-1's conflicting content is 12 bytes).
+  const applyEntry = entries.find((e) => e.kind === "apply-dryrun") as (typeof entries)[number] & {files?: Array<{path: string; bytesAfter?: number | null}>};
+  const agents = (applyEntry.files ?? []).find((f) => f.path === "AGENTS.md");
+  check(agents?.bytesAfter === 25, "applied AGENTS.md content came from the higher-ranked candidate (25 bytes, not cand-1's 12)");
+  check((applyEntry.files ?? []).some((f) => f.path === "prompts/extra.md"), "the losing candidate's non-conflicting file still merged");
+  const iter = readState(env.runsDir, res.runId!).iterations[0]!;
+  check(iter.candidates.every((c) => c.decision === "winner-dry-run"), "both contributing winners applied via the composition");
+}
+
+async function scenarioCompositionFailedFallback(check: Check): Promise<void> {
+  console.log("== scenario: composed candidate fails → fallback to the best single winner ==");
+  const probeCalls: string[] = [];
+  // The composed whole re-probe FAILS both tasks → composed selection loses.
+  const passMap = {...WIN_PASS_MAP, "composed/smoke-a": false, "composed/smoke-b": false};
+  const env = makeEnv(makeProbe(passMap, probeCalls), {callModel: (async () => DISJOINT_CANDIDATES_JSON) as CallModel});
+  const res = await runLoop({...env.opts, iterations: 1});
+  check(res.status === "completed", "run completes via the fallback");
+  check(probeCalls.includes("composed/smoke-a"), "composed candidate WAS re-probed before the fallback");
+  const entries = readLedger(env.ledgerPath);
+  const composed = entries.find((e) => e.kind === "composed");
+  check(composed?.decision === "failed" && composed?.win === false, "composed failure ledgered (kind composed, decision failed)");
+  const applyEntry = entries.find((e) => e.kind === "apply-dryrun") as (typeof entries)[number] & {files?: Array<{path: string}>};
+  check(JSON.stringify((applyEntry.files ?? []).map((f) => f.path)) === JSON.stringify(["AGENTS.md"]), "fallback applied the best SINGLE winner only (cand-0's file)");
+  const iter = readState(env.runsDir, res.runId!).iterations[0]!;
+  check(iter.candidates[0]!.decision === "winner-dry-run", "best single winner applied (dry-run)");
+  check(iter.candidates[1]!.decision === "winner-not-applied", "the other winner was NOT applied after the composed failure");
+  check(iter.decision === "dry-run", "iteration decision reflects the single-winner fallback");
+}
+
 export async function runSelftest(): Promise<number> {
 
   const failures: string[] = [];
@@ -643,6 +737,9 @@ export async function runSelftest(): Promise<number> {
     await scenarioMcpShapeFailNoStartupProbe(check);
     await scenarioMcpHealthyPathAndMinWin(check);
     await scenarioMcpMixedCandidateGateOrder(check);
+    await scenarioCompositionDisjoint(check);
+    await scenarioCompositionConflict(check);
+    await scenarioCompositionFailedFallback(check);
   } catch (err) {
     failures.push(`unhandled selftest error: ${err instanceof Error ? err.stack : String(err)}`);
     console.error(err);

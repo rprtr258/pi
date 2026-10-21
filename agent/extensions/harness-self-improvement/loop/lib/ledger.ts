@@ -107,6 +107,8 @@ export interface RunReportData {
   /** Resolved pi binary used by the nested runs (see probe.ts resolvePiBinary).
    *  On a cached run this should be the binary recorded in the cached results. */
   piBinary?: {bin: string; version: string | null} | null;
+  /** Step 10 probing stats (score.ts): wall time + concurrency aggregate. */
+  probeStats?: {tasks: number; probed: number; reused: number; maxObservedConcurrency: number; wallMs: number};
   /** This run's per-task rows (the candidate side when `base` is present). */
   tasks: ReportTask[];
   /** Optional baseline rows to compare against (comparison table mode). */
@@ -140,6 +142,9 @@ export function renderReport(data: RunReportData): string {
     out.push(`- **pi:** ${data.piBinary.bin}${version}${data.cached ? " [cached run]" : ""}`);
   }
   if (data.cached !== undefined) out.push(`- **cached:** ${data.cached}`);
+  if (data.probeStats !== undefined) {
+    out.push(`- **probing:** ${data.probeStats.tasks} task(s) — ${data.probeStats.probed} probed, ${data.probeStats.reused} reused; max concurrent probes ${data.probeStats.maxObservedConcurrency}; wall ${fmtDuration(data.probeStats.wallMs)}`);
+  }
   out.push("");
   out.push(`**Aggregate:** ${data.aggregate.passCount}/${data.aggregate.total} pass, ${data.aggregate.totalTokens} tokens`);
   out.push("");
