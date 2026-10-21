@@ -15,7 +15,7 @@ import {existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync}
 import {tmpdir} from "node:os";
 import {join} from "node:path";
 import {runLoop, type LoopState, type RunLoopOptions} from "./driver.ts";
-import {DEFAULT_LOOP_CONFIG} from "./lib/apply.ts";
+import {DEFAULT_LOOP_CONFIG, type LoopConfig} from "./lib/apply.ts";
 import {readLedger} from "./lib/ledger.ts";
 import type {RunProbeFn} from "./lib/score.ts";
 import type {CallModel} from "./lib/proposer.ts";
@@ -95,7 +95,7 @@ function makeEnv(probe: RunProbeFn, over: Partial<RunLoopOptions> = {}): Selftes
   const opts: RunLoopOptions = {
     callModel: (async () => CANDIDATE_JSON) as CallModel,
     runProbeFn: probe,
-    snapshotFn: () => ({kinds: {agents: [{relPath: "AGENTS.md", content: "selftest agents md"}], skills: [], templates: [], subagents: []}}),
+    snapshotFn: () => ({kinds: {agents: [{relPath: "AGENTS.md", content: "selftest agents md"}], skills: [], templates: [], subagents: [], extensions: []}}),
     captureModelFn: () => "selftest/model",
     resolvePiBinaryFn: () => ({bin: "fake-pi", version: "selftest"}),
     tasksFn: () => [fakeTask("smoke-a"), fakeTask("smoke-b")],
@@ -365,7 +365,7 @@ async function scenarioFingerprintDrift(check: Check): Promise<void> {
     runProbeFn: makeProbe(WIN_PASS_MAP, probeCalls),
     // The agent config changed while the run was down: the recorded iteration
     // fingerprint no longer matches the current snapshot.
-    snapshotFn: () => ({kinds: {agents: [{relPath: "AGENTS.md", content: "CHANGED after the crash"}], skills: [], templates: [], subagents: []}}),
+    snapshotFn: () => ({kinds: {agents: [{relPath: "AGENTS.md", content: "CHANGED after the crash"}], skills: [], templates: [], subagents: [], extensions: []}}),
   });
   check(res.status === "failed", "run FAILS on fingerprint drift (no mismatched pairing)");
   check((res.stopReason ?? "").includes("snapshot changed between crash and resume"), "failure reason names the snapshot change");
@@ -379,6 +379,100 @@ async function scenarioResumeMissingState(check: Check): Promise<void> {
   const env = makeEnv(makeProbe(WIN_PASS_MAP, []));
   const res = await runLoop({...env.opts, resumeRunId: "no-such-run"});
   check(res.status === "refused", "refuses to resume a run without state.json");
+}
+
+// ---------------------------------------------------------------------------
+// Step 9a: code gate pipeline scenarios (extensions kind)
+
+const CODE_CANDIDATE_JSON = JSON.stringify([
+  {rationale: "selftest code candidate", edits: [{path: "extensions/sample-ext/index.ts", content: "export default function (pi: unknown) { void pi; }\n// improved\n"}]},
+]);
+
+const LOAD_ERROR_STDERR = `Error: Failed to load extension "/fake/sandbox/extensions/sample-ext/index.ts": ParseError: boom`;
+
+/** A gated real extension in the env's temp agentDir (passes gate 1). */
+function stageGatedExtension(agentDir: string): void {
+  const extDir = join(agentDir, "extensions", "sample-ext");
+  mkdirSync(join(extDir, "node_modules"), {recursive: true});
+  writeFileSync(join(extDir, "index.ts"), "export default function (pi: unknown) { void pi; }\n");
+  writeFileSync(join(extDir, "index.test.ts"), "import {test, expect} from \"bun:test\";\ntest(\"ok\", () => { expect(1).toBe(1); });\n");
+}
+
+function codeConfig(codeAllow: string[] = ["sample-ext"], minWin = 2): ReturnType<typeof structuredClone<LoopConfig>> {
+  const config = structuredClone(DEFAULT_LOOP_CONFIG);
+  config.code = {allow: codeAllow, minWin};
+  return config;
+}
+
+async function scenarioCodeGateFailure(check: Check): Promise<void> {
+  console.log("== scenario: code gate failure (tsc) rejects the candidate before any probe ==");
+  const probeCalls: string[] = [];
+  const env = makeEnv(makeProbe(WIN_PASS_MAP, probeCalls), {callModel: (async () => CODE_CANDIDATE_JSON) as CallModel, configOverride: codeConfig()});
+  stageGatedExtension(env.opts.agentDir!);
+  const gateCalls: string[] = [];
+  const res = await runLoop({
+    ...env.opts,
+    codeGatesFn: async (sandboxDir, extName) => {
+      gateCalls.push(`${sandboxDir}:${extName}`);
+      return {ok: false, failedGate: "tsc", output: "error TS1005: ';' expected", timedOut: false};
+    },
+  });
+  check(res.status === "stopped" && res.stopReason === "no-valid-candidates", "run stops with no scored candidates");
+  const iter = readState(env.runsDir, res.runId!).iterations[0]!;
+  check(iter.candidates[0]!.decision === "gates-failed", "candidate decision gates-failed");
+  check(iter.candidates[0]!.reasons[0]!.includes("code gate 'tsc' failed"), "captured tsc output in candidate reasons");
+  check(iter.candidates[0]!.scores === null && iter.candidates[0]!.win === null, "candidate was never scored");
+  check(probeCalls.filter((c) => c.startsWith("candidate/")).length === 0, "suite probe NOT run after the gate failure");
+  check(gateCalls.length === 1, "gate pipeline ran once");
+  check(existsSync(join(env.runsDir, res.runId!, "iter-1", "cand-0", "report.md")), "gate-failure report.md written");
+  const kinds = readLedger(env.ledgerPath).map((e) => e.kind);
+  check(kinds.filter((k) => k === "code-gate-failed").length === 1, "one code-gate-failed ledger entry");
+}
+
+async function scenarioCodeLoadError(check: Check): Promise<void> {
+  console.log("== scenario: extension load error captured from the probe output ==");
+  const probeCalls: string[] = [];
+  const env = makeEnv(makeProbe(WIN_PASS_MAP, probeCalls), {callModel: (async () => CODE_CANDIDATE_JSON) as CallModel, configOverride: codeConfig()});
+  stageGatedExtension(env.opts.agentDir!);
+  // Probe reports the empirical nested-pi load-error line on stderr.
+  const probe: RunProbeFn = async (task, sandboxDir) => {
+    const side = /sandbox-\d+$/.test(sandboxDir) ? "candidate" : "baseline";
+    probeCalls.push(`${side}/${task.name}`);
+    const result = fakeProbeResult(WIN_PASS_MAP[`${side}/${task.name}`] ?? false, 1000);
+    result.stderrExcerpt = side === "candidate" ? LOAD_ERROR_STDERR : null;
+    return result;
+  };
+  const res = await runLoop({...env.opts, runProbeFn: probe, codeGatesFn: async () => ({ok: true, failedGate: null, output: "", timedOut: false})});
+  check(res.status === "stopped" && res.stopReason === "no-valid-candidates", "run stops after the load-error rejection");
+  const iter = readState(env.runsDir, res.runId!).iterations[0]!;
+  check(iter.candidates[0]!.decision === "gates-failed", "candidate decision gates-failed (load error)");
+  check(iter.candidates[0]!.reasons[0]!.includes("failed to load the staged extension"), "load-error reason recorded");
+  check(iter.candidates[0]!.reasons[0]!.includes("Failed to load extension"), "captured error shape in reasons");
+  check(probeCalls.filter((c) => c.startsWith("candidate/")).length === 2, "suite probe ran first (load errors are captured after the suite)");
+  const kinds = readLedger(env.ledgerPath).map((e) => e.kind);
+  check(kinds.filter((k) => k === "code-gate-failed").length === 1, "one code-gate-failed ledger entry (gate: load-error)");
+}
+
+async function scenarioCodeMinWin(check: Check): Promise<void> {
+  console.log("== scenario: code.minWin overrides minWin for code-bearing candidates ==");
+  const probeCalls: string[] = [];
+  const env = makeEnv(makeProbe(WIN_PASS_MAP, probeCalls), {callModel: (async () => CODE_CANDIDATE_JSON) as CallModel, configOverride: codeConfig(["sample-ext"], 2)});
+  stageGatedExtension(env.opts.agentDir!);
+  // Candidate improves +1 pass (below code.minWin 2) → must NOT win despite
+  // satisfying the global minWin 1.
+  const res = await runLoop({...env.opts, codeGatesFn: async () => ({ok: true, failedGate: null, output: "", timedOut: false})});
+  const iter = readState(env.runsDir, res.runId!).iterations[0]!;
+  check(iter.candidates[0]!.win === false, "+1 pass does NOT win with code.minWin 2");
+  check(iter.candidates[0]!.reasons.some((r) => r.includes("minWin 2")), "selection reasons reference code.minWin 2");
+  check(iter.decision === "no-winner", "iteration decision no-winner");
+
+  // A +2 pass improvement meets code.minWin 2 → wins (proves the override
+  // also opens the door, not only blocks).
+  const probeCalls2: string[] = [];
+  const env2 = makeEnv(makeProbe({"baseline/smoke-a": false, "baseline/smoke-b": false, "candidate/smoke-a": true, "candidate/smoke-b": true}, probeCalls2), {callModel: (async () => CODE_CANDIDATE_JSON) as CallModel, configOverride: codeConfig(["sample-ext"], 2)});
+  stageGatedExtension(env2.opts.agentDir!);
+  const res2 = await runLoop({...env2.opts, codeGatesFn: async () => ({ok: true, failedGate: null, output: "", timedOut: false})});
+  check(readState(env2.runsDir, res2.runId!).iterations[0]!.candidates[0]!.win === true, "+2 pass wins with code.minWin 2");
 }
 
 export async function runSelftest(): Promise<number> {
@@ -405,6 +499,9 @@ export async function runSelftest(): Promise<number> {
     await scenarioFingerprintDrift(check);
     await scenarioSingleFlight(check);
     await scenarioResumeMissingState(check);
+    await scenarioCodeGateFailure(check);
+    await scenarioCodeLoadError(check);
+    await scenarioCodeMinWin(check);
   } catch (err) {
     failures.push(`unhandled selftest error: ${err instanceof Error ? err.stack : String(err)}`);
     console.error(err);

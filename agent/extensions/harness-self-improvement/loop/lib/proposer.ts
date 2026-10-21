@@ -57,6 +57,7 @@ import {existsSync, readdirSync, readFileSync} from "node:fs";
 import {join} from "node:path";
 import type {ComponentSnapshot} from "./stage.ts";
 import {agentsMdOf} from "./stage.ts";
+import {extensionValidationReasons} from "./gates.ts";
 import {kindForPath, parseFrontmatterField, type SurfaceFile} from "./surface.ts";
 import type {LedgerEntry} from "./ledger.ts";
 
@@ -545,13 +546,22 @@ export function validatePath(path: string): string | null {
   if (path.startsWith("/") || /^[A-Za-z]:[\\/]/.test(path)) return `absolute path rejected: ${path}`;
   if (path.split("/").includes("..")) return `path traversal (..) rejected: ${path}`;
   if (kindForPath(path) === null) {
-    return `path outside the allowlist (AGENTS.md, skills/<dir>/SKILL.md|scripts/<file>, prompts/<name>.md, agents/<name>.md): ${path}`;
+    return `path outside the allowlist (AGENTS.md, skills/<dir>/SKILL.md|scripts/<file>, prompts/<name>.md, agents/<name>.md, extensions/<name>/...): ${path}`;
   }
   return null;
 }
 
 export interface ValidationLimits {
   maxFilesPerCandidate?: number;
+  /**
+   * Step 9a extensions-kind environment (gate 1 of the code gate pipeline,
+   * loop/lib/gates.ts): when set, edits routed to the extensions kind get the
+   * DYNAMIC checks — config code.allow name list, real test-file presence,
+   * real node_modules presence (see surface.ts's two-layer allowlist note).
+   * Absent (e.g. pure structural tests) → extension edits get only the
+   * static registry checks (shape regex, exclusions, byte cap).
+   */
+  extensionEnv?: {agentDir: string; codeAllow: string[]};
 }
 
 /** Validate one candidate's structure + caps; returns the list of reject reasons (empty = accept). */
@@ -579,6 +589,13 @@ export function validateCandidate(edits: ProposedEdit[], limits: ValidationLimit
       }
     }
   }
+  // Step 9a: extensions-kind edits additionally get the dynamic gate-1 checks
+  // (config code.allow + real test file + real node_modules) when the caller
+  // supplies the extension environment. Static exclusions were already
+  // applied per-edit above via the registry validator.
+  if (limits.extensionEnv !== undefined) {
+    reasons.push(...extensionValidationReasons(edits, limits.extensionEnv));
+  }
   return reasons;
 }
 
@@ -590,6 +607,12 @@ export interface ProposeDeps {
   callModel: CallModel;
   /** System-prompt template override (tests); default reads loop/prompts/proposer.md. */
   systemPromptTemplate?: string;
+  /**
+   * Validation limits override; the driver passes the extensions-kind
+   * extensionEnv (real agent dir + config code.allow) so gate 1 runs at
+   * propose time. Tests may omit it.
+   */
+  validationLimits?: ValidationLimits;
 }
 
 const DEFAULT_TEMPERATURE = 0.7;
@@ -672,7 +695,7 @@ export async function propose(input: ProposeInput, deps: ProposeDeps): Promise<P
   }
   for (const c of candidates) {
     if (c.verdict === "rejected") continue;
-    const reasons = validateCandidate(c.edits);
+    const reasons = validateCandidate(c.edits, deps.validationLimits);
     if (reasons.length > 0) {
       c.verdict = "rejected";
       c.reasons = reasons;

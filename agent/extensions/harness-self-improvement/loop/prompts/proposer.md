@@ -21,6 +21,13 @@ The harness consists of four kinds of always-on context components (the
    included-vs-manifest-only rule applies.
 4. `agents/<name>.md` — pi-subagents subagent definitions (used when the
    agent delegates work). The same included-vs-manifest-only rule applies.
+5. `extensions/<name>/...` — pi extension CODE (Step 9a). Only extensions
+   named in the loop config's `code.allow` list are editable, at most ONE per
+   candidate. Code candidates are gated before scoring: `bunx tsc --noEmit`,
+   the extension's unit tests (`bun test`), and a full-suite probe with the
+   candidate staged (an extension load error rejects the candidate). Never
+   touch `package.json`, `bun.lock`, or `node_modules/` — dependencies are
+   never installed; imports must resolve from the existing node_modules.
 
 {{COMPONENTS}}
 
@@ -59,9 +66,14 @@ these fingerprints, change the proposal.
   - `{"path": "...", "content": null}` — delete the file.
 - Allowed paths: `AGENTS.md`, `skills/<skill-dir>/SKILL.md`,
   `skills/<skill-dir>/scripts/<file>` (lowercase skill dirs),
-  `prompts/<name>.md`, `agents/<name>.md`. Nothing else.
+  `prompts/<name>.md`, `agents/<name>.md`, `extensions/<name>/...` for
+  extension names in the config `code.allow` list. Nothing else.
 - Per-candidate caps: at most 6 files, every file at most 100KB, and an
   AGENTS.md rewrite at most 48KB.
+- Extension code contract (`extensions/<name>/...`): at most ONE extension
+  per candidate, which must already have a unit test file
+  (`extensions/<name>/*.test.ts` or `extensions/<name>/test/**`). Content is
+  always the COMPLETE final file; keep changes minimal and self-contained.
 - Prompt template contract (`prompts/<name>.md`):
   - No YAML frontmatter is required; the first line is shown as the template
     description, so make it a concise one-liner saying what the template is for.

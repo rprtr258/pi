@@ -53,7 +53,11 @@
  *     "usageFactor": 1.5,     // max candTokens / baseTokens ratio
  *     "apply": {"dryRun": true},
  *     "budget": {"maxTotalTokens": 5000000, "maxIterations": 3},
- *     "candidates": {"maxPerIteration": 3}
+ *     "candidates": {"maxPerIteration": 3},
+ *     "replay": {"enabled": false, "minAgreement": 0.8},
+ *     "code": {"allow": ["harness-loop-sample"], "minWin": 2} // Step 9a:
+ *        editable extension names + minimum passDelta for CODE-bearing
+ *        candidates (the `extensions` surface kind; gates in loop/lib/gates.ts)
  *   }
  *   loadLoopConfig() is tolerant: missing file → defaults; invalid JSON or
  *   wrong-typed fields → default for that field + a console warning.
@@ -116,6 +120,13 @@ export interface LoopConfig {
     /** Judge-vs-checker agreement required for the channel to leave advisory mode. */
     minAgreement: number;
   };
+  /** Code gates (Step 9a) — the `extensions` surface kind. */
+  code: {
+    /** Editable extension names (DYNAMIC allowlist, layer 2 — see surface.ts). */
+    allow: string[];
+    /** Minimum passDelta for a CODE-bearing candidate to win (≥ minWin default). */
+    minWin: number;
+  };
 }
 
 export const DEFAULT_LOOP_CONFIG: LoopConfig = {
@@ -126,6 +137,7 @@ export const DEFAULT_LOOP_CONFIG: LoopConfig = {
   budget: {maxTotalTokens: 5_000_000, maxIterations: 3},
   candidates: {maxPerIteration: 3},
   replay: {enabled: false, minAgreement: 0.8},
+  code: {allow: [], minWin: 2},
 };
 
 function defaultConfigPath(): string {
@@ -165,6 +177,7 @@ export function loadLoopConfig(path: string = defaultConfigPath()): LoopConfig {
     budget: {...DEFAULT_LOOP_CONFIG.budget},
     candidates: {...DEFAULT_LOOP_CONFIG.candidates},
     replay: {...DEFAULT_LOOP_CONFIG.replay},
+    code: {...DEFAULT_LOOP_CONFIG.code, allow: [...DEFAULT_LOOP_CONFIG.code.allow]},
   };
   const p = parsed as Record<string, unknown>;
   if (p["minWin"] === undefined) {
@@ -254,6 +267,28 @@ export function loadLoopConfig(path: string = defaultConfigPath()): LoopConfig {
     }
   } else {
     warnField("replay", "not an object");
+  }
+  const code = p["code"];
+  if (code === undefined) {
+    // keep default
+  } else if (code !== null && typeof code === "object" && !Array.isArray(code)) {
+    const c = code as Record<string, unknown>;
+    if (c["allow"] === undefined) {
+      // keep default
+    } else if (Array.isArray(c["allow"]) && c["allow"].every((x) => typeof x === "string" && x !== "")) {
+      cfg.code.allow = c["allow"] as string[];
+    } else {
+      warnField("code.allow", "not an array of non-empty strings");
+    }
+    if (c["minWin"] === undefined) {
+      // keep default
+    } else if (typeof c["minWin"] === "number" && Number.isInteger(c["minWin"]) && c["minWin"] >= 1) {
+      cfg.code.minWin = c["minWin"];
+    } else {
+      warnField("code.minWin", "not an integer ≥ 1");
+    }
+  } else {
+    warnField("code", "not an object");
   }
   return cfg;
 }
@@ -557,7 +592,12 @@ export function applyCandidate(input: ApplyCandidateInput): ApplyResult {
 
 function applyCandidateLocked(input: ApplyCandidateInput, agentDir: string, ledger: string): ApplyResult {
   // Re-validate through proposer's pipeline — never trust the caller's check.
-  const validationReasons = validateCandidate(input.winner.edits);
+  // Step 9a: with the extensions-kind environment supplied, gate-1 dynamic
+  // checks (config code.allow + real test file + real node_modules) run here
+  // too — apply-time validation is as strict as propose-time validation.
+  const validationReasons = validateCandidate(input.winner.edits, {
+    extensionEnv: {agentDir, codeAllow: input.config.code.allow},
+  });
   if (validationReasons.length > 0) {
     applyLedgerEntry(input, "apply", "rejected", validationReasons, [], undefined, ledger);
     return {ok: false, decision: "rejected", reasons: validationReasons, files: []};

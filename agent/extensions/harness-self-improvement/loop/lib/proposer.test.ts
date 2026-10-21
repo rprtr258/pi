@@ -47,6 +47,7 @@ function snap(
       skills: skills.map((s) => ({relPath: `skills/${s.relPath}`, content: s.content})),
       templates: templates.map((t) => ({relPath: t.relPath, content: t.content})),
       subagents: subagents.map((t) => ({relPath: t.relPath, content: t.content})),
+      extensions: [],
     },
   };
 }
@@ -471,7 +472,10 @@ describe("system prompt template", () => {
     expect(text).toContain("unbalanced");
     expect(text).toContain("`description:` is REQUIRED");
     const lines = text.split("\n").length;
+    // 80–120 (S8) extended to 130 in Step 9a: the extensions/code-gate
+    // contract the Proposer must see adds ~10 lines (kept as tight as the
+    // contract allows; still a bloat guard, not a hard spec).
     expect(lines).toBeGreaterThanOrEqual(80);
-    expect(lines).toBeLessThanOrEqual(120);
+    expect(lines).toBeLessThanOrEqual(130);
   });
 });

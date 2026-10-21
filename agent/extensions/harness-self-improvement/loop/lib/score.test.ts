@@ -185,6 +185,7 @@ describe("fingerprintSnapshot", () => {
       skills: skills.map((s) => ({relPath: `skills/${s.relPath}`, content: s.content})),
       templates: [] as Array<{relPath: string; content: string}>,
       subagents: [] as Array<{relPath: string; content: string}>,
+      extensions: [] as Array<{relPath: string; content: string}>,
     },
   });
 

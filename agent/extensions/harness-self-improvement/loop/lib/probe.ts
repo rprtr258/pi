@@ -117,7 +117,7 @@ function piVersion(bin: string): string | null {
 
 /**
  * Spawn env for nested pi: caller env minus node_modules/.bin PATH entries,
- * plus PI_OFFLINE=1.
+ * plus PI_OFFLINE=1 and HARNESS_LOOP_SAMPLE=1.
  *
  * PI_OFFLINE=1 (S8): write-protection for the shared real npm store that the
  * sandbox reads through the <sandbox>/npm/node_modules symlink (see stage.ts).
@@ -126,10 +126,17 @@ function piVersion(bin: string): string | null {
  * network activity (package installs/update checks) — NOT model calls — so
  * probes still run their normal model traffic. Callers may override it via
  * `extra` (spread last).
+ *
+ * HARNESS_LOOP_SAMPLE=1 (Step 9a): sandbox probes run with the env-gated
+ * sample extension's flag set, so a staged candidate extension that registers
+ * tools only under the flag (the harness-loop-sample pattern) is loadable and
+ * exercisable in probe sandboxes while staying INERT in every normal session
+ * (the flag is never set outside sandbox probes). The variable is inert
+ * unless an extension chooses to read it.
  */
 export function nestedPiEnv(extra: Record<string, string> = {}): NodeJS.ProcessEnv {
   const base = process.env.PI_BIN !== undefined && process.env.PI_BIN !== "" ? {...process.env} : {...process.env, PATH: filteredPath()};
-  return {...base, PI_OFFLINE: "1", ...extra};
+  return {...base, PI_OFFLINE: "1", HARNESS_LOOP_SAMPLE: "1", ...extra};
 }
 
 function filteredPath(): string {

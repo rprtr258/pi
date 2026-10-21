@@ -38,6 +38,15 @@
  *   Empirically verified (real nested pi run): with this replication a staged
  *   <sandbox>/agents/<name>.md test subagent is discovered by the subagent
  *   tool's `list` action.
+ *
+ * STEP 9a (extensions kind): extensions are NOT part of the ambient sandbox
+ * (the extensions kind's snapshot contributes no files — see surface.ts);
+ * only the touched candidate extension is staged into a candidate's probe
+ * sandbox, by the gate pipeline (loop/lib/gates.ts
+ * stageExtensionForSandbox, called from loop/driver.ts before the suite
+ * probe). Probes run with HARNESS_LOOP_SAMPLE=1 in nestedPiEnv (probe.ts) so
+ * env-gated sample extensions are exercisable in sandboxes while staying
+ * inert in every normal session.
  */
 import {
   chmodSync,

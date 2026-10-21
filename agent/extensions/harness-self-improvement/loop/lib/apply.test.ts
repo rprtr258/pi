@@ -372,7 +372,7 @@ describe("applyCandidate", () => {
     const winner = candidate([{path: "skills/y/SKILL.md", content: SKILL_Y_NEW}]);
     const res = applyCandidate({candidates: [winner], winner, runId: "dirty-1", config: APPLY, agentDir, ledgerPath: ledger});
     expect(res.decision).toBe("rejected");
-    expect(res.reasons[0]).toContain("working tree dirty under AGENTS.md/skills/prompts/agents — resolve before apply");
+    expect(res.reasons[0]).toContain("working tree dirty under AGENTS.md/skills/prompts/agents/extensions — resolve before apply");
     expect(readFileSync(join(agentDir, "AGENTS.md"), "utf8")).toBe("# uncommitted manual edit\n");
     expect(existsSync(join(agentDir, "skills/y"))).toBe(false);
     expect(readLedger(ledger)[0]!.decision).toBe("rejected");
@@ -569,7 +569,7 @@ describe("revertByRunId", () => {
 
     const reverted = revertByRunId("rev-dirty", {agentDir, ledgerPath: ledger});
     expect(reverted.ok).toBe(false);
-    expect(reverted.error).toContain("working tree dirty under AGENTS.md/skills/prompts/agents — resolve before apply");
+    expect(reverted.error).toContain("working tree dirty under AGENTS.md/skills/prompts/agents/extensions — resolve before apply");
     // No revert commit was made and the manual edit is untouched.
     expect(git(agentDir, ["rev-parse", "HEAD"]).stdout.trim()).toBe(headAfterApply);
     expect(readFileSync(join(agentDir, "AGENTS.md"), "utf8")).toBe("# uncommitted manual edit\n");
