@@ -2,8 +2,7 @@
 /**
  * Baseline scoring for the harness self-improvement loop.
  *
- * scoreSuite runs every suite task (serial execution; parallelism is a later
- * step) with runProbe against a caller-staged sandbox, writing one result JSON
+ * scoreSuite runs every suite task against a caller-staged sandbox, writing one result JSON
  * per task into <runDir>/tasks/<task-name>.json as soon as it completes — the
  * crash-safe resume basis for a later step: when the result file already
  * exists for the run, it is reused instead of re-probing.
@@ -13,7 +12,8 @@
  * the token-budget comparison. Budget metric is usage.totalTokens (cost.total
  * is always 0 on this gateway).
  */
-import {existsSync, mkdirSync, readFileSync, writeFileSync} from "node:fs";
+import {existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync} from "node:fs";
+import {tmpdir} from "node:os";
 import {join} from "node:path";
 import {runProbe, type ProbeUsage} from "./probe.ts";
 import type {LoadedTask} from "./suite.ts";
@@ -52,6 +52,20 @@ export type SuiteAggregate = {
   totalTokens: number,
 };
 
+/** Step 10: wall-time + concurrency stats for one scoreSuite run. */
+export type ProbeRunStats = {
+  /** Tasks in the suite (probed + reused). */
+  tasks: number,
+  /** Tasks actually probed this run (non-reused). */
+  probed: number,
+  /** Tasks served from an existing result file (resume). */
+  reused: number,
+  /** Highest number of probes observed in flight (≤ options.concurrency). */
+  maxObservedConcurrency: number,
+  /** Wall time of the whole scoreSuite call (includes resume reads). */
+  wallMs: number,
+}
+
 /** Injectable probe implementation (the driver's selftest fakes this). */
 export type RunProbeFn = typeof runProbe;
 
@@ -66,11 +80,22 @@ export type ScoreSuiteOptions = {
    * value — results from another run/iteration/candidate are re-probed.
    */
   boundTo?: string,
+  /**
+   * Step 10: max probes in flight WITHIN this suite run (same candidate
+   * sandbox). Candidates themselves stay sequential (the driver scores them
+   * one at a time) — only tasks inside one sandbox run concurrently. 1 (the
+   * default) = serial. Every probe additionally gets its own isolated TMPDIR
+   * (see RunProbeOptions.tmpDir) so concurrent checkers cannot collide in
+   * the shared system temp dir.
+   */
+  concurrency?: number,
 };
 
 export type ScoreSuiteResult = {
   results: TaskScoreResult[],
   aggregate: SuiteAggregate,
+  /** Wall-time + concurrency stats (Step 10; rendered into report.md). */
+  stats: ProbeRunStats,
 };
 
 function aggregateOf(results: TaskScoreResult[]): SuiteAggregate {
@@ -89,19 +114,31 @@ function isReusableResult(value: unknown, taskName: string): value is TaskScoreR
 }
 
 /**
- * Run every task serially against `sandboxDir`, writing per-task result JSON
+ * Run every task against `sandboxDir`, writing per-task result JSON
  * incrementally. A task whose <runDir>/tasks/<name>.json already exists (same
  * run resumed after a crash) is reused without re-probing; corrupt or
  * mismatched result files are overwritten by a fresh probe.
+ *
+ * Step 10: with options.concurrency > 1, up to that many probes run
+ * concurrently INSIDE this suite run (same sandbox; candidates stay
+ * sequential — the driver never parallelizes across candidates/sandboxes).
+ * Results are order-independent: the returned array follows the input task
+ * order, per-task durationMs measures that task's own probe (never the wall
+ * time), and every field except durationMs is identical to the serial run on
+ * the same suite + probe data (regression-tested in score.test.ts).
  */
 export async function scoreSuite(tasks: LoadedTask[], sandboxDir: string, runDir: string, options: ScoreSuiteOptions = {}): Promise<ScoreSuiteResult> {
+  const started = performance.now();
   const tasksDir = join(runDir, "tasks");
   const wsRoot = join(runDir, "ws");
   mkdirSync(tasksDir, {recursive: true});
   mkdirSync(wsRoot, {recursive: true});
   const probe = options.runProbeFn ?? runProbe;
-  const results: TaskScoreResult[] = [];
-  for (const task of tasks) {
+  const results: Array<TaskScoreResult | undefined> = new Array(tasks.length);
+  const pending: Array<{task: LoadedTask, index: number}> = [];
+  let reused = 0;
+  for (let i = 0; i < tasks.length; i++) {
+    const task = tasks[i]!;
     const resultPath = join(tasksDir, `${task.name}.json`);
     if (existsSync(resultPath)) {
       try {
@@ -110,41 +147,91 @@ export async function scoreSuite(tasks: LoadedTask[], sandboxDir: string, runDir
         // a result file from another run/iteration/candidate is never reused.
         if (isReusableResult(cached, task.name) && (options.boundTo === undefined || cached.boundTo === options.boundTo)) {
           console.log(`[score] ${task.name}: reused existing result (resume)`);
-          results.push(cached);
+          results[i] = cached;
+          reused++;
           continue;
         }
       } catch {
         // Corrupt result file: fall through and re-probe.
       }
     }
-    const started = performance.now();
-    const probeResult = await probe(task, sandboxDir, join(wsRoot, task.name), {
-      timeoutS: task.meta?.timeoutS,
-      model: options.model,
-      // Sibling of the workspace, never inside it: checkers must not see it.
-      rawJsonlPath: join(wsRoot, `${task.name}.raw.jsonl`),
-    });
-    const result: TaskScoreResult = {
-      task: task.name,
-      category: task.category,
-      pass: probeResult.checkerResult.pass,
-      durationMs: Math.round(performance.now() - started),
-      usage: probeResult.usage,
-      exit: probeResult.exit,
-      piBinary: probeResult.piBinary,
-      timedOut: probeResult.timedOut,
-      checkerOutput: probeResult.checkerResult.output,
-      stderrExcerpt: probeResult.stderrExcerpt,
-      trajectory: probeResult.trajectory,
-    };
-    if (options.boundTo !== undefined) result.boundTo = options.boundTo;
-    // Written before moving on: a crash between probes leaves every completed
-    // task's result on disk for resume.
-    writeFileSync(resultPath, `${JSON.stringify(result, null, 2)}\n`);
-    console.log(`[score] ${task.name}: ${result.pass ? "PASS" : "FAIL"} (${result.durationMs}ms, ${result.usage?.totalTokens ?? 0} tokens)`);
-    results.push(result);
+    pending.push({task, index: i});
   }
-  return {results, aggregate: aggregateOf(results)};
+  let probed = 0;
+  let maxObservedConcurrency = 0;
+  let failure: unknown = null;
+  if (pending.length > 0) {
+    // Worker pool: exactly min(concurrency, pending) workers pull from the
+    // shared queue, so the in-flight cap is enforced structurally. A probe
+    // error (e.g. the driver budget guard's abort) stops NEW spawns
+    // immediately; in-flight probes finish and their results (real spend)
+    // are still written and budget-accounted before the error rethrows.
+    const limit = Math.max(1, Math.min(options.concurrency ?? 1, pending.length));
+    let next = 0;
+    let inFlight = 0;
+    const runOne = async (item: {task: LoadedTask, index: number}): Promise<void> => {
+      // Per-probe TMPDIR isolation (Step 10): each probe — nested pi AND its
+      // checker — sees its own temp dir, unique per probe, cleaned up after.
+      const probeTmpDir = mkdtempSync(join(tmpdir(), "harness-probe-tmp-"));
+      try {
+        const probeStarted = performance.now();
+        const probeResult = await probe(item.task, sandboxDir, join(wsRoot, item.task.name), {
+          timeoutS: item.task.meta?.timeoutS,
+          model: options.model,
+          // Sibling of the workspace, never inside it: checkers must not see it.
+          rawJsonlPath: join(wsRoot, `${item.task.name}.raw.jsonl`),
+          tmpDir: probeTmpDir,
+        });
+        const result: TaskScoreResult = {
+          task: item.task.name,
+          category: item.task.category,
+          pass: probeResult.checkerResult.pass,
+          // Per-task duration, not wall time: parallel results stay comparable
+          // to serial ones (task-level duration semantics unchanged).
+          durationMs: Math.round(performance.now() - probeStarted),
+          usage: probeResult.usage,
+          exit: probeResult.exit,
+          piBinary: probeResult.piBinary,
+          timedOut: probeResult.timedOut,
+          checkerOutput: probeResult.checkerResult.output,
+          stderrExcerpt: probeResult.stderrExcerpt,
+          trajectory: probeResult.trajectory,
+        };
+        if (options.boundTo !== undefined) result.boundTo = options.boundTo;
+        // Written as soon as the task completes: a crash between probes
+        // leaves every completed task's result on disk for resume.
+        writeFileSync(join(tasksDir, `${item.task.name}.json`), `${JSON.stringify(result, null, 2)}\n`);
+        console.log(`[score] ${item.task.name}: ${result.pass ? "PASS" : "FAIL"} (${result.durationMs}ms, ${result.usage?.totalTokens ?? 0} tokens)`);
+        results[item.index] = result;
+        probed++;
+      } finally {
+        rmSync(probeTmpDir, {recursive: true, force: true});
+      }
+    };
+    const worker = async (): Promise<void> => {
+      while (failure === null) {
+        const i = next++;
+        if (i >= pending.length) return;
+        inFlight++;
+        maxObservedConcurrency = Math.max(maxObservedConcurrency, inFlight);
+        try {
+          await runOne(pending[i]!);
+        } catch (err) {
+          failure = err; // stop spawning; other in-flight probes finish first
+        } finally {
+          inFlight--;
+        }
+      }
+    };
+    await Promise.all(Array.from({length: limit}, () => worker()));
+  }
+  if (failure !== null) throw failure;
+  const filled = results as TaskScoreResult[]; // failure === null ⇒ every slot filled
+  return {
+    results: filled,
+    aggregate: aggregateOf(filled),
+    stats: {tasks: tasks.length, probed, reused, maxObservedConcurrency, wallMs: Math.round(performance.now() - started)},
+  };
 }
 
 // ---------------------------------------------------------------------------
