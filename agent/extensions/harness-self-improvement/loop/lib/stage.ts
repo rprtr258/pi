@@ -47,6 +47,14 @@
  * probe). Probes run with HARNESS_LOOP_SAMPLE=1 in nestedPiEnv (probe.ts) so
  * env-gated sample extensions are exercisable in sandboxes while staying
  * inert in every normal session.
+ *
+ * STEP 9b (mcp kind): the real mcp.json IS part of the ambient sandbox (the
+ * mcp kind's snapshot returns it when present — an absent file snapshots as
+ * an empty list, so the sandbox then has none, exactly like the real dir).
+ * No buildSandbox change was needed: staging goes through the registry's
+ * per-kind stage, like every other kind. Candidate mcp.json edits are
+ * overlaid on top by gates.ts stageMcpForSandbox before the startup probe
+ * and the suite probe.
  */
 import {
   chmodSync,

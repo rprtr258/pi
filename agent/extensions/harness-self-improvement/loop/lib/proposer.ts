@@ -546,7 +546,7 @@ export function validatePath(path: string): string | null {
   if (path.startsWith("/") || /^[A-Za-z]:[\\/]/.test(path)) return `absolute path rejected: ${path}`;
   if (path.split("/").includes("..")) return `path traversal (..) rejected: ${path}`;
   if (kindForPath(path) === null) {
-    return `path outside the allowlist (AGENTS.md, skills/<dir>/SKILL.md|scripts/<file>, prompts/<name>.md, agents/<name>.md, extensions/<name>/...): ${path}`;
+    return `path outside the allowlist (AGENTS.md, skills/<dir>/SKILL.md|scripts/<file>, prompts/<name>.md, agents/<name>.md, extensions/<name>/..., mcp.json): ${path}`;
   }
   return null;
 }

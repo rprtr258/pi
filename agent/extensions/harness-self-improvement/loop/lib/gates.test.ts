@@ -8,7 +8,7 @@
  *
  *   bun test loop/lib/gates.test.ts
  */
-import {existsSync, mkdirSync, mkdtempSync, readFileSync, readlinkSync, rmSync, symlinkSync, writeFileSync} from "node:fs";
+import {existsSync, chmodSync, mkdirSync, mkdtempSync, readFileSync, readlinkSync, rmSync, symlinkSync, writeFileSync} from "node:fs";
 import {tmpdir} from "node:os";
 import {join} from "node:path";
 import {afterAll, describe, expect, test} from "bun:test";
@@ -16,13 +16,20 @@ import {
   extensionHasTestFile,
   extensionValidationReasons,
   isExtensionPath,
+  isMcpPath,
   loadErrorLines,
+  mcpListFailure,
+  mcpLoadErrorLines,
+  mcpServerNames,
   runCodeGates,
   runCommand,
+  runStartupProbe,
   scanProbeLoadErrors,
   selectionConfigForEdits,
   stageExtensionForSandbox,
+  stageMcpForSandbox,
   touchedExtensionNames,
+  MCP_STARTUP_PROBE_PROMPT,
   type CommandResult,
 } from "./gates.ts";
 import {validateCandidate, type ProposedEdit} from "./proposer.ts";
@@ -394,5 +401,175 @@ describe("selection: code.minWin per-candidate override", () => {
   test("non-code candidate keeps the global minWin", () => {
     expect(selectionConfigForEdits([{path: "AGENTS.md", content: "x"}] as ProposedEdit[], base, 2).minWin).toBe(1);
     expect(selectionConfigForEdits([{path: "skills/a/SKILL.md", content: "x"}] as ProposedEdit[], base, 2).minWin).toBe(1);
+    // mcp.json is code-bearing too (Step 9b).
+    expect(selectionConfigForEdits([{path: "mcp.json", content: "x"}] as ProposedEdit[], base, 2).minWin).toBe(2);
+    expect(selectionConfigForEdits([{path: "AGENTS.md", content: "x"}, {path: "mcp.json", content: "x"}] as ProposedEdit[], base, 2).minWin).toBe(2);
   });
+});
+
+// ---------------------------------------------------------------------------
+// Step 9b: mcp kind — staging, startup probe, mcp load-error capture
+
+describe("mcp kind path routing + staging (Step 9b)", () => {
+  test("isMcpPath routes mcp.json only", () => {
+    expect(isMcpPath("mcp.json")).toBe(true);
+    expect(isMcpPath("AGENTS.md")).toBe(false);
+    expect(isMcpPath("extensions/x/index.ts")).toBe(false);
+    expect(isMcpPath("mcp.json.bak")).toBe(false);
+  });
+
+  test("stageMcpForSandbox overlays the candidate content on the staged real copy", () => {
+    const sandbox = tempDir("mcp-stage-a-");
+    writeFileSync(join(sandbox, "mcp.json"), '{"mcpServers":{"real":{"command":"real"}}}\n');
+    writeFileSync(join(sandbox, "AGENTS.md"), "unrelated\n");
+    stageMcpForSandbox(sandbox, [
+      {path: "AGENTS.md", content: "rewritten"},
+      {path: "mcp.json", content: '{"mcpServers":{"candidate":{"command":"c"}}}'},
+    ]);
+    expect(readFileSync(join(sandbox, "mcp.json"), "utf8")).toContain("candidate");
+    expect(readFileSync(join(sandbox, "AGENTS.md"), "utf8")).toBe("unrelated\n"); // non-mcp paths untouched here
+  });
+});
+
+describe("mcpServerNames + mcpLoadErrorLines (Step 9b keyword scan)", () => {
+  test("mcpServerNames extracts the mcpServers keys, tolerating junk", () => {
+    expect(mcpServerNames('{"mcpServers":{"a":{"command":"x"},"b":{"url":"https://x"}}}')).toEqual(["a", "b"]);
+    expect(mcpServerNames("{ not json")).toEqual([]);
+    expect(mcpServerNames("{}")).toEqual([]);
+  });
+
+  test("catches a seeded broken server's stderr (mcp + server-name keywords)", () => {
+    const raw = [
+      "starting mcp servers…",
+      'MCP server "broken-server" failed to connect: spawn /nonexistent/binary ENOENT',
+      "model chatter without the keyword",
+    ].join("\n");
+    const lines = mcpLoadErrorLines(raw, ["broken-server"]);
+    expect(lines.length).toBe(1);
+    expect(lines[0]).toContain("failed to connect");
+    expect(lines[0]).toContain("broken-server");
+  });
+
+  test("extends the 9a load-error scan: extension-shaped lines match via the mcp/server-name keywords, non-mcp errors do not", () => {
+    // An extension load error that ALSO mentions the mcp layer (e.g. pi's
+    // mcp extension failing) is caught; a generic non-mcp error is not.
+    const raw = [
+      'Error: Failed to load extension "/s/extensions/mcp-loader/index.ts": boom',
+      "Error: something unrelated failed",
+    ].join("\n");
+    expect(mcpLoadErrorLines(raw, []).length).toBe(1);
+    expect(mcpLoadErrorLines(raw, ["mcp-loader"]).length).toBe(1);
+    // The 9a scanner itself is unchanged.
+    expect(loadErrorLines(raw, "mcp-loader").length).toBe(1);
+  });
+
+  test("benign mcp mentions (tool listings in the OK run's JSONL) are ignored", () => {
+    const raw = '{"type":"agent_start"}\n- mcp__broken_server (codemode)\nMCP servers whose tools are not declared';
+    expect(mcpLoadErrorLines(raw, ["broken-server"])).toEqual([]);
+  });
+});
+
+describe("mcpListFailure (pi mcp list --json interpretation)", () => {
+  test("config errors fail", () => {
+    const report = {servers: [], errors: ["/s/mcp.json: Expected property name in JSON at position 2"]};
+    const failure = mcpListFailure(JSON.stringify(report));
+    expect(failure).toContain("config error:");
+    expect(failure).toContain("Expected property name");
+  });
+
+  test("a failed enabled server fails with its captured error; needs-auth/connected/disabled pass", () => {
+    const report = {
+      servers: [
+        {name: "ok", enabled: true, state: "connected"},
+        {name: "oauth-one", enabled: true, state: "needs-auth"},
+        {name: "off", enabled: false, state: "disabled"},
+        {name: "broken", enabled: true, state: "failed", error: "spawn /nonexistent/binary ENOENT\nstderr tail here"},
+      ],
+      errors: [],
+    };
+    const failure = mcpListFailure(JSON.stringify(report));
+    expect(failure).toContain('MCP server "broken" failed to connect');
+    expect(failure).toContain("spawn /nonexistent/binary ENOENT");
+    // Only the FIRST stderr line is carried (the tail is noise).
+    expect(failure).not.toContain("stderr tail here");
+    expect(mcpListFailure(JSON.stringify({servers: report.servers.slice(0, 3), errors: []}))).toBeNull();
+  });
+
+  test("unparseable / non-object output fails", () => {
+    expect(mcpListFailure("")).toContain("did not print a JSON report");
+    expect(mcpListFailure("[]")).toContain("not an object");
+  });
+});
+
+describe("runStartupProbe ordering + capture (fake runner)", () => {
+  const OK_LIST = JSON.stringify({servers: [{name: "s", enabled: true, state: "connected"}], errors: []});
+
+  function recorder(listResult: Partial<CommandResult>, promptResult: Partial<CommandResult>) {
+    const calls: string[] = [];
+    const run = async (args: string[], opts: {cwd: string; timeoutS: number; env?: NodeJS.ProcessEnv}): Promise<CommandResult> => {
+      calls.push(args.join(" "));
+      const isList = args[1] === "mcp";
+      const base = isList ? listResult : promptResult;
+      return {status: 0, stdout: "", stderr: "", timedOut: false, ...base};
+    };
+    return {calls, run};
+  }
+
+  test("both phases pass → ok", async () => {
+    const {calls, run} = recorder({stdout: OK_LIST}, {status: 0, stdout: '{"type":"agent_end"}'});
+    const sandbox = tempDir("startup-a-");
+    writeFileSync(join(sandbox, "mcp.json"), '{"mcpServers":{"s":{"command":"x"}}}');
+    const res = await runStartupProbe(sandbox, {runCmd: run, piBin: "fake-pi", timeoutS: 1});
+    expect(res.ok).toBe(true);
+    expect(res.failedPhase).toBeNull();
+    expect(calls[0]).toContain("mcp list --json");
+    expect(calls[1]).toContain(`-- ${MCP_STARTUP_PROBE_PROMPT}`);
+  });
+
+  test("gate ordering: mcp-list failure → the OK prompt run is NOT executed", async () => {
+    const {calls, run} = recorder(
+      {stdout: JSON.stringify({servers: [{name: "b", enabled: true, state: "failed", error: "spawn ENOENT"}], errors: []})},
+      {status: 0},
+    );
+    const sandbox = tempDir("startup-b-");
+    writeFileSync(join(sandbox, "mcp.json"), '{"mcpServers":{"b":{"command":"x"}}}');
+    const res = await runStartupProbe(sandbox, {runCmd: run, piBin: "fake-pi", timeoutS: 1});
+    expect(res.ok).toBe(false);
+    expect(res.failedPhase).toBe("mcp-list");
+    expect(res.error).toContain("spawn ENOENT");
+    expect(calls).toHaveLength(1); // the OK prompt never ran
+  });
+
+  test("prompt-phase failure: non-zero exit captured; mcp load error captured", async () => {
+    const {run} = recorder({stdout: OK_LIST}, {status: 1, stderr: "boom"});
+    const sandbox = tempDir("startup-c-");
+    writeFileSync(join(sandbox, "mcp.json"), '{"mcpServers":{"s":{"command":"x"}}}');
+    const res = await runStartupProbe(sandbox, {runCmd: run, piBin: "fake-pi", timeoutS: 1});
+    expect(res.ok).toBe(false);
+    expect(res.failedPhase).toBe("prompt");
+    expect(res.error).toContain("exited 1");
+    expect(res.error).toContain("boom");
+
+    const {run: run2} = recorder({stdout: OK_LIST}, {status: 0, stderr: 'MCP server "s" failed to connect: nope'});
+    const res2 = await runStartupProbe(sandbox, {runCmd: run2, piBin: "fake-pi", timeoutS: 1});
+    expect(res2.ok).toBe(false);
+    expect(res2.error).toContain("failed to connect");
+  });
+
+  test("timeout kill: a hanging pi mcp list is killed at the timeout (real process)", async () => {
+    // A real hanging "pi" stand-in: an executable script that ignores its
+    // args and sleeps — the 9a runCommand timeout-kill pattern applied to the
+    // startup probe's first phase.
+    const dir = tempDir("startup-timeout-");
+    const fakePi = join(dir, "fake-pi-sleep");
+    writeFileSync(fakePi, "#!/bin/sh\nsleep 30\n");
+    chmodSync(fakePi, 0o755);
+    const started = Date.now();
+    const res = await runStartupProbe(dir, {piBin: fakePi, timeoutS: 1});
+    const elapsedS = (Date.now() - started) / 1000;
+    expect(res.ok).toBe(false);
+    expect(res.failedPhase).toBe("mcp-list");
+    expect(res.timedOut).toBe(true);
+    expect(elapsedS).toBeLessThan(10); // killed, not waited out
+  }, 20_000);
 });

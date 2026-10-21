@@ -19,6 +19,12 @@
  *     3. for each prompt template file, same pattern: "template", relPath,
  *        content (ascending relPath order)
  *     4. for each subagent file, same pattern: "subagent", relPath, content
+ *     4b. for the mcp.json snapshot (Step 9b), same pattern: "mcp", relPath,
+ *        content — mcp.json is staged into every probe sandbox, so a config
+ *        change must invalidate the baseline cache (S9b CACHE-INVALIDATION
+ *        NOTE: adding this field makes every pre-S9b cache miss ONCE by
+ *        design, like the S8 migration). An absent mcp.json contributes no
+ *        field (the kind snapshots as an empty list).
  *     5. "pi", the resolved pi binary's version ("unknown" when it could not
  *        be determined) — a cache written under a different pi version is
  *        therefore never reused
@@ -61,9 +67,9 @@ const cacheDir = join(extensionRoot, "loop", ".cache");
 
 /**
  * sha256 over the canonical snapshot form described in the file header:
- * agentsMd + skills + prompt templates + subagents (relPath and content as
- * separate fields, each group sorted by UTF-16 code-unit relPath order) +
- * resolved pi version + captured model flag.
+ * agentsMd + skills + prompt templates + subagents + mcp.json (relPath and
+ * content as separate fields, each group sorted by UTF-16 code-unit relPath
+ * order) + resolved pi version + captured model flag.
  */
 export function fingerprintSnapshot(
   snapshot: ComponentSnapshot,
@@ -88,6 +94,10 @@ export function fingerprintSnapshot(
   for (const subagent of [...snapshot.kinds.subagents].sort(byRelPath)) {
     field("subagent", subagent.relPath);
     field(subagent.content);
+  }
+  for (const mcpFile of [...snapshot.kinds.mcp].sort(byRelPath)) {
+    field("mcp", mcpFile.relPath);
+    field(mcpFile.content);
   }
   field("pi", piBinary?.version ?? "unknown");
   field("model", model ?? "");

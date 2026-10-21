@@ -284,4 +284,17 @@ describe("buildSandbox", () => {
     buildSandbox(snapshotReal(agentDir), dir, agentDir);
     expect(relativeFiles(dir)).toEqual(["AGENTS.md", "settings.json", "skills/s/SKILL.md"]);
   });
+
+  test("stages the real mcp.json at the sandbox root when present; nothing when absent (Step 9b)", () => {
+    const agentDir = makeAgentDir(tempRoot());
+    writeFileSync(join(agentDir, "mcp.json"), '{"mcpServers":{"fs":{"command":"fs-server"}}}\n');
+    const dir = join(tempRoot(), "sandbox");
+    buildSandbox(snapshotReal(agentDir), dir, agentDir);
+    expect(readFileSync(join(dir, "mcp.json"), "utf8")).toBe('{"mcpServers":{"fs":{"command":"fs-server"}}}\n');
+    // Absent real file → no mcp.json in the sandbox at all (never an empty file).
+    const agentDir2 = makeAgentDir(tempRoot());
+    const dir2 = join(tempRoot(), "sandbox");
+    buildSandbox(snapshotReal(agentDir2), dir2, agentDir2);
+    expect(existsSync(join(dir2, "mcp.json"))).toBe(false);
+  });
 });

@@ -186,6 +186,7 @@ describe("fingerprintSnapshot", () => {
       templates: [] as Array<{relPath: string; content: string}>,
       subagents: [] as Array<{relPath: string; content: string}>,
       extensions: [] as Array<{relPath: string; content: string}>,
+      mcp: [] as Array<{relPath: string; content: string}>,
     },
   });
 
