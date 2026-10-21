@@ -72,6 +72,35 @@
  *     "parallel": {"enabled": true, "maxConcurrentProbes": 2} // Step 10:
  *        parallel probing of tasks WITHIN one candidate sandbox; candidates
  *        themselves stay sequential. Each probe gets its own isolated TMPDIR.
+ *     "roles": {"proposer": "provider/model", "judge": ..., "probe": ...}
+ *        // Step 11: per-role model overrides. Each key is OPTIONAL; absent or
+ *        empty = the SESSION model (stage.ts captureModelFlag — the same
+ *        default every pre-S11 path used). proposer → the Proposer model
+ *        call (loop/lib/proposer.ts); judge → the LLM judge (replay
+ *        calibration/replay channel — calibration is KEYED BY THIS MODEL,
+ *        see replay.ts isCalibrated); probe → nested-pi probe rollouts
+ *        (scoreSuite → runProbe --model) AND the model hashed into the
+ *        baseline fingerprint (fingerprintSnapshot hashes the RESOLVED probe
+ *        model, so baselines/candidates are always compared under the same
+ *        probe model). Unknown role keys are warned about and ignored; a
+ *        non-string or empty value falls back to the session model with a
+ *        warning. Values use the captureModelFlag form "provider/model" (a
+ *        bare model id without "/" falls back to the session model — see
+ *        index.ts callModelViaRegistry).
+ *     "mode": {"default": "surface", "auto": true} // Step 11 recursion modes:
+ *        "surface" = every iteration probes the full suite (pre-S11
+ *        behavior); "targeted" = iterations score candidates on the failing
+ *        subset plus a deterministic regression sample (see
+ *        loop/lib/targeted.ts); auto = after an iteration whose baseline had
+ *        ≥1 task failure, the NEXT iteration auto-switches to targeted. A
+ *        CLI --mode flag always wins; a targeted AUTO-APPLY forces the next
+ *        iteration back to the full suite ("post-targeted-confirmation" — a
+ *        subset win must be re-confirmed on the whole suite before the next
+ *        targeting round).
+ *     "targeted": {"sampleSize": 6} // Step 11: size of the deterministic
+ *        regression sample probed alongside the failing subset in targeted
+ *        iterations (evenly-spaced picks from the sorted passing tasks,
+ *        seeded by iteration index — see loop/lib/targeted.ts).
  *   }
  *   loadLoopConfig() is tolerant: missing file → defaults; invalid JSON or
  *   wrong-typed fields → default for that field + a console warning.
@@ -161,6 +190,27 @@ export type LoopConfig = {
     /** Max probes in flight within one sandbox. */
     maxConcurrentProbes: number,
   },
+  /** Role models (Step 11) — each key optional; absent/empty = the session model. */
+  roles: {
+    /** Model for the Proposer model call (loop/lib/proposer.ts). */
+    proposer?: string,
+    /** Model for the LLM judge (replay calibration/channel); calibration is keyed by this model. */
+    judge?: string,
+    /** Model for nested-pi probe rollouts (scoreSuite → runProbe) and the fingerprint model field. */
+    probe?: string,
+  },
+  /** Recursion modes (Step 11). */
+  mode: {
+    /** Iteration mode used when nothing higher-precedence applies. */
+    default: "surface" | "targeted",
+    /** Auto-switch to targeted after an iteration with ≥1 baseline task failure. */
+    auto: boolean,
+  },
+  /** Targeted-iteration knobs (Step 11). */
+  targeted: {
+    /** Deterministic regression-sample size probed alongside the failing subset. */
+    sampleSize: number,
+  },
 }
 
 export const DEFAULT_LOOP_CONFIG: LoopConfig = {
@@ -173,6 +223,9 @@ export const DEFAULT_LOOP_CONFIG: LoopConfig = {
   replay: {enabled: false, minAgreement: 0.8},
   code: {allow: [], minWin: 2},
   parallel: {enabled: true, maxConcurrentProbes: 2},
+  roles: {},
+  mode: {default: "surface", auto: true},
+  targeted: {sampleSize: 6},
 };
 
 function defaultConfigPath(): string {
@@ -214,6 +267,9 @@ export function loadLoopConfig(path: string = defaultConfigPath()): LoopConfig {
     replay: {...DEFAULT_LOOP_CONFIG.replay},
     code: {...DEFAULT_LOOP_CONFIG.code, allow: [...DEFAULT_LOOP_CONFIG.code.allow]},
     parallel: {...DEFAULT_LOOP_CONFIG.parallel},
+    roles: {...DEFAULT_LOOP_CONFIG.roles},
+    mode: {...DEFAULT_LOOP_CONFIG.mode},
+    targeted: {...DEFAULT_LOOP_CONFIG.targeted},
   };
   const p = parsed as Record<string, unknown>;
   if (p["minWin"] === undefined) {
@@ -347,6 +403,65 @@ export function loadLoopConfig(path: string = defaultConfigPath()): LoopConfig {
     }
   } else {
     warnField("parallel", "not an object");
+  }
+  const roles = p["roles"];
+  if (roles === undefined) {
+    // keep default (all roles → session model)
+  } else if (roles !== null && typeof roles === "object" && !Array.isArray(roles)) {
+    const KNOWN_ROLES = ["proposer", "judge", "probe"];
+    const r = roles as Record<string, unknown>;
+    for (const key of Object.keys(r)) {
+      if (!KNOWN_ROLES.includes(key)) {
+        warnField(`roles.${key}`, "unknown role key (known: proposer, judge, probe) — ignored");
+        continue;
+      }
+      const value = r[key];
+      if (value === undefined) continue; // absent key = session model
+      if (typeof value === "string" && value.trim() !== "") {
+        cfg.roles[key as keyof LoopConfig["roles"]] = value;
+      } else {
+        warnField(`roles.${key}`, "not a non-empty string — role falls back to the session model");
+      }
+    }
+  } else {
+    warnField("roles", "not an object");
+  }
+  const mode = p["mode"];
+  if (mode === undefined) {
+    // keep default
+  } else if (mode !== null && typeof mode === "object" && !Array.isArray(mode)) {
+    const m = mode as Record<string, unknown>;
+    if (m["default"] === undefined) {
+      // keep default
+    } else if (m["default"] === "surface" || m["default"] === "targeted") {
+      cfg.mode.default = m["default"];
+    } else {
+      warnField("mode.default", 'not "surface" or "targeted"');
+    }
+    if (m["auto"] === undefined) {
+      // keep default
+    } else if (typeof m["auto"] === "boolean") {
+      cfg.mode.auto = m["auto"]!;
+    } else {
+      warnField("mode.auto", "not a boolean");
+    }
+  } else {
+    warnField("mode", "not an object");
+  }
+  const targeted = p["targeted"];
+  if (targeted === undefined) {
+    // keep default
+  } else if (targeted !== null && typeof targeted === "object" && !Array.isArray(targeted)) {
+    const t = targeted as Record<string, unknown>;
+    if (t["sampleSize"] === undefined) {
+      // keep default
+    } else if (typeof t["sampleSize"] === "number" && Number.isInteger(t["sampleSize"]) && t["sampleSize"] >= 1) {
+      cfg.targeted.sampleSize = t["sampleSize"]!;
+    } else {
+      warnField("targeted.sampleSize", "not an integer ≥ 1");
+    }
+  } else {
+    warnField("targeted", "not an object");
   }
   return cfg;
 }

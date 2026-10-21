@@ -72,9 +72,18 @@ type SimpleStreamRegistryView = {
  * Model pick: the session's current model, else the captured defaultProvider/
  * defaultModel from settings.json (same capture stage.ts uses for nested runs).
  */
-async function callModelViaRegistry(ctx: ExtensionCommandContext, system: string, user: string, options?: {temperature?: number, maxTokens?: number}): Promise<string> {
+async function callModelViaRegistry(ctx: ExtensionCommandContext, system: string, user: string, options?: {temperature?: number, maxTokens?: number, model?: string}): Promise<string> {
   const registry = ctx.modelRegistry as unknown as SimpleStreamRegistryView;
-  let model: unknown = ctx.model;
+  // Step 11 role plumbing: a role-resolved model arrives as options.model in
+  // the captureModelFlag form "provider/model". A value without "/" cannot
+  // be split into (provider, modelId) — fall back to the session model.
+  let roleModel: unknown;
+  if (options?.model) {
+    const slash = options.model.indexOf("/");
+    if (slash !== -1) roleModel = registry.find(options.model.slice(0, slash), options.model.slice(slash + 1));
+    else console.error(`[hloop] role model '${options.model}' has no "provider/model" prefix — using the session model`);
+  }
+  let model: unknown = roleModel ?? ctx.model;
   if (!model) {
     const captured = captureModelSettings(realPiAgentDir());
     model = captured.defaultProvider !== undefined && captured.defaultModel !== undefined
@@ -215,6 +224,7 @@ async function hloopStart(argv: string[], ctx: ExtensionCommandContext): Promise
   let suiteGlob: string | undefined;
   let maxCandidates: number | undefined;
   let resumeRunId: string | undefined;
+  let mode: "surface" | "targeted" | undefined;
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i]!;
     if (arg === "--iterations") iterations = Number(argv[++i]);
@@ -227,6 +237,14 @@ async function hloopStart(argv: string[], ctx: ExtensionCommandContext): Promise
       suiteGlob = value;
     }
     else if (arg === "--max-candidates") maxCandidates = Number(argv[++i]);
+    else if (arg === "--mode") {
+      const value = argv[++i];
+      if (value !== "surface" && value !== "targeted") {
+        console.error('/hloop start: --mode must be "surface" or "targeted"');
+        return;
+      }
+      mode = value;
+    }
     else if (arg === "--resume") {
       const value = argv[++i];
       if (value === undefined || value.startsWith("-")) {
@@ -252,6 +270,7 @@ async function hloopStart(argv: string[], ctx: ExtensionCommandContext): Promise
   console.log(`[hloop] budget metric: TOKENS (cost.total is always 0 on this gateway); config budget.maxTotalTokens=${config.budget.maxTotalTokens}, budget.maxIterations=${config.budget.maxIterations}, candidates.maxPerIteration=${config.candidates.maxPerIteration}${iterations !== undefined ? ` (--iterations ${iterations} overrides maxIterations)` : ""}`);
   console.log(`[hloop] apply.dryRun is currently ${config.apply.dryRun}${config.apply.dryRun ? " — winners are NOT written to the live agent config; to enable real apply edit loop/config.json (\"apply\": {\"dryRun\": false})" : " — winners WILL be committed to the live agent config"}`);
   console.log(`[hloop] suite: ${suiteGlob ?? "<full suite>"} — the first live run should use --suite "smoke-*"`);
+  if (mode !== undefined) console.log(`[hloop] mode: ${mode} (explicit --mode — overrides auto-switching for every iteration)`);
 
   try {
     const result = await runLoop({
@@ -259,6 +278,7 @@ async function hloopStart(argv: string[], ctx: ExtensionCommandContext): Promise
       suiteGlob,
       maxCandidates,
       resumeRunId,
+      mode,
       callModel: (system, user, options) => callModelViaRegistry(ctx, system, user, options),
       log: (line) => console.log(line),
     });
@@ -283,7 +303,8 @@ function hloopStatus(): void {
     for (const it of s.iterations) {
       const base = it.baseline === null ? "?" : `${it.baseline.passCount}/${it.baseline.total}${it.baseline.cached ? " (cached)" : ""}`;
       const cands = it.candidates.map((c) => `#${c.index}:${c.decision}`).join(", ") || "none";
-      console.log(`  iter ${it.index} [${it.phase}] baseline ${base}${it.decision ? ` — decision: ${it.decision}` : ""}; candidates: ${cands}`);
+      const mode = it.mode ? ` [${it.mode}${it.modeReason ? `: ${it.modeReason}` : ""}]` : "";
+      console.log(`  iter ${it.index} [${it.phase}]${mode} baseline ${base}${it.decision ? ` — decision: ${it.decision}` : ""}; candidates: ${cands}`);
     }
     console.log(`  state: ${join(runsDir, s.runId, "state.json")}`);
   }
@@ -360,7 +381,7 @@ function registerHloop(pi: ExtensionAPI): void {
       if (sub === "stop") return hloopStop();
       if (sub === "revert") return hloopRevert(argv);
       if (sub === "report") return hloopReport(argv);
-      console.error("usage: /hloop start [--iterations N] [--suite <glob>] [--max-candidates K] [--resume <runId>] | status | stop | revert <runId> | report [runId]");
+      console.error("usage: /hloop start [--iterations N] [--suite <glob>] [--max-candidates K] [--mode surface|targeted] [--resume <runId>] | status | stop | revert <runId> | report [runId]");
     },
   });
 }
@@ -372,6 +393,7 @@ function registerHloop(pi: ExtensionAPI): void {
 // selection (config replay.enabled is false by default) until judge-vs-checker
 // agreement ≥ replay.minAgreement via /hloop-calibrate (gate: isCalibrated).
 import {calibrateJudge, isCalibrated, runReplayChannel} from "./loop/lib/replay.ts";
+import {resolveRoleModels} from "./loop/lib/roles.ts";
 import {listTaskDirs, loadTask, suiteRoot} from "./loop/lib/suite.ts";
 import {newRunId} from "./loop/lib/ledger.ts"; // loadLoopConfig/readLedger already imported above
 
@@ -403,18 +425,24 @@ function registerHloopReplayChannel(pi: ExtensionAPI): void {
         return;
       }
       console.log(`[hloop-calibrate] COST WARNING: judge calls on ${sample ?? tasks.length} suite task(s) — real model tokens (trajectories reused from the baseline cache when the fingerprint matches; fresh probes otherwise).`);
+      // Step 11: judge calibration is KEYED BY THE JUDGE MODEL (roles.judge;
+      // session model when unset) and fresh probe rollouts run on the probe
+      // model (roles.probe). A calibration measured with judge model A never
+      // calibrates judge model B (replay.ts isCalibrated).
+      const roles = resolveRoleModels(config.roles, captureModelFlag() ?? null);
       const runId = newRunId();
       const runDir = join(hloopRunsDir, runId);
       try {
         const result = await calibrateJudge({
           sample,
           tasks,
-          callModel: (system, user, options) => callModelViaRegistry(ctx, system, user, options),
-          model: captureModelFlag(),
+          callModel: (system, user, options) => callModelViaRegistry(ctx, system, user, {...options, model: roles.judge ?? undefined}),
+          judgeModel: roles.judge,
+          probeModel: roles.probe ?? undefined,
           runDir,
           minAgreement: config.replay.minAgreement,
         });
-        console.log(`[hloop-calibrate] run ${runId} — ${result.rows.length} task(s), trajectories: ${result.cacheHits} cached / ${result.freshProbes} fresh`);
+        console.log(`[hloop-calibrate] run ${runId} — ${result.rows.length} task(s), trajectories: ${result.cacheHits} cached / ${result.freshProbes} fresh (judge model: ${roles.judge ?? "<session default>"})`);
         console.log("| task | checker | judge | agree | src | rationale |");
         for (const r of result.rows) {
           const agree = (r.judgeScore >= 7) === r.checkerPass ? "✓" : "✗";
@@ -450,18 +478,19 @@ function registerHloopReplayChannel(pi: ExtensionAPI): void {
       if (!config.replay.enabled) {
         console.log("[hloop-replay] NOTE: replay channel is NOT wired into selection (config replay.enabled=false) — this run is advisory evidence only.");
       }
-      const gate = isCalibrated(readLedger(), config.replay.minAgreement);
+      const gate = isCalibrated(readLedger(), config.replay.minAgreement, resolveRoleModels(config.roles, captureModelFlag() ?? null).judge);
       console.log(`[hloop-replay] calibration gate: ${gate.calibrated ? "calibrated" : "advisory"}${gate.agreement === null ? " (never calibrated — run /hloop-calibrate first)" : ` (agreement ${(gate.agreement * 100).toFixed(0)}% from ${gate.ts})`}`);
       console.log("[hloop-replay] COST WARNING: probes run real nested pi sessions on real-task prompts (up to 300s each) + one judge call per probe — real model tokens.");
       const runId = newRunId();
-      const runDir = join(hloopRunsDir, runId);
+      const roles = resolveRoleModels(config.roles, captureModelFlag() ?? null);
       try {
         const result = await runReplayChannel({
           sample: sample ?? 3,
           mine: mine ?? 8,
           runId,
-          callModel: (system, user, options) => callModelViaRegistry(ctx, system, user, options),
-          model: captureModelFlag(),
+          callModel: (system, user, options) => callModelViaRegistry(ctx, system, user, {...options, model: roles.judge ?? undefined}),
+          judgeModel: roles.judge,
+          probeModel: roles.probe ?? undefined,
         });
         if (result.rows.length === 0) {
           console.log(`[hloop-replay] no replay candidates qualified — report: ${result.reportPath}`);

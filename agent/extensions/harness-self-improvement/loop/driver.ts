@@ -51,6 +51,21 @@
  * budget by at most maxConcurrentProbes − 1 probes (documented overshoot —
  * running model calls cannot be un-spent).
  *
+ * STEP 11 ROLES + RECURSION MODES: the role→model map is resolved ONCE per
+ * run (resolveRoleModels — absent role = the session model) and persisted in
+ * state.roles + the report header. roles.proposer flows into the propose
+ * callModel adapter (CallModel options.model), roles.judge into the replay
+ * calibration/channel judge calls, roles.probe into EVERY probe rollout
+ * (scoreSuite → runProbe --model) AND the fingerprint's model field —
+ * baselines and candidates are always compared under the same resolved probe
+ * model. Judge calibration is keyed by the judge model (replay.ts
+ * isCalibrated). Per-iteration recursion modes (surface | targeted) are
+ * resolved per iteration (explicit --mode > post-targeted-confirmation >
+ * auto-switch > config default), recorded in state.iterations[].mode(+Reason)
+ * and rendered into report.md; targeted iterations score candidates on the
+ * failing subset + a deterministic regression sample (loop/lib/targeted.ts)
+ * paired against the same union cut of the cached full-suite baseline.
+ *
  * STOP CONDITIONS (checked between iterations, before the proposer model
  * call, and before each probe spawn): iteration count reached; the SUM of
  * probe usage.totalTokens across the run ≥ budget.maxTotalTokens (cost.total
@@ -90,6 +105,8 @@ import {listTaskDirs, loadTask, suiteRoot, type LoadedTask} from "./lib/suite.ts
 import {scoreSuite, selectWinner, type RunProbeFn, type ScoreSuiteResult, type SelectionConfig, type SelectionResult, type TaskScoreResult} from "./lib/score.ts";
 import {buildLedgerDigest, propose, type CallModel, type ProposedCandidate} from "./lib/proposer.ts";
 import {appendProposalRejectedEntry, applyCandidate, loadLoopConfig, type LoopConfig} from "./lib/apply.ts";
+import {resolveIterationMode, resolveRoleModels, type LoopMode, type RoleModels} from "./lib/roles.ts";
+import {selectTargetedTasks} from "./lib/targeted.ts";
 import {baselineCacheDir, baselineCachePath, cacheMatchesTaskSet, fingerprintSnapshot, readBaselineCache, writeBaselineCache} from "./baseline.ts";import {resolvePiBinary, runProbe} from "./lib/probe.ts";
 import {composeWinners, compositionSelectionConfig} from "./lib/merge.ts";
 import {runCodeGates, isMcpPath, runStartupProbe, scanProbeLoadErrors, selectionConfigForEdits, stageExtensionForSandbox, stageMcpForSandbox, touchedExtensionNames, type StartupProbeResult} from "./lib/gates.ts";
@@ -148,6 +165,9 @@ export type IterationState = {
   candidates: IterationCandidateState[],
   /** Iteration-level outcome: "applied" | "dry-run" | "no-winner" | "apply-rejected" | "apply-failed" | "no-valid-candidates". */
   decision: string | null,
+  /** Step 11 recursion mode this iteration ran with (+ resolution reason below). */
+  mode?: LoopMode | null,
+  modeReason?: string | null,
 }
 
 export type LoopState = {
@@ -161,6 +181,14 @@ export type LoopState = {
   model: string | null,
   /** --suite glob filter, or null for the full suite. */
   suiteGlob: string | null,
+  /**
+   * Step 11 role→model map, RESOLVED once at run start (absent role = the
+   * session model) and persisted so a resumed run reuses the same roles.
+   * null on pre-S11 states (fall back to resolving from the loaded config).
+   */
+  roles: RoleModels | null,
+  /** Step 11: explicit CLI --mode recorded at start (null = none). */
+  explicitMode: LoopMode | null,
   config: {
     maxIterations: number,
     maxCandidates: number,
@@ -174,6 +202,10 @@ export type LoopState = {
       allow: string[],
       minWin: number,
     },
+    /** Step 11 recursion-mode config, snapshotted at run start (resume stability). */
+    mode?: {default: LoopMode, auto: boolean},
+    /** Step 11 targeted-iteration config, snapshotted at run start. */
+    targeted?: {sampleSize: number},
   },
   /** SUM of fresh probe usage.totalTokens across the run (budget metric). */
   budgetSpent: number,
@@ -197,6 +229,12 @@ export type RunLoopOptions = {
   maxCandidates?: number,
   /** Glob filter over task names, e.g. "smoke-*" (default: full suite). */
   suiteGlob?: string,
+  /**
+   * Step 11: explicit recursion mode for EVERY iteration (CLI --mode).
+   * Highest mode precedence; when unset, per-iteration modes are resolved
+   * from the config default + auto-switch + post-targeted-confirmation.
+   */
+  mode?: LoopMode,
   /** Continue a run whose state.json says status "running". */
   resumeRunId?: string,
   /** The model call for the Proposer (real: ctx-bound adapter in index.ts). */
@@ -385,6 +423,10 @@ export async function runLoop(opts: RunLoopOptions): Promise<LoopRunResult> {
     log(`[hloop] resuming run ${runId}: ${state.iterations.filter((i) => i.phase === "done").length} iteration(s) done, ${state.budgetSpent} tokens spent`);
   } else {
     runId = newRunId();
+    // Step 11: resolve the role→model map ONCE per run. Absent/unset roles
+    // = the session model (captureModel — the pre-S11 default everywhere).
+    const sessionModel = opts.captureModelFn?.() ?? captureModelFlag() ?? null;
+    const roleModels: RoleModels = resolveRoleModels(config.roles, sessionModel);
     state = {
       runId,
       status: "running",
@@ -392,8 +434,10 @@ export async function runLoop(opts: RunLoopOptions): Promise<LoopRunResult> {
       startedTs: now(),
       updatedTs: now(),
       pid: process.pid,
-      model: opts.captureModelFn?.() ?? captureModelFlag() ?? null,
+      model: sessionModel,
       suiteGlob: opts.suiteGlob ?? null,
+      roles: roleModels,
+      explicitMode: opts.mode ?? null,
       config: {
         maxIterations,
         maxCandidates,
@@ -403,6 +447,8 @@ export async function runLoop(opts: RunLoopOptions): Promise<LoopRunResult> {
         minQualityGain: config.minQualityGain,
         usageFactor: config.usageFactor,
         code: {allow: [...config.code.allow], minWin: config.code.minWin},
+        mode: {...config.mode},
+        targeted: {...config.targeted},
       },
       budgetSpent: 0,
       iterations: [],
@@ -413,6 +459,18 @@ export async function runLoop(opts: RunLoopOptions): Promise<LoopRunResult> {
   const statePath = join(runDir, "state.json");
   mkdirSync(runDir, {recursive: true});
   const model = state.model;
+  // Step 11: roles resolved once (persisted on the fresh state; a pre-S11
+  // state falls back to resolving from the loaded config). The PROBE role
+  // model is the fingerprint's model field: every probe (baseline AND
+  // candidate) runs nested pi with it, so baselines/candidates are only ever
+  // compared under the same resolved probe model — a probe-role change
+  // invalidates the baseline cache exactly once, by design.
+  const roleModels: RoleModels = state.roles ?? resolveRoleModels(config.roles, model);
+  const fingerprintModel = roleModels.probe ?? model;
+  // Step 11: mode config snapshotted at run start (resume stability).
+  const modeCfg = state.config.mode ?? {...config.mode};
+  const targetedCfg = state.config.targeted ?? {...config.targeted};
+  const explicitMode: LoopMode | null = opts.mode ?? state.explicitMode ?? null;
   // Resume uses the code config SNAPSHOTTED at run start (state.config.code) so
   // a resumed run keeps the same allowlist + minWin threshold; states persisted
   // before this snapshot existed fall back to the freshly loaded config.
@@ -472,6 +530,12 @@ export async function runLoop(opts: RunLoopOptions): Promise<LoopRunResult> {
   // Suite tasks (injectable; default reads loop/suite/ and applies the glob).
   const tasksFn = opts.tasksFn ?? (() => loadSuiteTasks(state.suiteGlob));
 
+  // Step 11: failing-task count in a past iteration's full-suite baseline
+  // (the auto-switch signal; a targeted iteration's baseline dir materializes
+  // the same cached full-suite map, so the count is comparable across modes).
+  const baselineFailureCount = (iterIndex: number): number =>
+    readResultDir(join(runDir, `iter-${iterIndex}`, "baseline")).filter((r) => !r.pass).length;
+
   // Every FRESH probe goes through here: guard, then budget accounting
   // (reused results never pass through — their tokens were already counted
   // by the attempt that wrote them).
@@ -499,8 +563,19 @@ export async function runLoop(opts: RunLoopOptions): Promise<LoopRunResult> {
     let iter = state.iterations.find((it) => it.index === index);
     const iterDir = join(runDir, `iter-${index}`);
     if (iter === undefined) {
-      iter = {index, phase: "baseline", fingerprint: null, baseline: null, proposalFingerprint: null, candidates: [], decision: null};
+      // Step 11 per-iteration mode resolution (explicit flag >
+      // post-targeted-confirmation > auto-switch > config default).
+      const prev = state.iterations.find((it) => it.index === index - 1) ?? null;
+      const prevInput = prev !== null && prev.mode != null
+        ? {mode: prev.mode, decision: prev.decision, taskFailures: baselineFailureCount(prev.index)}
+        : null;
+      const resolution = resolveIterationMode({explicit: explicitMode ?? undefined, config: modeCfg, previous: prevInput});
+      log(`[hloop] iter ${index}: mode ${resolution.mode} (${resolution.reason})`);
+      iter = {index, phase: "baseline", fingerprint: null, baseline: null, proposalFingerprint: null, candidates: [], decision: null, mode: resolution.mode, modeReason: resolution.reason};
       state.iterations.push(iter);
+    } else if (iter.mode === undefined) {
+      iter.mode = null; // pre-S11 state normalization
+      iter.modeReason = null;
     }
     persist();
 
@@ -508,7 +583,7 @@ export async function runLoop(opts: RunLoopOptions): Promise<LoopRunResult> {
     if (iter.phase === "baseline") {
       const snapshot = opts.snapshotFn?.() ?? snapshotReal();
       const piBinary = opts.resolvePiBinaryFn?.() ?? resolvePiBinary();
-      iter.fingerprint = fingerprintSnapshot(snapshot, model ?? undefined, piBinary);
+      iter.fingerprint = fingerprintSnapshot(snapshot, fingerprintModel ?? undefined, piBinary);
       const tasks = tasksFn();
       const taskNames = tasks.map((t) => t.name);
       const cachePath = baselineCachePath(iter.fingerprint, taskNames, cacheDir);
@@ -536,7 +611,7 @@ export async function runLoop(opts: RunLoopOptions): Promise<LoopRunResult> {
         buildSandbox(snapshot, sandboxDir);
         log(`[hloop] iter ${index}: baseline probing ${taskNames.length} task(s)...`);
         const scored = await scoreSuite(tasks, sandboxDir, join(iterDir, "baseline"), {
-          model: model ?? undefined,
+          model: fingerprintModel ?? undefined,
           runProbeFn: guardedProbe,
           boundTo: `${runId}/iter-${index}/baseline`,
           concurrency,
@@ -544,7 +619,7 @@ export async function runLoop(opts: RunLoopOptions): Promise<LoopRunResult> {
         baselineResults = scored.results;
         baselineStats = scored.stats;
         cached = false;
-        writeBaselineCache({fingerprint: iter.fingerprint, model, ts: now(), results: baselineResults}, cachePath);
+        writeBaselineCache({fingerprint: iter.fingerprint, model: fingerprintModel, ts: now(), results: baselineResults}, cachePath);
       }
       const aggregate = aggregateOf(baselineResults);
       iter.baseline = {cached, taskCount: taskNames.length, ...aggregate};
@@ -559,6 +634,9 @@ export async function runLoop(opts: RunLoopOptions): Promise<LoopRunResult> {
         cached,
         piBinary: baselineResults.find((r) => r.piBinary)?.piBinary ?? null,
         probeStats: cached ? undefined : baselineStats,
+        roleModels,
+        mode: iter.mode ?? undefined,
+        modeReason: iter.modeReason ?? undefined,
         tasks: toReportTasks(baselineResults),
         aggregate,
       }));
@@ -584,6 +662,22 @@ export async function runLoop(opts: RunLoopOptions): Promise<LoopRunResult> {
       if (baselineResults.length === 0) throw new Error(`baseline results missing under ${iterDir}/baseline — cannot propose`);
       const ledgerDigest = buildLedgerDigest(readLedger(ledger));
       log(`[hloop] iter ${index}: proposing candidates (model call, baseline ${iter.baseline?.passCount}/${iter.baseline?.total})...`);
+      // Step 11: the Proposer runs on the resolved proposer role model
+      // (threaded as CallModel options.model — fakes ignore it, the real
+      // ctx-bound adapter resolves it); targeted iterations add a FOCUS
+      // section with the failing tasks verbatim + why.
+      const proposerCallModel: CallModel = (system, user, options) =>
+        opts.callModel(system, user, {...options, model: roleModels.proposer ?? undefined});
+      const focusTasks = iter.mode === "targeted"
+        ? baselineResults.filter((r) => !r.pass).map((r) => ({
+            task: r.task,
+            category: r.category,
+            pass: r.pass,
+            durationMs: r.durationMs,
+            tokens: r.usage?.totalTokens ?? 0,
+            checkerOutput: r.checkerOutput,
+          }))
+        : undefined;
       const result = await propose({
         snapshot: opts.snapshotFn?.() ?? snapshotReal(),
         baseline: {
@@ -599,9 +693,10 @@ export async function runLoop(opts: RunLoopOptions): Promise<LoopRunResult> {
         },
         ledgerDigest,
         harnessFindings: readHarnessFindings(),
-        model: model ?? undefined,
+        model: roleModels.proposer ?? model ?? undefined,
+        focus: focusTasks !== undefined && focusTasks.length > 0 ? {tasks: focusTasks, note: "improve the failing subset; the regression sample must not break"} : undefined,
       }, {
-        callModel: opts.callModel,
+        callModel: proposerCallModel,
         // Gate 1 (Step 9a) at propose time: dynamic extensions-kind checks
         // against the same agent dir apply later re-validates against.
         validationLimits: {extensionEnv: {agentDir: opts.agentDir ?? realPiAgentDir(), codeAllow: runConfig.code.allow}},
@@ -643,11 +738,26 @@ export async function runLoop(opts: RunLoopOptions): Promise<LoopRunResult> {
       // crash and the resume, pairing would compare mismatched runs — fail
       // the run instead.
       const scoreSnapshot = opts.snapshotFn?.() ?? snapshotReal();
-      const scoreFingerprint = fingerprintSnapshot(scoreSnapshot, model ?? undefined, opts.resolvePiBinaryFn?.() ?? resolvePiBinary());
+      const scoreFingerprint = fingerprintSnapshot(scoreSnapshot, fingerprintModel ?? undefined, opts.resolvePiBinaryFn?.() ?? resolvePiBinary());
       if (iter.fingerprint !== null && scoreFingerprint !== iter.fingerprint) {
         throw new Error(`snapshot changed between crash and resume: iteration ${index} was fingerprinted ${iter.fingerprint.slice(0, 12)}…, the current snapshot is ${scoreFingerprint.slice(0, 12)}… — refusing to pair results from different snapshots`);
       }
       const baselineResults = readResultDir(join(iterDir, "baseline"));
+      // Step 11 targeted iteration: candidates are scored ONLY on the union
+      // of the failing subset + the deterministic regression sample, paired
+      // against the SAME union cut of the cached full-suite baseline (no new
+      // probes needed for the pass/fail map). The selection math is the
+      // normal selectWinner rule ON THE UNION (see loop/lib/targeted.ts).
+      const targetedSelection = iter.mode === "targeted"
+        ? selectTargetedTasks(baselineResults, targetedCfg.sampleSize, index)
+        : null;
+      const unionSet = targetedSelection !== null ? new Set(targetedSelection.union) : null;
+      if (targetedSelection !== null) {
+        log(`[hloop] iter ${index}: targeted subset — ${targetedSelection.failing.length} failing + ${targetedSelection.regressionSample.length} regression sample = ${targetedSelection.union.length} task(s) probed`);
+      }
+      const allTasks = tasksFn();
+      const tasksToScore = unionSet !== null ? allTasks.filter((t) => unionSet.has(t.name)) : allTasks;
+      const selectionBaseline = unionSet !== null ? baselineResults.filter((r) => unionSet.has(r.task)) : baselineResults;
       const accepted = iter.candidates.filter((c) => c.verdict === "accepted");
       // Cap: deterministic by candidate index, so resume picks the same set.
       for (const c of accepted.slice(maxCandidates)) {
@@ -738,8 +848,8 @@ export async function runLoop(opts: RunLoopOptions): Promise<LoopRunResult> {
             continue;
           }
         }
-        const scored = await scoreSuite(tasksFn(), sandboxDir, join(iterDir, `cand-${candIdx}`), {
-          model: model ?? undefined,
+        const scored = await scoreSuite(tasksToScore, sandboxDir, join(iterDir, `cand-${candIdx}`), {
+          model: fingerprintModel ?? undefined,
           runProbeFn: guardedProbe,
           // Resume reuse is bound to (runId, iteration, candidate index): a
           // result file only counts when its boundTo matches exactly.
@@ -765,7 +875,9 @@ export async function runLoop(opts: RunLoopOptions): Promise<LoopRunResult> {
         cState.totalTokens = scored.aggregate.totalTokens;
         // Step 9a/9b selection: code-bearing candidates (extensions OR
         // mcp.json) need code.minWin passes (default 2) instead of minWin.
-        const selection = selectWinner(baselineResults, scored.results, selectionConfigForEdits(cState.edits, selectionConfig, runConfig.code.minWin));
+        // Targeted iterations select on the UNION (subset + regression
+        // sample) — a regression on the sample is a veto, same rule.
+        const selection = selectWinner(selectionBaseline, scored.results, selectionConfigForEdits(cState.edits, selectionConfig, runConfig.code.minWin));
         cState.win = selection.win;
         cState.reasons = selection.reasons;
         const reportPath = join(iterDir, `cand-${candIdx}`, "report.md");
@@ -777,8 +889,11 @@ export async function runLoop(opts: RunLoopOptions): Promise<LoopRunResult> {
           fingerprint: iter.fingerprint,
           piBinary: scored.results.find((r) => r.piBinary)?.piBinary ?? null,
           probeStats: scored.stats,
+          roleModels,
+          mode: iter.mode ?? undefined,
+          modeReason: iter.modeReason ?? undefined,
           tasks: toReportTasks(scored.results),
-          base: toReportTasks(baselineResults),
+          base: toReportTasks(selectionBaseline),
           aggregate: scored.aggregate,
         }));
         cState.reportPath = reportPath;
@@ -895,11 +1010,19 @@ export async function runLoop(opts: RunLoopOptions): Promise<LoopRunResult> {
           // Same mid-resume drift guard as the score phase: the composed
           // re-probe must pair against the iteration's recorded fingerprint.
           const decideSnapshot = opts.snapshotFn?.() ?? snapshotReal();
-          const decideFingerprint = fingerprintSnapshot(decideSnapshot, model ?? undefined, opts.resolvePiBinaryFn?.() ?? resolvePiBinary());
+          const decideFingerprint = fingerprintSnapshot(decideSnapshot, fingerprintModel ?? undefined, opts.resolvePiBinaryFn?.() ?? resolvePiBinary());
           if (iter.fingerprint !== null && decideFingerprint !== iter.fingerprint) {
             throw new Error(`snapshot changed before the composed re-probe: iteration ${index} was fingerprinted ${iter.fingerprint.slice(0, 12)}…, the current snapshot is ${decideFingerprint.slice(0, 12)}… — refusing to pair results from different snapshots`);
           }
           const baselineResults = readResultDir(join(iterDir, "baseline"));
+          // Step 11 targeted iteration: the composed candidate is re-probed
+          // and selected on the SAME union the single candidates used.
+          const targetedSelection = iter.mode === "targeted"
+            ? selectTargetedTasks(baselineResults, targetedCfg.sampleSize, index)
+            : null;
+          const unionSet = targetedSelection !== null ? new Set(targetedSelection.union) : null;
+          const allTasks = tasksFn();
+          const selectionBaseline = unionSet !== null ? baselineResults.filter((r) => unionSet.has(r.task)) : baselineResults;
           const composedDir = join(iterDir, "composed");
           const composedSandboxDir = join(runDir, "sandbox-composed"); // self-created; buildSandbox wipes it
           const composedEdits = composition.edits;
@@ -949,8 +1072,8 @@ export async function runLoop(opts: RunLoopOptions): Promise<LoopRunResult> {
             // re-probed AS A WHOLE — its own sandbox built from the merged
             // edits, full suite — and must INDEPENDENTLY clear selectWinner
             // vs baseline before anything is applied.
-            const scored = await scoreSuite(tasksFn(), composedSandboxDir, composedDir, {
-              model: model ?? undefined,
+            const scored = await scoreSuite(unionSet !== null ? allTasks.filter((t) => unionSet.has(t.name)) : allTasks, composedSandboxDir, composedDir, {
+              model: fingerprintModel ?? undefined,
               runProbeFn: guardedProbe,
               boundTo: `${runId}/iter-${index}/composed`,
               concurrency,
@@ -964,7 +1087,7 @@ export async function runLoop(opts: RunLoopOptions): Promise<LoopRunResult> {
               }
             }
             if (composedFailures.length === 0) {
-              composedSelection = selectWinner(baselineResults, scored.results, compositionSelectionConfig(composition, selectionConfig, runConfig.code.minWin));
+              composedSelection = selectWinner(selectionBaseline, scored.results, compositionSelectionConfig(composition, selectionConfig, runConfig.code.minWin));
               writeFileSync(join(composedDir, "report.md"), renderReport({
                 runId,
                 ts: now(),
@@ -973,8 +1096,11 @@ export async function runLoop(opts: RunLoopOptions): Promise<LoopRunResult> {
                 fingerprint: iter.fingerprint,
                 piBinary: scored.results.find((r) => r.piBinary)?.piBinary ?? null,
                 probeStats: scored.stats,
+                roleModels,
+                mode: iter.mode ?? undefined,
+                modeReason: iter.modeReason ?? undefined,
                 tasks: toReportTasks(scored.results),
-                base: toReportTasks(baselineResults),
+                base: toReportTasks(selectionBaseline),
                 aggregate: scored.aggregate,
               }));
             } else {

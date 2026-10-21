@@ -118,7 +118,7 @@ export type ProposeResult = {
 };
 
 /** Async model call the core logic depends on; faked in unit tests. */
-export type CallModel = (system: string, user: string, options?: {temperature?: number, maxTokens?: number}) => Promise<string>;
+export type CallModel = (system: string, user: string, options?: {temperature?: number, maxTokens?: number, model?: string}) => Promise<string>;
 
 export type ProposeInput = {
   snapshot: ComponentSnapshot,
@@ -131,6 +131,11 @@ export type ProposeInput = {
   model?: string,
   /** Sampling temperature for the generation call (repair uses 0). */
   temperature?: number,
+  /**
+   * Step 11 targeted iterations: the failing-subset tasks get a verbatim
+   * FOCUS section in the prompt (see buildPrompt). Absent = surface mode.
+   */
+  focus?: {tasks: BaselineTask[], note?: string},
 };
 
 // ---------------------------------------------------------------------------
@@ -442,6 +447,21 @@ export function buildPrompt(input: ProposeInput, template: string = loadSystemPr
   }
   const baselineText = baseline.join("\n");
 
+  // Step 11 targeted iterations: a FOCUS section with the failing tasks
+  // verbatim + why (checker-output tail) so the Proposer targets them.
+  const focusLines: string[] = [];
+  if (input.focus !== undefined && input.focus.tasks.length > 0) {
+    focusLines.push(`## FOCUS — targeted iteration${input.focus.note ? ` (${input.focus.note})` : ""}`);
+    focusLines.push("Improve these failing tasks FIRST; the regression sample must not break:");
+    for (const t of input.focus.tasks) {
+      focusLines.push(`### ${t.task} (FAIL)`);
+      focusLines.push("````");
+      for (const line of t.checkerOutput.split("\n").filter((l) => l.trim() !== "").slice(-CHECKER_TAIL_LINES)) focusLines.push(line);
+      focusLines.push("````");
+    }
+  }
+  const focusText = focusLines.join("\n");
+
   const ledgerText = input.ledgerDigest.length === 0
     ? "(no rejected proposals recorded yet)"
     : input.ledgerDigest.map((fp, i) => `${i + 1}. ${fp}`).join("\n");
@@ -460,6 +480,7 @@ export function buildPrompt(input: ProposeInput, template: string = loadSystemPr
   const placeholderValues: Record<string, string> = {
     "{{COMPONENTS}}": componentsText,
     "{{BASELINE}}": baselineText,
+    "{{FOCUS}}": focusText,
     "{{LEDGER}}": ledgerText,
     "{{HARNESS_FINDINGS}}": findingsText,
   };
@@ -471,6 +492,7 @@ export function buildPrompt(input: ProposeInput, template: string = loadSystemPr
   const user = [
     "Propose 1–3 candidates now.",
     input.model === undefined ? "" : `(model note: this call runs on ${input.model})`,
+    input.focus !== undefined && input.focus.tasks.length > 0 ? "This is a TARGETED iteration: focus on the FOCUS tasks; the other probed tasks are a regression sample." : "",
     "Respond with ONLY the JSON array — no prose before or after it.",
   ].filter((l) => l !== "").join("\n");
   return {system, user};

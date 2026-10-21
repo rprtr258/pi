@@ -55,6 +55,7 @@ const TEMPLATE = [
   "# Role",
   "{{COMPONENTS}}",
   "{{BASELINE}}",
+  "{{FOCUS}}",
   "{{LEDGER}}",
   "{{HARNESS_FINDINGS}}",
 ].join("\n");
@@ -429,6 +430,21 @@ describe("buildPrompt", () => {
     expect(prompt.system.split("{{LEDGER}}").length - 1).toBe(1);
   });
 
+  test("Step 11 FOCUS section: targeted-iteration failing tasks rendered verbatim; absent focus leaves no FOCUS section", () => {
+    const failing = {task: "smoke-x", category: "smoke", pass: false, durationMs: 10, tokens: 5, checkerOutput: "FAIL: boom"};
+    const focused = buildPrompt(makeInput({focus: {tasks: [failing], note: "improve the failing subset"}}), TEMPLATE);
+    expect(focused.system).toContain("## FOCUS — targeted iteration (improve the failing subset)");
+    expect(focused.system).toContain("### smoke-x (FAIL)");
+    expect(focused.system).toContain("FAIL: boom");
+    expect(focused.system).not.toContain("{{FOCUS}}");
+    expect(focused.user).toContain("TARGETED iteration");
+
+    const unfocused = buildPrompt(makeInput(), TEMPLATE);
+    expect(unfocused.system).not.toContain("## FOCUS");
+    expect(unfocused.system).not.toContain("{{FOCUS}}");
+    expect(unfocused.user).not.toContain("TARGETED");
+  });
+
   test("baseline table escapes pipes in cells; checker output uses a 4-backtick fence", () => {
     const prompt = buildPrompt(
       makeInput({
@@ -462,7 +478,7 @@ describe("system prompt template", () => {
   test("proposer.md contains all placeholders and is within the 80–120 line spec", () => {
     const dir = new URL("../prompts/proposer.md", import.meta.url);
     const text = readFileSync(dir, "utf8");
-    for (const placeholder of ["{{COMPONENTS}}", "{{BASELINE}}", "{{LEDGER}}", "{{HARNESS_FINDINGS}}"]) {
+    for (const placeholder of ["{{COMPONENTS}}", "{{BASELINE}}", "{{FOCUS}}", "{{LEDGER}}", "{{HARNESS_FINDINGS}}"]) {
       expect(text).toContain(placeholder);
     }
     // S8 contracts: template invocation syntax + subagent frontmatter rules
