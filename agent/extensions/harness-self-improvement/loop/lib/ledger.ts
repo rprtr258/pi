@@ -14,16 +14,21 @@ import {randomBytes} from "node:crypto";
 import {join} from "node:path";
 import {fileURLToPath} from "node:url";
 
-/** One run-history.jsonl line. Extra fields (e.g. model, cached) are allowed. */
+/**
+ * One run-history.jsonl line. Extra fields (e.g. model, cached) are allowed.
+ * scores/usage are optional since Step 5: decision entries (kind "apply",
+ * "apply-dryrun") carry the apply outcome, not run scores, and may omit them
+ * (buildLedgerDigest never reads them).
+ */
 export type LedgerEntry = {
   runId: string,
   /** ISO 8601 timestamp of when the entry was appended. */
   ts: string,
-  /** Run kind, e.g. "baseline", "baseline-cached". */
+  /** Run kind, e.g. "baseline", "baseline-cached", "apply", "apply-dryrun". */
   kind: string,
   fingerprint?: string,
-  scores: {passCount: number, total: number},
-  usage: {totalTokens: number},
+  scores?: {passCount: number, total: number},
+  usage?: {totalTokens: number},
   /** Decision recorded for the run by a later step (optional). */
   decision?: string,
   [extra: string]: unknown,
