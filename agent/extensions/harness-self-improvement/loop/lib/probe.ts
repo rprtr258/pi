@@ -20,6 +20,7 @@ import {
   openSync,
   readFileSync,
   rmSync,
+  statSync,
   writeSync,
 } from "node:fs";
 import {tmpdir} from "node:os";
@@ -53,6 +54,8 @@ export type ProbeResult = {
   /** Nested pi exit code (null when killed by signal or never exited). */
   exit: number | null,
   checkerResult: CheckerResult,
+  /** Resolved pi binary and its `pi --version` output (null when the run never got to spawn). */
+  piBinary: {bin: string, version: string | null} | null,
   /** True when the probe hit the timeout and the process group was killed. */
   timedOut: boolean,
   /** Short stderr excerpt; null when the run produced no stderr. */
@@ -71,6 +74,50 @@ export type RunProbeOptions = {
    *  never see it. */
   rawJsonlPath?: string,
 };
+
+/**
+ * Resolve the pi binary nested probes run against.
+ *
+ * `bun run` prepends <package>/node_modules/.bin to PATH, and installed
+ * extensions pin an OLD pi there (e.g. 0.80.3, which predates `--` support) —
+ * spawning bare "pi" from this extension would silently run that stale
+ * binary. So PATH entries ending in node_modules/.bin are dropped, leaving
+ * the globally installed pi the interactive agent uses. PI_BIN overrides the
+ * lookup entirely; if it is set but not an existing executable file, this
+ * throws (fail fast — never silently fall back).
+ */
+export function resolvePiBinary(): {bin: string; version: string | null} {
+  const override = process.env.PI_BIN;
+  if (override !== undefined && override !== "") {
+    if (!existsSync(override) || !statSync(override).isFile() || !(statSync(override).mode & 0o111)) {
+      throw new Error(`PI_BIN '${override}' is not an existing executable file — fix PI_BIN or unset it`);
+    }
+    return {bin: override, version: piVersion(override)};
+  }
+  return {bin: "pi", version: piVersion("pi")};
+}
+
+function piVersion(bin: string): string | null {
+  try {
+    // Same env the probe spawn uses, so the version always describes the
+    // binary the nested run will actually execute.
+    const proc = spawnSync(bin, ["--version"], {encoding: "utf8", timeout: 10_000, env: nestedPiEnv()});
+    const version = proc.status === 0 ? (proc.stdout ?? "").trim() : null;
+    return version === "" ? null : version;
+  } catch {
+    return null;
+  }
+}
+
+/** Spawn env for nested pi: caller env minus node_modules/.bin PATH entries. */
+export function nestedPiEnv(extra: Record<string, string> = {}): NodeJS.ProcessEnv {
+  if (process.env.PI_BIN !== undefined && process.env.PI_BIN !== "") return {...process.env, ...extra};
+  const path = (process.env.PATH ?? "")
+    .split(":")
+    .filter((entry) => entry !== "" && !entry.endsWith("node_modules/.bin"))
+    .join(":");
+  return {...process.env, PATH: path, ...extra};
+}
 
 const REDACTION_PATTERNS: Array<[RegExp, string]> = [
   [/sk-[A-Za-z0-9_-]{8,}/g, "sk-***"],
@@ -196,6 +243,7 @@ export async function runProbe(task: LoadedTask, sandboxDir: string, wsDir: stri
     usage: null,
     exit: null,
     checkerResult: {pass: false, output: ""},
+    piBinary: null,
     timedOut: false,
     stderrExcerpt: null,
     rawJsonlPath: null,
@@ -247,9 +295,12 @@ export async function runProbe(task: LoadedTask, sandboxDir: string, wsDir: stri
 
     let stderrTail = "";
     let timedOut = false;
-    const child = spawn("pi", args, {
+    // Resolved after task validation: a bad PI_BIN fails the probe with a
+    // clear excerpt (via the catch below), never a spawn mystery.
+    const piBinary = resolvePiBinary();
+    const child = spawn(piBinary.bin, args, {
       cwd: wsDir,
-      env: {...process.env, PI_CODING_AGENT_DIR: sandboxDir},
+      env: nestedPiEnv({PI_CODING_AGENT_DIR: sandboxDir}),
       // New process group (setsid) so the timeout kill takes the whole tree.
       detached: true,
       stdio: ["ignore", "pipe", "pipe"],
@@ -298,6 +349,7 @@ export async function runProbe(task: LoadedTask, sandboxDir: string, wsDir: stri
       usage: parsed.usage,
       exit,
       checkerResult,
+      piBinary,
       timedOut,
       stderrExcerpt: stderrTail.trim() === "" ? null : redact(stderrTail.trim().split("\n").slice(-5).join("\n")),
       rawJsonlPath: options.rawJsonlPath ?? null,
@@ -314,6 +366,7 @@ function printReport(result: ProbeResult, taskName: string, sandboxDir: string, 
   console.log(`== probe report: ${taskName} ==`);
   console.log(`sandbox:  ${sandboxDir}`);
   console.log(`workspace: ${wsDir}`);
+  console.log(`pi:       ${result.piBinary === null ? "<never spawned>" : `${result.piBinary.bin}${result.piBinary.version === null ? "" : ` (${result.piBinary.version})`}`}`);
   console.log(`exit code: ${result.exit}${result.timedOut ? " (TIMED OUT, process group killed)" : ""}`);
   console.log(`checker:  ${result.checkerResult.pass ? "PASS" : "FAIL"}`);
   if (result.checkerResult.output) {
