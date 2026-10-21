@@ -115,14 +115,28 @@ function piVersion(bin: string): string | null {
   }
 }
 
-/** Spawn env for nested pi: caller env minus node_modules/.bin PATH entries. */
+/**
+ * Spawn env for nested pi: caller env minus node_modules/.bin PATH entries,
+ * plus PI_OFFLINE=1.
+ *
+ * PI_OFFLINE=1 (S8): write-protection for the shared real npm store that the
+ * sandbox reads through the <sandbox>/npm/node_modules symlink (see stage.ts).
+ * Without it, pi network-installs packages missing from <sandbox>/npm and
+ * update-checks the symlinked ones. PI_OFFLINE only disables background
+ * network activity (package installs/update checks) — NOT model calls — so
+ * probes still run their normal model traffic. Callers may override it via
+ * `extra` (spread last).
+ */
 export function nestedPiEnv(extra: Record<string, string> = {}): NodeJS.ProcessEnv {
-  if (process.env.PI_BIN !== undefined && process.env.PI_BIN !== "") return {...process.env, ...extra};
-  const path = (process.env.PATH ?? "")
+  const base = process.env.PI_BIN !== undefined && process.env.PI_BIN !== "" ? {...process.env} : {...process.env, PATH: filteredPath()};
+  return {...base, PI_OFFLINE: "1", ...extra};
+}
+
+function filteredPath(): string {
+  return (process.env.PATH ?? "")
     .split(":")
     .filter((entry) => entry !== "" && !entry.endsWith("node_modules/.bin"))
     .join(":");
-  return {...process.env, PATH: path, ...extra};
 }
 
 const REDACTION_PATTERNS: Array<[RegExp, string]> = [

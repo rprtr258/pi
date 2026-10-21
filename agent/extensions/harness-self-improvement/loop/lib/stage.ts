@@ -4,65 +4,79 @@
  *
  * Phase I probes run nested `pi` processes against a minimal copy of the real
  * ~/.pi/agent directory: settings (model capture), read-only auth.json and
- * models.json (without them every probe fails at provider auth), AGENTS.md and
- * skills/. Extensions, packages, sessions, plans, npm and everything else are
+ * models.json (without them every probe fails at provider auth), and every
+ * registered surface kind from loop/lib/surface.ts (AGENTS.md, skills/,
+ * prompts/, agents/). Extensions, sessions, plans and everything else are
  * deliberately NOT staged — the sandbox must be minimal.
+ *
+ * S8 PACKAGES REPLICATION (supervisor-approved deviation from the S8 plan):
+ *   pi's PackageManager resolves `npm:` packages at <agentDir>/npm/node_modules
+ *   (verified in pi 1.3.0 dist/core/package-manager.js), where agentDir comes
+ *   from PI_CODING_AGENT_DIR. PI_PACKAGE_DIR is a DIFFERENT setting — it
+ *   overrides pi's own binary package dir (themes/assets, dist/config.js
+ *   getPackageDir) and was verified INEFFECTIVE for package resolution: a
+ *   sandbox with packages in settings.json + PI_PACKAGE_DIR=<real npm> never
+ *   loaded pi-subagents. The working replication is therefore:
+ *     1. the real settings.json `packages` array is copied into the sandbox
+ *        settings.json (so pi knows which packages to load), and
+ *     2. <sandbox>/npm/node_modules is created as a SYMLINK to the real
+ *        ~/.pi/agent/npm/node_modules — a READ-ONLY use of the real store:
+ *        pi reads package code through the link and never writes there.
+ *        Staging VERIFIES the link resolves; a dangling/broken real store
+ *        fails staging loudly instead of silently degrading the probe.
+ *     3. probe.ts sets PI_OFFLINE=1 in the nested pi env — WITHOUT it, pi
+ *        network-installs packages missing from <sandbox>/npm (verified) and
+ *        update-checks the symlinked ones. PI_OFFLINE=1 is the write-protection
+ *        mechanism for the shared real npm store; it only disables background
+ *        network activity (installs/update checks), NOT model calls, so
+ *        probes still run their normal model traffic.
+ *   Empirically verified (real nested pi run): with this replication a staged
+ *   <sandbox>/agents/<name>.md test subagent is discovered by the subagent
+ *   tool's `list` action.
  */
 import {
   chmodSync,
   copyFileSync,
   existsSync,
+  lstatSync,
   mkdirSync,
-  readdirSync,
+  realpathSync,
   readFileSync,
   rmSync,
   statSync,
+  symlinkSync,
   writeFileSync,
 } from "node:fs";
 import {homedir} from "node:os";
 import {join} from "node:path";
-
-export interface SkillSnapshot {
-  /** Path relative to skills/, e.g. "coding-standards/SKILL.md". */
-  relPath: string;
-  content: string;
-}
+import {SURFACE_KINDS, type SurfaceFile, type SurfaceKindName} from "./surface.ts";
 
 export interface ComponentSnapshot {
-  agentsMd: string;
-  skills: SkillSnapshot[];
+  /**
+   * Kinds-generic snapshot (S8): one SurfaceFile list per registered kind,
+   * relPaths relative to the agent dir. Legacy callers: use agentsMdOf() for
+   * the AGENTS.md text.
+   */
+  kinds: Record<SurfaceKindName, SurfaceFile[]>;
 }
 
 export const realPiAgentDir = (): string => join(homedir(), ".pi", "agent");
 
-function walkSkills(skillsDir: string, prefix: string, out: SkillSnapshot[]): void {
-  // UTF-16 code-unit order (locale-independent), matching the fingerprint's
-  // canonical skill ordering in loop/baseline.ts.
-  for (const entry of readdirSync(skillsDir, {withFileTypes: true}).sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0))) {
-    // Skip node_modules and dotfiles anywhere in the skills tree.
-    if (entry.name === "node_modules" || entry.name.startsWith(".")) continue;
-    const full = join(skillsDir, entry.name);
-    const rel = prefix === "" ? entry.name : `${prefix}/${entry.name}`;
-    if (entry.isDirectory()) {
-      walkSkills(full, rel, out);
-    } else if (entry.isFile()) {
-      out.push({relPath: rel, content: readFileSync(full, "utf8")});
-    }
-  }
+/** The AGENTS.md text of a snapshot ("" when absent) — legacy Phase I view. */
+export function agentsMdOf(snapshot: ComponentSnapshot): string {
+  return snapshot.kinds.agents[0]?.content ?? "";
 }
 
 /**
- * Snapshot the real agent components: AGENTS.md text and every skills/ file
- * (skipping node_modules and dotfiles). Throws if the real dir is broken —
- * snapshotting the host is a precondition of staging, not a probe outcome.
+ * Snapshot the real agent components for every registered surface kind
+ * (skipping node_modules and dotfiles; see surface.ts per-kind rules).
+ * Throws if the real dir is broken — snapshotting the host is a precondition
+ * of staging, not a probe outcome.
  */
 export function snapshotReal(piAgentDir: string = realPiAgentDir()): ComponentSnapshot {
-  const agentsMdPath = join(piAgentDir, "AGENTS.md");
-  const agentsMd = existsSync(agentsMdPath) ? readFileSync(agentsMdPath, "utf8") : "";
-  const skills: SkillSnapshot[] = [];
-  const skillsDir = join(piAgentDir, "skills");
-  if (existsSync(skillsDir)) walkSkills(skillsDir, "", skills);
-  return {agentsMd, skills};
+  const kinds = {} as Record<SurfaceKindName, SurfaceFile[]>;
+  for (const kind of SURFACE_KINDS) kinds[kind.name] = kind.snapshot(piAgentDir);
+  return {kinds};
 }
 
 /**
@@ -92,6 +106,24 @@ export function captureModelSettings(piAgentDir: string = realPiAgentDir()): Rec
   return out;
 }
 
+/**
+ * Extract the real settings.json `packages` array (string entries only) for
+ * replication into the sandbox settings.json (see the S8 header note).
+ * Tolerant: missing/invalid settings or a non-array packages field → [].
+ */
+export function capturePackages(piAgentDir: string = realPiAgentDir()): string[] {
+  const settingsPath = join(piAgentDir, "settings.json");
+  if (!existsSync(settingsPath)) return [];
+  let settings: unknown;
+  try {
+    settings = JSON.parse(readFileSync(settingsPath, "utf8"));
+  } catch {
+    return [];
+  }
+  const packages = (settings as Record<string, unknown> | null)?.["packages"];
+  return Array.isArray(packages) ? packages.filter((p): p is string => typeof p === "string" && p !== "") : [];
+}
+
 /** `--model` value for a nested pi run, or undefined when nothing was captured. */
 export function captureModelFlag(piAgentDir: string = realPiAgentDir()): string | undefined {
   const captured = captureModelSettings(piAgentDir);
@@ -103,12 +135,50 @@ export interface BuildSandboxResult {
   dir: string;
   /** Model-capture keys written into the sandbox settings.json (may be empty). */
   captured: Record<string, string>;
+  /** `packages` entries replicated from the real settings.json (may be empty). */
+  packages: string[];
+}
+
+/**
+ * Symlink <sandboxDir>/npm/node_modules → the real npm store (READ-ONLY —
+ * pi reads through the link; PI_OFFLINE=1 in the probe env prevents any
+ * write). A dangling real store fails staging loudly; no real store at all
+ * skips replication (nothing to replicate).
+ */
+function replicateNpmStore(piAgentDir: string, sandboxDir: string): void {
+  const real = join(piAgentDir, "npm", "node_modules");
+  let realStat: ReturnType<typeof lstatSync>;
+  try {
+    realStat = lstatSync(real);
+  } catch {
+    return; // no real npm store — nothing to replicate
+  }
+  if (realStat.isSymbolicLink() && !existsSync(real)) {
+    throw new Error(`sandbox staging failed: real npm node_modules ${real} is a dangling symlink`);
+  }
+  if (!existsSync(real)) return;
+  const link = join(sandboxDir, "npm", "node_modules");
+  mkdirSync(join(sandboxDir, "npm"), {recursive: true});
+  symlinkSync(real, link);
+  // Verify the link resolves: a broken replication must fail staging with a
+  // clear error, never degrade the probe silently.
+  let resolved: string;
+  try {
+    resolved = realpathSync(link);
+  } catch (err) {
+    throw new Error(`sandbox staging failed: npm node_modules symlink does not resolve (${err instanceof Error ? err.message : String(err)})`);
+  }
+  if (resolved !== realpathSync(real)) {
+    throw new Error(`sandbox staging failed: npm node_modules symlink resolves to ${resolved}, expected ${realpathSync(real)}`);
+  }
 }
 
 /**
  * Create a minimal sandbox at `dir` (recreated from scratch if it exists):
- * minimal settings.json with the captured model keys, READ-ONLY copies of
- * auth.json and models.json when present, AGENTS.md and the skill files.
+ * minimal settings.json with the captured model keys and the replicated
+ * `packages` array, READ-ONLY copies of auth.json and models.json when
+ * present, every registered surface kind's files, and the npm node_modules
+ * symlink (packages replication — see the header).
  *
  * WARNING: this wipes `dir` first. Call it only with a directory this tool
  * created itself (e.g. a fresh mkdtemp path) — never with a caller-supplied
@@ -118,7 +188,9 @@ export function buildSandbox(snapshot: ComponentSnapshot, dir: string, piAgentDi
   rmSync(dir, {recursive: true, force: true});
   mkdirSync(dir, {recursive: true});
   const captured = captureModelSettings(piAgentDir);
-  writeFileSync(join(dir, "settings.json"), `${JSON.stringify(captured, null, 2)}\n`);
+  const packages = capturePackages(piAgentDir);
+  const settings = packages.length > 0 ? {...captured, packages} : captured;
+  writeFileSync(join(dir, "settings.json"), `${JSON.stringify(settings, null, 2)}\n`);
   for (const name of ["auth.json", "models.json"]) {
     const src = join(piAgentDir, name);
     if (existsSync(src) && statSync(src).isFile()) {
@@ -126,11 +198,7 @@ export function buildSandbox(snapshot: ComponentSnapshot, dir: string, piAgentDi
       chmodSync(join(dir, name), 0o444);
     }
   }
-  writeFileSync(join(dir, "AGENTS.md"), snapshot.agentsMd);
-  for (const skill of snapshot.skills) {
-    const target = join(dir, "skills", skill.relPath);
-    mkdirSync(join(target, ".."), {recursive: true});
-    writeFileSync(target, skill.content);
-  }
-  return {dir, captured};
+  for (const kind of SURFACE_KINDS) kind.stage(dir, snapshot.kinds[kind.name]);
+  replicateNpmStore(piAgentDir, dir);
+  return {dir, captured, packages};
 }

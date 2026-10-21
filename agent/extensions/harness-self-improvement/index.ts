@@ -35,7 +35,7 @@ Read PLAN.md first — it defines scope, evidence rules, and the cycle.
 // apply + ledger bookkeeping).
 import {buildLedgerDigest, buildPrompt, loadBaselineFromRunDir, propose, type BuiltPrompt} from "./loop/lib/proposer.ts";
 import {extensionRoot, readLedger} from "./loop/lib/ledger.ts";
-import {captureModelFlag, captureModelSettings, realPiAgentDir, snapshotReal, type ComponentSnapshot} from "./loop/lib/stage.ts";
+import {agentsMdOf, captureModelFlag, captureModelSettings, realPiAgentDir, snapshotReal, type ComponentSnapshot} from "./loop/lib/stage.ts";
 
 function byteLen(text: string): number {
   return new TextEncoder().encode(text).length;
@@ -140,7 +140,7 @@ function registerHloopPropose(pi: ExtensionAPI): void {
         return;
       }
       console.log(`[hloop-propose] fixture ${fixture}: baseline ${baseline.aggregate.passCount}/${baseline.aggregate.total} pass`);
-      console.log(`[hloop-propose] components: AGENTS.md ${byteLen(snapshot.agentsMd)}B, ${snapshot.skills.length} skill files in manifest, ${prompt.system.length + prompt.user.length} prompt chars total`);
+      console.log(`[hloop-propose] components: AGENTS.md ${byteLen(agentsMdOf(snapshot))}B, ${snapshot.kinds.skills.length} skill files, ${snapshot.kinds.templates.length} prompt templates, ${snapshot.kinds.subagents.length} subagents in manifest, ${prompt.system.length + prompt.user.length} prompt chars total`);
       console.log(`[hloop-propose] ledger digest: ${ledgerDigest.length} rejected proposal fingerprint(s)`);
       console.log(`[hloop-propose] harness-findings: ${findingsPath ?? "(absent)"}`);
       if (dryRun) {
