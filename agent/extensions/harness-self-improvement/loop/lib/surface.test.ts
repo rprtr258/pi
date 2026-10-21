@@ -185,3 +185,62 @@ describe("kind snapshots", () => {
     expect(readFileSync(join(sandbox, "AGENTS.md"), "utf8")).toBe("");
   });
 });
+
+describe("extensions kind (Step 9a)", () => {
+  test("static shape allowlist routes extensions/<name>/... only", () => {
+    expect(kindForPath("extensions/sample/index.ts")!.name).toBe("extensions");
+    expect(kindForPath("extensions/sample-2/test/unit.test.ts")!.name).toBe("extensions");
+    expect(kindForPath("extensions/sample/package.json")!.name).toBe("extensions"); // routed, rejected by the validator
+    // Shape rejections: bad name charset, missing file segment.
+    expect(kindForPath("extensions/.hidden/x.ts")).toBeNull();
+    expect(kindForPath("extensions/BAD NAME/x.ts")).toBeNull();
+    expect(kindForPath("extensions/sample")).toBeNull();
+  });
+
+  test("static exclusions: package.json, bun.lock, node_modules hard-rejected even for allow-listed names", () => {
+    expect(surfaceKind("extensions").validate("{}", "extensions/sample/package.json")).toHaveLength(1);
+    expect(surfaceKind("extensions").validate("{}", "extensions/sample/bun.lock")).toHaveLength(1);
+    expect(surfaceKind("extensions").validate("x", "extensions/sample/node_modules/pkg/index.js")).toHaveLength(1);
+    expect(surfaceKind("extensions").validate("x", "extensions/sample/node_modules")).toHaveLength(1);
+    expect(surfaceKind("extensions").validate("export {}", "extensions/sample/index.ts")).toEqual([]);
+    expect(surfaceKind("extensions").validate(null, "extensions/sample/index.ts")).toEqual([]); // deletion allowed (gate 4 catches breakage)
+  });
+
+  test("the loop's own extension is hard-rejected (self-modification ban, independent of code.allow)", () => {
+    for (const p of [
+      "extensions/harness-self-improvement/index.ts",
+      "extensions/harness-self-improvement/loop/lib/gates.ts",
+      "extensions/harness-self-improvement/run-history.jsonl",
+    ]) {
+      const reasons = surfaceKind("extensions").validate("x", p);
+      expect(reasons).toHaveLength(1);
+      expect(reasons[0]).toContain("not loop-editable");
+      // Deletions of the loop's own files are equally banned.
+      expect(surfaceKind("extensions").validate(null, p)).toHaveLength(1);
+    }
+    // Sanity: a normal extension file still passes.
+    expect(surfaceKind("extensions").validate("x", "extensions/other/index.ts")).toEqual([]);
+  });
+
+  test("caps: 100KB/file", () => {
+    expect(surfaceKind("extensions").caps.maxFileBytes).toBe(100 * 1024);
+  });
+
+  test("snapshot contributes NO files (extensions are not ambient-sandbox staged; candidates staged by gates.ts)", () => {
+    const dir = tempDir();
+    mkdirSync(join(dir, "extensions", "sample"), {recursive: true});
+    writeFileSync(join(dir, "extensions", "sample", "index.ts"), "x\n");
+    expect(surfaceKind("extensions").snapshot(dir)).toEqual([]);
+  });
+
+  test("gitPath/applyDir registered so apply preflight + pathspec staging cover code applies", () => {
+    expect(surfaceKind("extensions").gitPath).toBe("extensions/");
+    expect(surfaceKind("extensions").applyDir).toBe("extensions");
+  });
+
+  test("stage writes files at their agent-dir-relative paths (used by gates.ts candidate staging)", () => {
+    const sandbox = tempDir();
+    surfaceKind("extensions").stage(sandbox, [{relPath: "extensions/sample/index.ts", content: "export {}\n"}]);
+    expect(readFileSync(join(sandbox, "extensions", "sample", "index.ts"), "utf8")).toBe("export {}\n");
+  });
+});

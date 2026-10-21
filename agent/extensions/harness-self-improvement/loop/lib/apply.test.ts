@@ -14,7 +14,7 @@
 import {spawnSync} from "node:child_process";
 import {chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, utimesSync, writeFileSync} from "node:fs";
 import {tmpdir} from "node:os";
-import {join} from "node:path";
+import {dirname, join} from "node:path";
 import {afterAll, describe, expect, test} from "bun:test";
 import {pairedDelta, selectWinner, type TaskScoreResult} from "./score.ts";
 import {
@@ -372,10 +372,52 @@ describe("applyCandidate", () => {
     const winner = candidate([{path: "skills/y/SKILL.md", content: SKILL_Y_NEW}]);
     const res = applyCandidate({candidates: [winner], winner, runId: "dirty-1", config: APPLY, agentDir, ledgerPath: ledger});
     expect(res.decision).toBe("rejected");
-    expect(res.reasons[0]).toContain("working tree dirty under AGENTS.md/skills/prompts/agents — resolve before apply");
+    expect(res.reasons[0]).toContain("working tree dirty under AGENTS.md/skills/prompts/agents/extensions — resolve before apply");
     expect(readFileSync(join(agentDir, "AGENTS.md"), "utf8")).toBe("# uncommitted manual edit\n");
     expect(existsSync(join(agentDir, "skills/y"))).toBe(false);
     expect(readLedger(ledger)[0]!.decision).toBe("rejected");
+  });
+
+  test("dirty SELF_SUBTREE (tracked ledger churn) does not self-reject; ledger stays out of the apply commit (review fix)", () => {
+    const root = tempRoot("apply-selfdirty-");
+    const agentDir = tempAgentRepo(root);
+    // A real gated extension (gate 1: test file + node_modules) as the apply target.
+    const extDir = join(agentDir, "extensions", "sample-ext");
+    mkdirSync(join(extDir, "node_modules"), {recursive: true});
+    writeFileSync(join(extDir, "index.ts"), "export default function (pi: unknown) { void pi; }\n");
+    writeFileSync(join(extDir, "index.test.ts"), "import {test, expect} from \"bun:test\";\ntest(\"ok\", () => { expect(1).toBe(1); });\n");
+    const ledgerFile = join(agentDir, "extensions", "harness-self-improvement", "run-history.jsonl");
+    mkdirSync(dirname(ledgerFile), {recursive: true});
+    writeFileSync(ledgerFile, '{"runId":"seed"}\n');
+    git(agentDir, ["add", "extensions/"]);
+    git(agentDir, ["commit", "-q", "-m", "seed extensions"]);
+
+    // Simulated ledger churn: a previous run's ledger writes left the tracked
+    // run-history.jsonl dirty under the loop's own subtree. The preflight must
+    // filter it out (expected churn), not self-reject the live apply.
+    writeFileSync(ledgerFile, '{"runId":"seed"}\n{"runId":"prev"}\n');
+
+    const winner = candidate([
+      {path: "extensions/sample-ext/index.ts", content: "export default function (pi: unknown) { void pi; }\n// improved\n"},
+    ], "improve the sample extension");
+    const config: LoopConfig = {...APPLY, code: {allow: ["sample-ext"], minWin: 1}};
+    const res = applyCandidate({candidates: [winner], winner, runId: "self-1", config, agentDir, ledgerPath: join(root, "history.jsonl")});
+    expect(res.decision).toBe("applied");
+    expect(res.ok).toBe(true);
+    // The apply commit contains the code file but NOT the ledger (explicit
+    // pathspec exclusion — the ledger is committed by the loop's development
+    // steps, never swept into an apply commit).
+    const names = git(agentDir, ["show", "--name-only", "--format=", res.sha!]).stdout.split("\n").filter((l) => l !== "");
+    expect(names).toContain("extensions/sample-ext/index.ts");
+    expect(names.some((n) => n.startsWith("extensions/harness-self-improvement/"))).toBe(false);
+    // The ledger churn stays on disk, uncommitted.
+    expect(readFileSync(ledgerFile, "utf8")).toContain("prev");
+
+    // Same filter in the revert preflight: further ledger churn must not block the revert.
+    writeFileSync(ledgerFile, `${readFileSync(ledgerFile, "utf8")}{"runId":"post"}\n`);
+    const reverted = revertByRunId("self-1", {agentDir, ledgerPath: join(root, "history.jsonl")});
+    expect(reverted.ok).toBe(true);
+    expect(reverted.method).toBe("revert");
   });
 
   test("second concurrent apply is refused while the apply lock is held", () => {
@@ -569,7 +611,7 @@ describe("revertByRunId", () => {
 
     const reverted = revertByRunId("rev-dirty", {agentDir, ledgerPath: ledger});
     expect(reverted.ok).toBe(false);
-    expect(reverted.error).toContain("working tree dirty under AGENTS.md/skills/prompts/agents — resolve before apply");
+    expect(reverted.error).toContain("working tree dirty under AGENTS.md/skills/prompts/agents/extensions — resolve before apply");
     // No revert commit was made and the manual edit is untouched.
     expect(git(agentDir, ["rev-parse", "HEAD"]).stdout.trim()).toBe(headAfterApply);
     expect(readFileSync(join(agentDir, "AGENTS.md"), "utf8")).toBe("# uncommitted manual edit\n");

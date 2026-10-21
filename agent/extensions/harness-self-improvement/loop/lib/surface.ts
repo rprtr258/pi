@@ -21,6 +21,36 @@
  *              allowlist — chain files do not define agents). Frontmatter with
  *              BOTH name and description is REQUIRED (the description is what
  *              drives model delegation). ≤100KB/file.
+ *   extensions extensions/<name>/... (Step 9a) — the ONLY code-bearing kind.
+ *              TWO-LAYER ALLOWLIST (deliberate design):
+ *                Layer 1 (here): a STATIC shape regex
+ *                `^extensions/<name>/...` that only constrains the path shape
+ *                (name charset), because the set of editable extension names
+ *                is CONFIG-DRIVEN (loop/config.json code.allow) and the pure
+ *                surface registry must stay config-free.
+ *                Layer 2 (loop/lib/gates.ts extensionValidationReasons, wired
+ *                into proposer.validateCandidate + apply re-validation via
+ *                ValidationLimits.extensionEnv): the DYNAMIC check — the
+ *                extension name must be in loadLoopConfig().code.allow, and
+ *                the REAL extension dir must have a test file and a
+ *                node_modules directory (resolvability proxy).
+ *              STATIC EXCLUSIONS (hard-rejected here, independent of
+ *              code.allow): extensions/<name>/package.json, bun.lock, and
+ *              anything under node_modules/ — the loop NEVER edits dependency
+ *              manifests and NEVER runs `bun install`: an extension whose
+ *              imports do not resolve from its EXISTING node_modules is not
+ *              editable (gate 1 rejects candidates on such extensions).
+ *              extensions/harness-self-improvement/ (the loop's OWN extension)
+ *              is likewise hard-rejected — the loop never edits itself
+ *              (self-modification ban, same tier as the package.json
+ *              exclusion, enforced regardless of code.allow).
+ *              Snapshot policy: the extensions kind contributes NO files to
+ *              the ambient sandbox snapshot (snapshot returns []) — sandbox
+ *              probes stay minimal; only the touched candidate extension is
+ *              staged into a probe sandbox, by the gate pipeline
+ *              (gates.ts stageExtensionForSandbox). gitPath "extensions/" is
+ *              still registered so apply's dirty-tree preflight, explicit
+ *              pathspec git add, and revert fallback cover code applies.
  *
  * File identity convention: every SurfaceFile.relPath is relative to the
  * AGENT DIR (POSIX separators), e.g. "AGENTS.md", "skills/x/SKILL.md",
@@ -37,7 +67,7 @@ export type SurfaceFile = {
   content: string,
 }
 
-export type SurfaceKindName = "agents" | "skills" | "templates" | "subagents";
+export type SurfaceKindName = "agents" | "skills" | "templates" | "subagents" | "extensions";
 
 export type SurfaceCaps = {
   /** Maximum UTF-8 byte size of one file's content. */
@@ -68,6 +98,7 @@ export type SurfaceKind = {
 export const SKILLS_MD_CAP_BYTES = 100 * 1024;
 export const TEMPLATE_CAP_BYTES = 100 * 1024;
 export const SUBAGENT_CAP_BYTES = 100 * 1024;
+export const EXTENSION_CAP_BYTES = 100 * 1024;
 
 /**
  * Recursively walk `dir`, collecting files as SurfaceFiles with `relBase`-prefixed
@@ -172,6 +203,39 @@ export function validateSkillsFile(content: string | null, _relPath: string): st
   return [];
 }
 
+/**
+ * Extension file validation (Step 9a): STRUCTURAL checks only, kept minimal
+ * by design — byte caps are enforced by the shared caps path in
+ * proposer.validateCandidate, the dynamic code.allow + test-file +
+ * node_modules checks live in gates.ts (they need config/FS access), and
+ * code-level checks beyond that (syntax, secrets, imports) are deliberately
+ * OUT OF SCOPE: gates 2–3 (tsc + bun test in the sandbox) are the code
+ * quality gate. Rejected unconditionally, even under an allow-listed name:
+ *   - package.json / bun.lock — dependency changes are out of scope; the loop
+ *     never runs `bun install`.
+ *   - anything under node_modules/ — vendored dependency code is never
+ *     editable.
+ *   - extensions/harness-self-improvement/ — the loop's own extension is not
+ *     loop-editable (self-modification ban, independent of code.allow).
+ * File deletion is allowed (a load-erroring extension is caught by gate 4).
+ */
+export function validateExtensionFile(content: string | null, relPath: string): string[] {
+  if (relPath.startsWith("extensions/harness-self-improvement/")) {
+    return [`extension edit rejected: ${relPath} — the loop's own extension is not loop-editable (self-modification ban, independent of code.allow)`];
+  }
+  const rest = relPath.replace(/^extensions\/[^/]+\//, "");
+  if (rest === "package.json") {
+    return [`extension edit rejected: ${relPath} — package.json is never editable (dependency changes are out of scope; the loop never runs bun install)`];
+  }
+  if (rest === "bun.lock") {
+    return [`extension edit rejected: ${relPath} — bun.lock is never editable (dependency changes are out of scope; the loop never runs bun install)`];
+  }
+  if (rest === "node_modules" || rest.startsWith("node_modules/")) {
+    return [`extension edit rejected: ${relPath} — node_modules is never editable (vendored dependency code)`];
+  }
+  return [];
+}
+
 // ---------------------------------------------------------------------------
 // Registry
 
@@ -227,6 +291,22 @@ export const SURFACE_KINDS: readonly SurfaceKind[] = [
     stage: stageFiles,
     gitPath: "agents/",
     applyDir: "agents",
+  },
+  {
+    name: "extensions",
+    // Layer 1 of the two-layer allowlist (see the header): path SHAPE only —
+    // the editable-name set is enforced dynamically from config code.allow
+    // in loop/lib/gates.ts (proposer + apply validation routing).
+    allowlist: /^extensions\/[A-Za-z0-9][A-Za-z0-9_-]*\/.+$/,
+    caps: {maxFileBytes: EXTENSION_CAP_BYTES},
+    validate: validateExtensionFile,
+    // Extensions are NOT part of the ambient sandbox (snapshot stays empty —
+    // see the header). Candidate extension staging into probe sandboxes is
+    // the gate pipeline's job (gates.ts stageExtensionForSandbox).
+    snapshot: () => [],
+    stage: stageFiles,
+    gitPath: "extensions/",
+    applyDir: "extensions",
   },
 ];
 

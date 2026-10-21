@@ -11,7 +11,15 @@
  *       (SELF-CREATED dirs only; buildSandbox wipes its target) and
  *       scoreSuite into runs/<runId>/iter-<n>/cand-<i>/ with per-task resume
  *       reuse bound to (runId, iteration, candidate index) via scoreSuite's
- *       `boundTo` — result files from another run/candidate are re-probed
+ *       `boundTo` — result files from another run/candidate are re-probed.
+ *       STEP 9a: a candidate touching extensions/<name>/ FIRST runs the code
+ *       gate pipeline (loop/lib/gates.ts): exactly one extension, staged into
+ *       the sandbox, then `bunx tsc --noEmit` (120s) and `bun test` (120s) on
+ *       the sandbox copy; the full-suite probe follows only after both pass,
+ *       and a nested-pi extension load error captured from the probe output
+ *       rejects the candidate post-suite. Gate failures are recorded as
+ *       decision "gates-failed" with the captured output; code-bearing
+ *       candidates select with config code.minWin instead of minWin.
  *   (5) selectWinner vs baseline (loop/lib/score.ts)
  *   (6) applyCandidate (winner) or appendProposalRejectedEntry (no winner)
  *   (7) ledger entries + report.md per iteration and per candidate
@@ -57,6 +65,7 @@ import {buildLedgerDigest, propose, type CallModel, type ProposedCandidate} from
 import {appendProposalRejectedEntry, applyCandidate, loadLoopConfig, type LoopConfig} from "./lib/apply.ts";
 import {baselineCacheDir, baselineCachePath, cacheMatchesTaskSet, fingerprintSnapshot, readBaselineCache, writeBaselineCache} from "./baseline.ts";
 import {resolvePiBinary, runProbe} from "./lib/probe.ts";
+import {runCodeGates, scanProbeLoadErrors, selectionConfigForEdits, stageExtensionForSandbox, touchedExtensionNames} from "./lib/gates.ts";
 
 // ---------------------------------------------------------------------------
 // Public types
@@ -68,6 +77,7 @@ export type IterationPhase = "baseline" | "propose" | "score" | "decide" | "done
 export type CandidateDecision =
   | "pending"           // accepted, not yet scored
   | "rejected-invalid"  // failed proposer validation
+  | "gates-failed"      // failed the Step 9a code gate pipeline (tsc / bun test / load-error capture)
   | "not-scored"        // accepted but beyond candidates.maxPerIteration
   | "loser"             // scored, did not win
   | "winner-dry-run"    // won, applyCandidate returned dry-run
@@ -132,6 +142,11 @@ export type LoopState = {
     minWin: number,
     minQualityGain: number | null,
     usageFactor: number,
+    /** Snapshotted at run start (Step 9a review fix) so resumed runs keep the same code thresholds/allowlist. */
+    code: {
+      allow: string[],
+      minWin: number,
+    },
   },
   /** SUM of fresh probe usage.totalTokens across the run (budget metric). */
   budgetSpent: number,
@@ -177,6 +192,8 @@ export type RunLoopOptions = {
   /** agentDir override for applyCandidate (tests; default = real ~/.pi/agent). */
   agentDir?: string,
   isPidAliveFn?: (pid: number) => boolean,
+  /** Code gate runner override (selftest); default = the real gates pipeline. */
+  codeGatesFn?: typeof runCodeGates,
 }
 
 // ---------------------------------------------------------------------------
@@ -356,6 +373,7 @@ export async function runLoop(opts: RunLoopOptions): Promise<LoopRunResult> {
         minWin: config.minWin,
         minQualityGain: config.minQualityGain,
         usageFactor: config.usageFactor,
+        code: {allow: [...config.code.allow], minWin: config.code.minWin},
       },
       budgetSpent: 0,
       iterations: [],
@@ -366,6 +384,11 @@ export async function runLoop(opts: RunLoopOptions): Promise<LoopRunResult> {
   const statePath = join(runDir, "state.json");
   mkdirSync(runDir, {recursive: true});
   const model = state.model;
+  // Resume uses the code config SNAPSHOTTED at run start (state.config.code) so
+  // a resumed run keeps the same allowlist + minWin threshold; states persisted
+  // before this snapshot existed fall back to the freshly loaded config.
+  const codeConfig = state.config.code ?? {allow: [...config.code.allow], minWin: config.code.minWin};
+  const runConfig: LoopConfig = {...config, code: codeConfig};
   const selectionConfig: SelectionConfig = {
     minWin: state.config.minWin,
     minQualityGain: state.config.minQualityGain,
@@ -533,7 +556,12 @@ export async function runLoop(opts: RunLoopOptions): Promise<LoopRunResult> {
         ledgerDigest,
         harnessFindings: readHarnessFindings(),
         model: model ?? undefined,
-      }, {callModel: opts.callModel});
+      }, {
+        callModel: opts.callModel,
+        // Gate 1 (Step 9a) at propose time: dynamic extensions-kind checks
+        // against the same agent dir apply later re-validates against.
+        validationLimits: {extensionEnv: {agentDir: opts.agentDir ?? realPiAgentDir(), codeAllow: runConfig.code.allow}},
+      });
       if (result.parseError !== undefined) log(`[hloop] iter ${index}: proposer parse error: ${result.parseError}`);
       iter.proposalFingerprint = result.proposalFingerprint;
       iter.candidates = result.candidates.map((c, idx) => ({
@@ -582,11 +610,63 @@ export async function runLoop(opts: RunLoopOptions): Promise<LoopRunResult> {
         if (c.decision === "pending") c.decision = "not-scored";
       }
       const toScore = accepted.slice(0, maxCandidates).filter((c) => c.decision === "pending");
+      /** Write a gate-failure report for a code candidate (captured gate/probe output). */
+      const writeGateFailureReport = (candIdx: number, title: string, reasons: string[]): string => {
+        const reportPath = join(iterDir, `cand-${candIdx}`, "report.md");
+        mkdirSync(join(iterDir, `cand-${candIdx}`), {recursive: true});
+        writeFileSync(reportPath, [
+          `# run ${runId} — candidate ${candIdx} — ${title}`, "", "```", ...reasons, "```", "",
+        ].join("\n"));
+        return reportPath;
+      };
       for (const cState of toScore) {
         const candIdx = cState.index;
         const sandboxDir = join(runDir, `sandbox-${candIdx}`); // self-created; buildSandbox wipes it
         buildSandbox(scoreSnapshot, sandboxDir);
         log(`[hloop] iter ${index}: scoring candidate ${candIdx + 1}...`);
+        // Step 9a code gates (BEFORE the suite probe). A candidate touching
+        // extensions/<name>/ must touch exactly one extension, be staged into
+        // the sandbox, then pass gates 2+3 (tsc, bun test) — any failure
+        // rejects the candidate with the captured output and skips the probe.
+        const touchedExts = touchedExtensionNames(cState.edits);
+        let gateExt: string | null = null;
+        if (touchedExts.length > 0) {
+          if (touchedExts.length > 1) {
+            const reasons = [`candidate touches ${touchedExts.length} extensions (${touchedExts.join(", ")}) — at most one extension per code candidate`];
+            cState.decision = "gates-failed";
+            cState.reasons = reasons;
+            cState.reportPath = writeGateFailureReport(candIdx, "code gates failed", reasons);
+            appendEntry({runId, ts: now(), kind: "code-gate-failed", iteration: index, candidateIndex: candIdx, reasons}, ledger);
+            log(`[hloop] iter ${index}: candidate ${candIdx + 1} REJECTED by code gates — ${reasons[0]}`);
+            persist();
+            continue;
+          }
+          gateExt = touchedExts[0]!;
+          try {
+            stageExtensionForSandbox(sandboxDir, opts.agentDir ?? realPiAgentDir(), gateExt, cState.edits);
+          } catch (err) {
+            const reasons = [`sandbox staging of extension "${gateExt}" failed: ${err instanceof Error ? err.message : String(err)}`];
+            cState.decision = "gates-failed";
+            cState.reasons = reasons;
+            cState.reportPath = writeGateFailureReport(candIdx, "code gates failed", reasons);
+            appendEntry({runId, ts: now(), kind: "code-gate-failed", iteration: index, candidateIndex: candIdx, reasons}, ledger);
+            log(`[hloop] iter ${index}: candidate ${candIdx + 1} REJECTED by code gates — ${reasons[0]}`);
+            persist();
+            continue;
+          }
+          log(`[hloop] iter ${index}: running code gates on extensions/${gateExt} (tsc, bun test)...`);
+          const gates = await (opts.codeGatesFn ?? runCodeGates)(sandboxDir, gateExt);
+          if (!gates.ok) {
+            const reasons = [`code gate '${gates.failedGate}' failed for extensions/${gateExt}${gates.timedOut ? " (timed out, process group killed)" : ""}:\n${gates.output}`];
+            cState.decision = "gates-failed";
+            cState.reasons = reasons;
+            cState.reportPath = writeGateFailureReport(candIdx, `code gate '${gates.failedGate}' failed`, reasons);
+            appendEntry({runId, ts: now(), kind: "code-gate-failed", iteration: index, candidateIndex: candIdx, reasons, gate: gates.failedGate ?? undefined}, ledger);
+            log(`[hloop] iter ${index}: candidate ${candIdx + 1} REJECTED by code gates — gate '${gates.failedGate}' failed`);
+            persist();
+            continue;
+          }
+        }
         const scored = await scoreSuite(tasksFn(), sandboxDir, join(iterDir, `cand-${candIdx}`), {
           model: model ?? undefined,
           runProbeFn: guardedProbe,
@@ -594,9 +674,26 @@ export async function runLoop(opts: RunLoopOptions): Promise<LoopRunResult> {
           // result file only counts when its boundTo matches exactly.
           boundTo: `${runId}/iter-${index}/cand-${candIdx}`,
         });
+        // Gate 4 capture: after the suite, scan the probe output for nested-pi
+        // extension LOAD ERRORS mentioning the staged extension.
+        if (gateExt !== null) {
+          const loadErrors = scanProbeLoadErrors(join(iterDir, `cand-${candIdx}`), gateExt);
+          if (loadErrors.length > 0) {
+            const reasons = [`nested pi failed to load the staged extension "${gateExt}":\n${loadErrors.slice(0, 5).join("\n")}`];
+            cState.decision = "gates-failed";
+            cState.reasons = reasons;
+            cState.reportPath = writeGateFailureReport(candIdx, "extension load error", reasons);
+            appendEntry({runId, ts: now(), kind: "code-gate-failed", iteration: index, candidateIndex: candIdx, reasons, gate: "load-error"}, ledger);
+            log(`[hloop] iter ${index}: candidate ${candIdx + 1} REJECTED by code gates — extension load error`);
+            persist();
+            continue;
+          }
+        }
         cState.scores = {passCount: scored.aggregate.passCount, total: scored.aggregate.total};
         cState.totalTokens = scored.aggregate.totalTokens;
-        const selection = selectWinner(baselineResults, scored.results, selectionConfig);
+        // Step 9a selection: code-bearing candidates need code.minWin passes
+        // (default 2) instead of the global minWin.
+        const selection = selectWinner(baselineResults, scored.results, selectionConfigForEdits(cState.edits, selectionConfig, runConfig.code.minWin));
         cState.win = selection.win;
         cState.reasons = selection.reasons;
         const reportPath = join(iterDir, `cand-${candIdx}`, "report.md");
@@ -667,7 +764,7 @@ export async function runLoop(opts: RunLoopOptions): Promise<LoopRunResult> {
           candidates: allCandidates,
           winner: winnerCandidate,
           runId,
-          config,
+          config: runConfig,
           scores: winner.scores ?? undefined,
           usage: {totalTokens: winner.totalTokens},
           agentDir: opts.agentDir,

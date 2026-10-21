@@ -38,6 +38,15 @@
  *   Empirically verified (real nested pi run): with this replication a staged
  *   <sandbox>/agents/<name>.md test subagent is discovered by the subagent
  *   tool's `list` action.
+ *
+ * STEP 9a (extensions kind): extensions are NOT part of the ambient sandbox
+ * (the extensions kind's snapshot contributes no files — see surface.ts);
+ * only the touched candidate extension is staged into a candidate's probe
+ * sandbox, by the gate pipeline (loop/lib/gates.ts
+ * stageExtensionForSandbox, called from loop/driver.ts before the suite
+ * probe). Probes run with HARNESS_LOOP_SAMPLE=1 in nestedPiEnv (probe.ts) so
+ * env-gated sample extensions are exercisable in sandboxes while staying
+ * inert in every normal session.
  */
 import {
   chmodSync,
@@ -145,10 +154,12 @@ export type BuildSandboxResult = {
 }
 
 /**
- * Symlink a real package store into the sandbox READ-ONLY — pi reads through
- * the link; PI_OFFLINE=1 in the probe env prevents any write. A dangling real
- * store fails staging loudly; no real store at all skips replication (nothing
- * to replicate).
+ * Symlink a real package store into the sandbox for read-by-convention use —
+ * pi reads through the link and PI_OFFLINE=1 in the probe env prevents
+ * writes, but this is NOT a security sandbox: gates are quality gates, not a
+ * security boundary, and allowlisted extensions execute with the loop's
+ * privileges. A dangling real store fails staging loudly; no real store at
+ * all skips replication (nothing to replicate).
  */
 function replicateStore(real: string, link: string, label: string): void {
   let realStat: ReturnType<typeof lstatSync>;

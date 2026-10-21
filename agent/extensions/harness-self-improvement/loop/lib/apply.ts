@@ -14,8 +14,14 @@
  *     registry, no traversal, per-kind size caps + content validators)
  *     immediately before apply — the caller's earlier validation is never
  *     trusted on its own.
- *   - Git staging uses EXPLICIT PATHS ONLY ("AGENTS.md", "skills/") — never
- *     -A, ., or --all, so nothing outside the loop's scope can be committed.
+ *   - Git staging uses EXPLICIT PATHS ONLY ("AGENTS.md", "skills/", …) —
+ *     never -A, ., or --all, so nothing outside the loop's scope can be
+ *     committed. The tracked run ledger
+ *     (extensions/harness-self-improvement/run-history.jsonl) is explicitly
+ *     EXCLUDED from staging via the pathspec
+ *     ":!extensions/harness-self-improvement/run-history.jsonl": the ledger
+ *     is committed by the loop's own development-step commits (see git log
+ *     for run-history.jsonl), never swept into an apply commit.
  *   - Prior state of every affected path is snapshotted BEFORE any write as
  *     raw Buffers (never decoded); if a file write, `git add`, or `git commit`
  *     fails, all writes are rolled back (prior content restored byte-exactly /
@@ -27,8 +33,13 @@
  *     symlink can never redirect a loop write or delete outside agentDir.
  *   - Dirty-tree preflight: before any write (and before every revert),
  *     `git status --porcelain -- AGENTS.md skills/ prompts/ agents/` must be
- *     EMPTY (pathspecs from the surface registry); a dirty tree refuses the
- *     apply. This also SHRINKS THE CRASH WINDOW: if the
+ *     EMPTY (pathspecs from the surface registry) AFTER filtering out the
+ *     loop's own subtree (SELF_SUBTREE below) — a dirty tree refuses the
+ *     apply. The filter matters because run-history.jsonl is TRACKED and
+ *     churns on every apply/revert/reject: without the filter the preflight
+ *     would self-reject every live apply. Uncommitted changes to the loop's
+ *     OWN extension code still require manual resolution — only ledger churn
+ *     is expected and ignored. This also SHRINKS THE CRASH WINDOW: if the
  *     process is killed between the file writes and the commit, the loop's
  *     own writes are left uncommitted in the tree — the next apply (or
  *     revert) sees that dirty state under the managed paths and refuses
@@ -53,7 +64,11 @@
  *     "usageFactor": 1.5,     // max candTokens / baseTokens ratio
  *     "apply": {"dryRun": true},
  *     "budget": {"maxTotalTokens": 5000000, "maxIterations": 3},
- *     "candidates": {"maxPerIteration": 3}
+ *     "candidates": {"maxPerIteration": 3},
+ *     "replay": {"enabled": false, "minAgreement": 0.8},
+ *     "code": {"allow": ["harness-loop-sample"], "minWin": 2} // Step 9a:
+ *        editable extension names + minimum passDelta for CODE-bearing
+ *        candidates (the `extensions` surface kind; gates in loop/lib/gates.ts)
  *   }
  *   loadLoopConfig() is tolerant: missing file → defaults; invalid JSON or
  *   wrong-typed fields → default for that field + a console warning.
@@ -79,6 +94,19 @@ import {fileURLToPath} from "node:url";
 import {validateCandidate, proposalFingerprintOf, type ProposedCandidate, type ProposedEdit} from "./proposer.ts";
 import {SURFACE_KINDS} from "./surface.ts";
 import {appendEntry, ledgerPath, type LedgerEntry} from "./ledger.ts";
+
+/**
+ * The loop's own extension subtree under the agent dir. The run ledger
+ * (run-history.jsonl) inside it is TRACKED in the agent config repo and
+ * churns on every apply/revert/ledger write, so the dirty-tree preflight
+ * must ignore the whole subtree — otherwise the loop self-rejects every
+ * live apply (and revert) right after its own ledger write. The staging
+ * exclusion (SELF_LEDGER_ADD_EXCLUSION below) keeps the ledger out of apply
+ * commits; it is committed by the loop's own development-step commits.
+ */
+const SELF_SUBTREE = "extensions/harness-self-improvement/";
+/** Git pathspec keeping the tracked run ledger out of apply commits. */
+const SELF_LEDGER_ADD_EXCLUSION = ":!extensions/harness-self-improvement/run-history.jsonl";
 
 // ---------------------------------------------------------------------------
 // Config
@@ -116,6 +144,13 @@ export type LoopConfig = {
     /** Judge-vs-checker agreement required for the channel to leave advisory mode. */
     minAgreement: number,
   },
+  /** Code gates (Step 9a) — the `extensions` surface kind. */
+  code: {
+    /** Editable extension names (DYNAMIC allowlist, layer 2 — see surface.ts). */
+    allow: string[],
+    /** Minimum passDelta for a CODE-bearing candidate to win (≥ minWin default). */
+    minWin: number,
+  },
 }
 
 export const DEFAULT_LOOP_CONFIG: LoopConfig = {
@@ -126,6 +161,7 @@ export const DEFAULT_LOOP_CONFIG: LoopConfig = {
   budget: {maxTotalTokens: 5_000_000, maxIterations: 3},
   candidates: {maxPerIteration: 3},
   replay: {enabled: false, minAgreement: 0.8},
+  code: {allow: [], minWin: 2},
 };
 
 function defaultConfigPath(): string {
@@ -165,6 +201,7 @@ export function loadLoopConfig(path: string = defaultConfigPath()): LoopConfig {
     budget: {...DEFAULT_LOOP_CONFIG.budget},
     candidates: {...DEFAULT_LOOP_CONFIG.candidates},
     replay: {...DEFAULT_LOOP_CONFIG.replay},
+    code: {...DEFAULT_LOOP_CONFIG.code, allow: [...DEFAULT_LOOP_CONFIG.code.allow]},
   };
   const p = parsed as Record<string, unknown>;
   if (p["minWin"] === undefined) {
@@ -254,6 +291,28 @@ export function loadLoopConfig(path: string = defaultConfigPath()): LoopConfig {
     }
   } else {
     warnField("replay", "not an object");
+  }
+  const code = p["code"];
+  if (code === undefined) {
+    // keep default
+  } else if (code !== null && typeof code === "object" && !Array.isArray(code)) {
+    const c = code as Record<string, unknown>;
+    if (c["allow"] === undefined) {
+      // keep default
+    } else if (Array.isArray(c["allow"]) && c["allow"].every((x) => typeof x === "string" && x !== "")) {
+      cfg.code.allow = c["allow"] as string[];
+    } else {
+      warnField("code.allow", "not an array of non-empty strings");
+    }
+    if (c["minWin"] === undefined) {
+      // keep default
+    } else if (typeof c["minWin"] === "number" && Number.isInteger(c["minWin"]) && c["minWin"] >= 1) {
+      cfg.code.minWin = c["minWin"];
+    } else {
+      warnField("code.minWin", "not an integer ≥ 1");
+    }
+  } else {
+    warnField("code", "not an object");
   }
   return cfg;
 }
@@ -371,12 +430,26 @@ function managedGitPaths(): string[] {
  * gitPaths). Returns a refusal reason when any of them has uncommitted
  * changes, null when clean. A non-repo agentDir is NOT dirty (git add fails
  * later on its own); status failure is treated the same way.
+ *
+ * Lines under SELF_SUBTREE (the tracked run ledger, expected churn) are
+ * filtered out and never block; the same filter applies to apply AND revert
+ * (they share this function).
  */
 function dirtyManagedPathsReason(agentDir: string): string | null {
   const st = git(agentDir, ["status", "--porcelain", "--", ...managedGitPaths()]);
   if (st.status !== 0) return null;
+  const dirty = st.stdout.split("\n").filter((line) => {
+    // Porcelain v1: exactly 3 chars (2 status + 1 space) before the path —
+    // slice the UNTRIMMED line. Renames show "<old> -> <new>"; quoted when
+    // the path contains special characters.
+    const raw = line.slice(3).trim();
+    if (raw === "") return false;
+    const unquoted = raw.startsWith("\"") && raw.endsWith("\"") ? raw.slice(1, -1) : raw;
+    const parts = unquoted.includes(" -> ") ? unquoted.split(" -> ") : [unquoted];
+    return !parts.some((p) => p.startsWith(SELF_SUBTREE));
+  });
   const paths = managedGitPaths().map((p) => p.replace(/\/$/, "")).join("/");
-  return st.stdout.trim() !== "" ? `working tree dirty under ${paths} — resolve before apply` : null;
+  return dirty.length > 0 ? `working tree dirty under ${paths} — resolve before apply` : null;
 }
 
 /**
@@ -557,7 +630,12 @@ export function applyCandidate(input: ApplyCandidateInput): ApplyResult {
 
 function applyCandidateLocked(input: ApplyCandidateInput, agentDir: string, ledger: string): ApplyResult {
   // Re-validate through proposer's pipeline — never trust the caller's check.
-  const validationReasons = validateCandidate(input.winner.edits);
+  // Step 9a: with the extensions-kind environment supplied, gate-1 dynamic
+  // checks (config code.allow + real test file + real node_modules) run here
+  // too — apply-time validation is as strict as propose-time validation.
+  const validationReasons = validateCandidate(input.winner.edits, {
+    extensionEnv: {agentDir, codeAllow: input.config.code.allow},
+  });
   if (validationReasons.length > 0) {
     applyLedgerEntry(input, "apply", "rejected", validationReasons, [], undefined, ledger);
     return {ok: false, decision: "rejected", reasons: validationReasons, files: []};
@@ -631,15 +709,18 @@ function applyCandidateLocked(input: ApplyCandidateInput, agentDir: string, ledg
   if (failure === null) {
     // EXPLICIT PATHS ONLY — never -A, ".", or --all. Paths come from the
     // surface registry's gitPath set ("AGENTS.md", "skills/", "prompts/",
-    // "agents/"). A path that does not exist on disk (e.g. a skills/ dir with
-    // no changes and no files) is skipped rather than turning into a pathspec
-    // error; the affected edit paths themselves were just written, so their
-    // parents exist.
+    // "agents/", "extensions/"). A path that does not exist on disk (e.g. a
+    // skills/ dir with no changes and no files) is skipped rather than
+    // turning into a pathspec error; the affected edit paths themselves were
+    // just written, so their parents exist. The tracked run ledger under
+    // SELF_SUBTREE is excluded from staging (see the header) — it is
+    // committed by the loop's own development-step commits, not by applies.
     const addPaths = managedGitPaths().filter((p) => existsSync(join(agentDir, p)));
     if (addPaths.length === 0) {
-      failure = "git add failed: none of the loop-managed paths (AGENTS.md, skills/, prompts/, agents/) exists in the agent dir";
+      failure = "git add failed: none of the loop-managed paths (AGENTS.md, skills/, prompts/, agents/, extensions/) exists in the agent dir";
     } else {
-      const add = git(agentDir, ["add", ...addPaths]);
+      const addArgs = addPaths.includes("extensions/") ? [...addPaths, SELF_LEDGER_ADD_EXCLUSION] : [...addPaths];
+      const add = git(agentDir, ["add", ...addArgs]);
       if (add.status !== 0) {
         failure = `git add failed: ${(add.stderr.trim() || `exit ${add.status}`)}`;
       } else {
