@@ -1,0 +1,6 @@
+# Applies when bun runs from this directory (e.g. `bun test` sweeping the
+# whole ~/.pi/agent tree). Excludes tests that belong to cloned repos but are
+# not runnable by the system bun: ponytail's band.test.tsx is written for
+# Claude Code's bundled bun runtime (virtual `claude-code/testing` module).
+[test]
+pathIgnorePatterns = ["**/ponytail/tests/band.test.tsx"]

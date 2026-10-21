@@ -2,7 +2,12 @@
   // Single project covering every TypeScript source in the repo. Per-directory
   // package versions still resolve via each extension's own node_modules.
   "include": ["**/*.ts"],
-  "exclude": ["**/node_modules", "**/runs", "**/broken"],
+  "exclude": [
+    "harness-self-improvement/runs",
+    "harness-self-improvement/loop/suite/**/broken",
+    "harness-self-improvement/loop/suite/**",
+    "harness-self-improvement/loop/suite-replay/**",
+  ],
   "compilerOptions": {
     // Environment setup & latest features
     "lib": ["ESNext"],
