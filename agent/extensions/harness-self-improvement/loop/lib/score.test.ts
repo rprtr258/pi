@@ -103,7 +103,7 @@ describe("pairedDelta", () => {
     expect(delta.perTask.map((d) => d.flip)).toEqual([null, null]);
     expect(delta.perTask[0]!.baseTokens).toBe(0);
     expect(delta.perTask[1]!.candTokens).toBe(0);
-    expect(delta.aggregates).toEqual({passDelta: 0, regressions: 0, baseTotalTokens: 80, candTotalTokens: 20, tokenRatio: 0.25});
+    expect(delta.aggregates).toEqual({passDelta: 0, regressions: 0, baseTotalTokens: 80, candTotalTokens: 20, tokenRatio: 0.25, pairedCount: 2, unpaired: []});
   });
 
   test("tokenRatio is null when the base used 0 tokens", () => {
@@ -114,6 +114,14 @@ describe("pairedDelta", () => {
   test("tasks missing from one side are skipped; base order preserved", () => {
     const delta = pairedDelta([result("a", true, 10), result("b", true, 10), result("c", true, 10)], [result("b", true, 10)]);
     expect(delta.perTask.map((d) => d.task)).toEqual(["b"]);
+    expect(delta.aggregates.pairedCount).toBe(1);
+    expect(delta.aggregates.unpaired).toEqual(["a", "c"]);
+  });
+
+  test("unpaired lists tasks present on only one side, base order then cand order", () => {
+    const delta = pairedDelta([result("a", true, 10), result("b", true, 10)], [result("b", true, 10), result("c", true, 10), result("d", true, 10)]);
+    expect(delta.aggregates.pairedCount).toBe(1);
+    expect(delta.aggregates.unpaired).toEqual(["a", "c", "d"]);
   });
 });
 
@@ -174,28 +182,34 @@ describe("fingerprintSnapshot", () => {
   const snap = (agentsMd: string, skills: Array<{relPath: string; content: string}>) => ({agentsMd, skills});
 
   test("is deterministic for identical snapshots", () => {
-    const a = fingerprintSnapshot(snap("md", [{relPath: "s/SKILL.md", content: "x"}]), "prov/model");
-    const b = fingerprintSnapshot(snap("md", [{relPath: "s/SKILL.md", content: "x"}]), "prov/model");
+    const a = fingerprintSnapshot(snap("md", [{relPath: "s/SKILL.md", content: "x"}]), "prov/model", {bin: "pi", version: "1.3.0"});
+    const b = fingerprintSnapshot(snap("md", [{relPath: "s/SKILL.md", content: "x"}]), "prov/model", {bin: "pi", version: "1.3.0"});
     expect(a).toBe(b);
     expect(a).toMatch(/^[0-9a-f]{64}$/);
   });
 
-  test("changes when AGENTS.md, a skill, or the model changes", () => {
-    const base = fingerprintSnapshot(snap("md", [{relPath: "s/SKILL.md", content: "x"}]), "prov/model");
-    expect(fingerprintSnapshot(snap("md2", [{relPath: "s/SKILL.md", content: "x"}]), "prov/model")).not.toBe(base);
-    expect(fingerprintSnapshot(snap("md", [{relPath: "s/SKILL.md", content: "x2"}]), "prov/model")).not.toBe(base);
-    expect(fingerprintSnapshot(snap("md", [{relPath: "s/SKILL.md", content: "x"}]), "prov/model2")).not.toBe(base);
-    expect(fingerprintSnapshot(snap("md", [{relPath: "s/SKILL.md", content: "x"}]), undefined)).not.toBe(base);
+  test("changes when AGENTS.md, a skill, the model, or the pi version changes", () => {
+    const base = fingerprintSnapshot(snap("md", [{relPath: "s/SKILL.md", content: "x"}]), "prov/model", {bin: "pi", version: "1.3.0"});
+    expect(fingerprintSnapshot(snap("md2", [{relPath: "s/SKILL.md", content: "x"}]), "prov/model", {bin: "pi", version: "1.3.0"})).not.toBe(base);
+    expect(fingerprintSnapshot(snap("md", [{relPath: "s/SKILL.md", content: "x2"}]), "prov/model", {bin: "pi", version: "1.3.0"})).not.toBe(base);
+    expect(fingerprintSnapshot(snap("md", [{relPath: "s/SKILL.md", content: "x"}]), "prov/model2", {bin: "pi", version: "1.3.0"})).not.toBe(base);
+    expect(fingerprintSnapshot(snap("md", [{relPath: "s/SKILL.md", content: "x"}]), undefined, {bin: "pi", version: "1.3.0"})).not.toBe(base);
+    // A different pi binary version must invalidate the fingerprint: a cache
+    // written under one version is never reused under another.
+    expect(fingerprintSnapshot(snap("md", [{relPath: "s/SKILL.md", content: "x"}]), "prov/model", {bin: "pi", version: "1.4.0"})).not.toBe(base);
+    expect(fingerprintSnapshot(snap("md", [{relPath: "s/SKILL.md", content: "x"}]), "prov/model", {bin: "pi", version: null})).not.toBe(base);
+    expect(fingerprintSnapshot(snap("md", [{relPath: "s/SKILL.md", content: "x"}]), "prov/model", undefined)).not.toBe(base);
   });
 
   test("is order-independent over skills and separator-ambiguity-safe", () => {
-    const base = fingerprintSnapshot(snap("md", [{relPath: "a/SKILL.md", content: "x"}, {relPath: "b/SKILL.md", content: "y"}]), "m");
+    const base = fingerprintSnapshot(snap("md", [{relPath: "a/SKILL.md", content: "x"}, {relPath: "b/SKILL.md", content: "y"}]), "m", {bin: "pi", version: "1.3.0"});
     // Same skills in reverse input order → same fingerprint (canonical sort).
-    expect(fingerprintSnapshot(snap("md", [{relPath: "b/SKILL.md", content: "y"}, {relPath: "a/SKILL.md", content: "x"}]), "m")).toBe(base);
-    // Content containing the NUL field separator must not collide with a
-    // differently-partitioned snapshot ("a\0skill-b" content vs two skills).
-    const sneaky = fingerprintSnapshot(snap("md", [{relPath: "s", content: "x\0skill\0y"}]), "m");
-    expect(sneaky).not.toBe(fingerprintSnapshot(snap("md", [{relPath: "s", content: "x"}, {relPath: "skill", content: "y"}]), "m"));
+    expect(fingerprintSnapshot(snap("md", [{relPath: "b/SKILL.md", content: "y"}, {relPath: "a/SKILL.md", content: "x"}]), "m", {bin: "pi", version: "1.3.0"})).toBe(base);
+    // relPath and content are separate fields: a relPath/content boundary
+    // shift cannot collide ("s" + content "x\0skill\0y" vs two skills).
+    const sneaky = fingerprintSnapshot(snap("md", [{relPath: "s", content: "x\0skill\0y"}]), "m", {bin: "pi", version: "1.3.0"});
+    expect(sneaky).not.toBe(fingerprintSnapshot(snap("md", [{relPath: "s", content: "x"}, {relPath: "skill", content: "y"}]), "m", {bin: "pi", version: "1.3.0"}));
+    expect(sneaky).not.toBe(fingerprintSnapshot(snap("md", [{relPath: "s\0skill", content: "y"}]), "m", {bin: "pi", version: "1.3.0"}));
   });
 });
 
@@ -267,12 +281,14 @@ describe("renderReport", () => {
   test("baseline mode: header, cached flag, per-task table, aggregate line", () => {
     const report = renderReport(data({
       cached: true,
+      piBinary: {bin: "pi", version: "1.3.0"},
       tasks: [row("git-merge-conflict", true, 500), row("jq-csv-to-json", false, 700, "expected 3 rows, got 2\nmismatch at row 1")],
       aggregate: {passCount: 1, total: 2, totalTokens: 1200},
     }));
     expect(report).toContain("# Run 20250607-080910-abcd");
     expect(report).toContain("- **kind:** baseline");
     expect(report).toContain("- **cached:** true");
+    expect(report).toContain("- **pi:** pi (1.3.0) [cached run]");
     expect(report).toContain("- **fingerprint:** deadbeef");
     expect(report).toContain("**Aggregate:** 1/2 pass, 1200 tokens");
     expect(report).toContain("| git-merge-conflict | git | true | 2.5s | 500 |");

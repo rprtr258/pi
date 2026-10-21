@@ -36,7 +36,9 @@ export interface ComponentSnapshot {
 export const realPiAgentDir = (): string => join(homedir(), ".pi", "agent");
 
 function walkSkills(skillsDir: string, prefix: string, out: SkillSnapshot[]): void {
-  for (const entry of readdirSync(skillsDir, {withFileTypes: true}).sort((a, b) => a.name.localeCompare(b.name))) {
+  // UTF-16 code-unit order (locale-independent), matching the fingerprint's
+  // canonical skill ordering in loop/baseline.ts.
+  for (const entry of readdirSync(skillsDir, {withFileTypes: true}).sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0))) {
     // Skip node_modules and dotfiles anywhere in the skills tree.
     if (entry.name === "node_modules" || entry.name.startsWith(".")) continue;
     const full = join(skillsDir, entry.name);

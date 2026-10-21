@@ -148,6 +148,10 @@ export interface PairedDeltaAggregates {
   candTotalTokens: number;
   /** candTotalTokens / baseTotalTokens; null when the base used 0 tokens. */
   tokenRatio: number | null;
+  /** Number of tasks present on both sides (the pairs aggregated above). */
+  pairedCount: number;
+  /** Task names present on only one side, base order first then cand order. */
+  unpaired: string[];
 }
 
 export interface PairedDelta {
@@ -157,7 +161,8 @@ export interface PairedDelta {
 
 /**
  * Pair base and candidate results by task name. Tasks present in only one
- * list are skipped (a pair needs both sides); base order is preserved.
+ * list are excluded from the pairs (a pair needs both sides) but reported in
+ * aggregates.unpaired; base order is preserved.
  */
 export function pairedDelta(baseResults: TaskScoreResult[], candResults: TaskScoreResult[]): PairedDelta {
   const candByName = new Map(candResults.map((r) => [r.task, r]));
@@ -178,6 +183,7 @@ export function pairedDelta(baseResults: TaskScoreResult[], candResults: TaskSco
   }
   const baseTotalTokens = perTask.reduce((sum, d) => sum + d.baseTokens, 0);
   const candTotalTokens = perTask.reduce((sum, d) => sum + d.candTokens, 0);
+  const paired = new Set(perTask.map((d) => d.task));
   return {
     perTask,
     aggregates: {
@@ -186,6 +192,11 @@ export function pairedDelta(baseResults: TaskScoreResult[], candResults: TaskSco
       baseTotalTokens,
       candTotalTokens,
       tokenRatio: baseTotalTokens > 0 ? candTotalTokens / baseTotalTokens : null,
+      pairedCount: perTask.length,
+      unpaired: [
+        ...baseResults.filter((r) => !paired.has(r.task)).map((r) => r.task),
+        ...candResults.filter((r) => !paired.has(r.task)).map((r) => r.task),
+      ],
     },
   };
 }
