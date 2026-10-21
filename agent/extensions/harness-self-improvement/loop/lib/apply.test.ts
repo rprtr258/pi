@@ -297,6 +297,26 @@ describe("applyCandidate", () => {
     expect(entries[0]!.sha).toBe(res.sha);
   });
 
+  test("apply with a prompts/ template edit: commit contains prompts/<file> and the file lands (review fix)", () => {
+    const root = tempRoot("apply-prompt-");
+    const agentDir = tempAgentRepo(root);
+    const ledger = join(root, "history.jsonl");
+    const template = "# Ask mode\n\nUse {{QUESTION}} wisely.\n";
+    const winner = candidate([{path: "prompts/mode-ask.md", content: template}]);
+    const res = applyCandidate({candidates: [winner], winner, runId: "prompt-1", config: APPLY, agentDir, ledgerPath: ledger});
+    expect(res.decision).toBe("applied");
+    expect(res.ok).toBe(true);
+    expect(res.sha).toBeDefined();
+    // The file lands on disk with the proposed content.
+    expect(readFileSync(join(agentDir, "prompts", "mode-ask.md"), "utf8")).toBe(template);
+    // The apply commit contains prompts/mode-ask.md.
+    const names = git(agentDir, ["show", "--name-only", "--format=", res.sha!]).stdout.split("\n").filter((l) => l !== "");
+    expect(names).toContain("prompts/mode-ask.md");
+    const entries = readLedger(ledger);
+    expect(entries[0]!.kind).toBe("apply");
+    expect(entries[0]!.decision).toBe("applied");
+  });
+
   test("invalid winner path → rejected without touching files", () => {
     const root = tempRoot("apply-rej-");
     const agentDir = tempAgentRepo(root);
@@ -352,7 +372,7 @@ describe("applyCandidate", () => {
     const winner = candidate([{path: "skills/y/SKILL.md", content: SKILL_Y_NEW}]);
     const res = applyCandidate({candidates: [winner], winner, runId: "dirty-1", config: APPLY, agentDir, ledgerPath: ledger});
     expect(res.decision).toBe("rejected");
-    expect(res.reasons[0]).toContain("working tree dirty under AGENTS.md/skills — resolve before apply");
+    expect(res.reasons[0]).toContain("working tree dirty under AGENTS.md/skills/prompts/agents — resolve before apply");
     expect(readFileSync(join(agentDir, "AGENTS.md"), "utf8")).toBe("# uncommitted manual edit\n");
     expect(existsSync(join(agentDir, "skills/y"))).toBe(false);
     expect(readLedger(ledger)[0]!.decision).toBe("rejected");
@@ -493,6 +513,37 @@ describe("revertByRunId", () => {
     expect(git(agentDir, ["status", "--porcelain"]).stdout).toBe("");
   });
 
+  test("checkout fallback succeeds when prompts/ is ABSENT from the apply commit's parent tree (review fix)", () => {
+    const root = tempRoot("revert-noprompts-");
+    // Seed repo has NO prompts/ — a pre-S8-style apply commit's parent tree.
+    const agentDir = tempAgentRepo(root);
+    const ledger = join(root, "history.jsonl");
+    const template = "# Ask mode\n\nUse {{QUESTION}} wisely.\n";
+    const winner = candidate([
+      {path: "AGENTS.md", content: AGENTS_NEW},
+      {path: "prompts/mode-ask.md", content: template},
+    ]);
+    const applied = applyCandidate({candidates: [winner], winner, runId: "rev-np", config: APPLY, agentDir, ledgerPath: ledger});
+    expect(applied.decision).toBe("applied");
+    // Precondition: prompts/ is NOT in the apply commit's parent tree, so the
+    // ls-tree filter must drop it from the fallback checkout pathspecs.
+    const parentTree = git(agentDir, ["ls-tree", "--name-only", `${applied.sha}^`]).stdout;
+    expect(parentTree).not.toContain("prompts");
+    // Diverge the applied line so `git revert` conflicts.
+    writeFileSync(join(agentDir, "AGENTS.md"), "# divergent manual edit after apply\n");
+    git(agentDir, ["add", "AGENTS.md"]);
+    git(agentDir, ["commit", "-q", "-m", "manual post-apply edit"]);
+
+    const reverted = revertByRunId("rev-np", {agentDir, ledgerPath: ledger});
+    expect(reverted.ok).toBe(true);
+    expect(reverted.method).toBe("checkout-fallback");
+    // Managed path in the parent tree restored to pre-apply content.
+    expect(readFileSync(join(agentDir, "AGENTS.md"), "utf8")).toBe("# base agents\n");
+    // prompts/ was never in the parent tree — left at its applied state.
+    expect(readFileSync(join(agentDir, "prompts", "mode-ask.md"), "utf8")).toBe(template);
+    expect(git(agentDir, ["status", "--porcelain"]).stdout).toBe("");
+  });
+
   test("refuses an unknown runId and never touches other commits", () => {
     const root = tempRoot("revert-none-");
     const agentDir = tempAgentRepo(root);
@@ -518,7 +569,7 @@ describe("revertByRunId", () => {
 
     const reverted = revertByRunId("rev-dirty", {agentDir, ledgerPath: ledger});
     expect(reverted.ok).toBe(false);
-    expect(reverted.error).toContain("working tree dirty under AGENTS.md/skills — resolve before apply");
+    expect(reverted.error).toContain("working tree dirty under AGENTS.md/skills/prompts/agents — resolve before apply");
     // No revert commit was made and the manual edit is untouched.
     expect(git(agentDir, ["rev-parse", "HEAD"]).stdout.trim()).toBe(headAfterApply);
     expect(readFileSync(join(agentDir, "AGENTS.md"), "utf8")).toBe("# uncommitted manual edit\n");
