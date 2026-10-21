@@ -1,7 +1,8 @@
 #!/usr/bin/env bun
 // Checker for jq-csv-to-json.
 // $1 = workspace path; read-only for this script. Exit 0 = pass, non-zero = fail.
-import {existsSync, readFileSync, statSync} from "node:fs";
+import {cpSync, existsSync, mkdtempSync, readFileSync, rmSync, statSync} from "node:fs";
+import {tmpdir} from "node:os";
 import {join} from "node:path";
 import {execFileSync} from "node:child_process";
 
@@ -36,28 +37,35 @@ if (!(statSync(join(ws, "convert.sh")).mode & 0o111)) fail("convert.sh is not ex
 if (!readFileSync(join(ws, "convert.sh"), "utf8").includes("jq")) fail("convert.sh does not use jq");
 
 // 3. Run the converter, then compare normalized JSON (order/whitespace tolerant).
-try {
-  execFileSync(join(ws, "convert.sh"), [], {cwd: ws, stdio: ["ignore", "pipe", "pipe"]});
-} catch (e) {
-  const stderr = ((e as {stderr?: Buffer}).stderr ?? "").toString().trim();
-  fail(stderr ? `convert.sh exited non-zero: ${stderr.split("\n").slice(-3).join("; ")}` : "convert.sh exited non-zero");
-}
-if (!existsSync(join(ws, "users.json"))) fail("users.json was not created");
-
-const expectedJson = [
-  {id: 1, name: "Alice", age: 30, active: true},
-  {id: 2, name: "Bob", age: 25, active: false},
-  {id: 3, name: "Cara", age: 41, active: true},
-  {id: 4, name: "Dan", age: 19, active: true},
-];
+// Run everything inside a scratch copy of the workspace so $1 stays read-only.
+const scratch = mkdtempSync(join(tmpdir(), "harness-check-csv-"));
 let rows: Array<Record<string, unknown>>;
 try {
-  rows = JSON.parse(readFileSync(join(ws, "users.json"), "utf8"));
-} catch {
-  fail("users.json is not valid JSON");
-}
-if (stable(rows) !== stable(expectedJson)) {
-  fail(`users.json content wrong; got: ${JSON.stringify(rows)}`);
+  cpSync(ws, scratch, {recursive: true});
+  try {
+    execFileSync(join(scratch, "convert.sh"), [], {cwd: scratch, stdio: ["ignore", "pipe", "pipe"]});
+  } catch (e) {
+    const stderr = ((e as {stderr?: Buffer}).stderr ?? "").toString().trim();
+    fail(stderr ? `convert.sh exited non-zero: ${stderr.split("\n").slice(-3).join("; ")}` : "convert.sh exited non-zero");
+  }
+  if (!existsSync(join(scratch, "users.json"))) fail("users.json was not created");
+
+  const expectedJson = [
+    {id: 1, name: "Alice", age: 30, active: true},
+    {id: 2, name: "Bob", age: 25, active: false},
+    {id: 3, name: "Cara", age: 41, active: true},
+    {id: 4, name: "Dan", age: 19, active: true},
+  ];
+  try {
+    rows = JSON.parse(readFileSync(join(scratch, "users.json"), "utf8"));
+  } catch {
+    fail("users.json is not valid JSON");
+  }
+  if (stable(rows) !== stable(expectedJson)) {
+    fail(`users.json content wrong; got: ${JSON.stringify(rows)}`);
+  }
+} finally {
+  rmSync(scratch, {recursive: true, force: true});
 }
 
 // 4. Types must be numbers/booleans, not strings.

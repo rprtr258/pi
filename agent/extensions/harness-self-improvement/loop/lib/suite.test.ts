@@ -147,6 +147,60 @@ describe("suite validate negative fixtures", () => {
     expect(bad.broken?.error ?? "").toContain("non-zero exit on broken fixture");
   });
 
+  test("flags a checker that mutates the workspace", () => {
+    const root = makeSuite();
+    addControlTask(root);
+    const dir = join(root, "suite", "shell-writes-workspace");
+    mkdirSync(join(dir, "ref"), {recursive: true});
+    mkdirSync(join(dir, "broken"), {recursive: true});
+    writeFileSync(
+      join(dir, "TASK.md"),
+      "---\nname: shell-writes-workspace\ndescription: broken task\ntimeout_s: 120\n---\nBody.\n",
+    );
+    writeFileSync(join(dir, "ref", "x.txt"), "x\n");
+    writeFileSync(join(dir, "broken", "x.txt"), "x\n");
+    // Writes a file into $1: the checker must be reported as mutating the workspace.
+    const check = [
+      "#!/usr/bin/env bun",
+      'import {writeFileSync} from "node:fs";',
+      "writeFileSync(process.argv[2]! + \"/out.txt\", \"mutated\\n\");",
+      "",
+    ].join("\n");
+    writeFileSync(join(dir, "check.ts"), check);
+    chmodSync(join(dir, "check.ts"), 0o755);
+
+    const {ok, results} = validateSuite(join(root, "suite"));
+    expect(ok).toBe(false);
+    expect(failures(results)).toContain("shell-writes-workspace");
+    const bad = results.find((r) => r.name === "shell-writes-workspace")!;
+    expect(bad.ref?.mutated).toBe(true);
+    expect(bad.ref?.error ?? "").toContain("modified the workspace");
+  });
+
+  test("flags a checker that exceeds the timeout", () => {
+    const root = makeSuite();
+    addControlTask(root);
+    const dir = join(root, "suite", "shell-never-terminates");
+    mkdirSync(join(dir, "ref"), {recursive: true});
+    mkdirSync(join(dir, "broken"), {recursive: true});
+    writeFileSync(
+      join(dir, "TASK.md"),
+      "---\nname: shell-never-terminates\ndescription: broken task\ntimeout_s: 120\n---\nBody.\n",
+    );
+    writeFileSync(join(dir, "ref", "x.txt"), "x\n");
+    writeFileSync(join(dir, "broken", "x.txt"), "x\n");
+    // Sleeps far longer than the injected timeout.
+    const check = "#!/usr/bin/env bun\nawait Bun.sleep(30_000);\n";
+    writeFileSync(join(dir, "check.ts"), check);
+    chmodSync(join(dir, "check.ts"), 0o755);
+
+    const {ok, results} = validateSuite(join(root, "suite"), {checkerTimeoutMs: 1_000});
+    expect(ok).toBe(false);
+    expect(failures(results)).toContain("shell-never-terminates");
+    const bad = results.find((r) => r.name === "shell-never-terminates")!;
+    expect(bad.ref?.error ?? "").toContain("timed out after 1s");
+  });
+
   test("passes a valid suite unchanged", () => {
     const root = makeSuite();
     addControlTask(root);
