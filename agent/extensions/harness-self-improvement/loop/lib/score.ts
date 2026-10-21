@@ -36,6 +36,13 @@ export interface TaskScoreResult {
   stderrExcerpt: string | null;
   /** Assistant trajectory of the nested run (kept for later diff steps). */
   trajectory: string;
+  /**
+   * Resume binding written by the loop driver (see loop/driver.ts): a
+   * `<runDir>/tasks/<task>.json` file is reused on resume only when its
+   * boundTo matches the requesting (run, iteration, candidate) identity.
+   * Absent in pre-S6 result files and in baseline-cache payloads.
+   */
+  boundTo?: string;
 }
 
 export interface SuiteAggregate {
@@ -45,9 +52,20 @@ export interface SuiteAggregate {
   totalTokens: number;
 }
 
+/** Injectable probe implementation (the driver's selftest fakes this). */
+export type RunProbeFn = typeof runProbe;
+
 export interface ScoreSuiteOptions {
   /** Optional `--model` override passed through to every nested pi run. */
   model?: string;
+  /** Probe implementation override (tests inject a fake); defaults to runProbe. */
+  runProbeFn?: RunProbeFn;
+  /**
+   * Resume binding (loop/driver.ts): when set, an existing
+   * `<runDir>/tasks/<task>.json` is reused only if its `boundTo` equals this
+   * value — results from another run/iteration/candidate are re-probed.
+   */
+  boundTo?: string;
 }
 
 export interface ScoreSuiteResult {
@@ -81,13 +99,16 @@ export async function scoreSuite(tasks: LoadedTask[], sandboxDir: string, runDir
   const wsRoot = join(runDir, "ws");
   mkdirSync(tasksDir, {recursive: true});
   mkdirSync(wsRoot, {recursive: true});
+  const probe = options.runProbeFn ?? runProbe;
   const results: TaskScoreResult[] = [];
   for (const task of tasks) {
     const resultPath = join(tasksDir, `${task.name}.json`);
     if (existsSync(resultPath)) {
       try {
         const cached = JSON.parse(readFileSync(resultPath, "utf8")) as unknown;
-        if (isReusableResult(cached, task.name)) {
+        // When boundTo is set, the result must also carry the same binding —
+        // a result file from another run/iteration/candidate is never reused.
+        if (isReusableResult(cached, task.name) && (options.boundTo === undefined || cached.boundTo === options.boundTo)) {
           console.log(`[score] ${task.name}: reused existing result (resume)`);
           results.push(cached);
           continue;
@@ -97,7 +118,7 @@ export async function scoreSuite(tasks: LoadedTask[], sandboxDir: string, runDir
       }
     }
     const started = performance.now();
-    const probe = await runProbe(task, sandboxDir, join(wsRoot, task.name), {
+    const probeResult = await probe(task, sandboxDir, join(wsRoot, task.name), {
       timeoutS: task.meta?.timeoutS,
       model: options.model,
       // Sibling of the workspace, never inside it: checkers must not see it.
@@ -106,16 +127,17 @@ export async function scoreSuite(tasks: LoadedTask[], sandboxDir: string, runDir
     const result: TaskScoreResult = {
       task: task.name,
       category: task.category,
-      pass: probe.checkerResult.pass,
+      pass: probeResult.checkerResult.pass,
       durationMs: Math.round(performance.now() - started),
-      usage: probe.usage,
-      exit: probe.exit,
-      piBinary: probe.piBinary,
-      timedOut: probe.timedOut,
-      checkerOutput: probe.checkerResult.output,
-      stderrExcerpt: probe.stderrExcerpt,
-      trajectory: probe.trajectory,
+      usage: probeResult.usage,
+      exit: probeResult.exit,
+      piBinary: probeResult.piBinary,
+      timedOut: probeResult.timedOut,
+      checkerOutput: probeResult.checkerResult.output,
+      stderrExcerpt: probeResult.stderrExcerpt,
+      trajectory: probeResult.trajectory,
     };
+    if (options.boundTo !== undefined) result.boundTo = options.boundTo;
     // Written before moving on: a crash between probes leaves every completed
     // task's result on disk for resume.
     writeFileSync(resultPath, `${JSON.stringify(result, null, 2)}\n`);

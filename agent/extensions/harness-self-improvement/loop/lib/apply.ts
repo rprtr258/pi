@@ -48,7 +48,9 @@
  *     "minWin": 1,            // min passDelta for a straight pass win
  *     "minQualityGain": null, // null = pass-equal candidates never win
  *     "usageFactor": 1.5,     // max candTokens / baseTokens ratio
- *     "apply": {"dryRun": true}
+ *     "apply": {"dryRun": true},
+ *     "budget": {"maxTotalTokens": 5000000, "maxIterations": 3},
+ *     "candidates": {"maxPerIteration": 3}
  *   }
  *   loadLoopConfig() is tolerant: missing file → defaults; invalid JSON or
  *   wrong-typed fields → default for that field + a console warning.
@@ -92,6 +94,17 @@ export interface LoopConfig {
     /** true (default): never touch files, only return the diff preview. */
     dryRun: boolean;
   };
+  /** Loop-stop budget (enforced by the /hloop driver between iterations and before each spawn). */
+  budget: {
+    /** Stop when the SUM of probe usage.totalTokens across the run reaches this (cost.total is 0 on this gateway — tokens are the metric). */
+    maxTotalTokens: number;
+    /** Maximum number of loop iterations (snapshot → baseline → propose → score → apply cycles). */
+    maxIterations: number;
+  };
+  candidates: {
+    /** Maximum number of validated candidates scored per iteration. */
+    maxPerIteration: number;
+  };
 }
 
 export const DEFAULT_LOOP_CONFIG: LoopConfig = {
@@ -99,6 +112,8 @@ export const DEFAULT_LOOP_CONFIG: LoopConfig = {
   minQualityGain: null,
   usageFactor: 1.5,
   apply: {dryRun: true},
+  budget: {maxTotalTokens: 5_000_000, maxIterations: 3},
+  candidates: {maxPerIteration: 3},
 };
 
 function defaultConfigPath(): string {
@@ -132,7 +147,12 @@ export function loadLoopConfig(path: string = defaultConfigPath()): LoopConfig {
     console.warn("[apply] loop/config.json is not a JSON object — using defaults");
     return DEFAULT_LOOP_CONFIG;
   }
-  const cfg: LoopConfig = {...DEFAULT_LOOP_CONFIG, apply: {...DEFAULT_LOOP_CONFIG.apply}};
+  const cfg: LoopConfig = {
+    ...DEFAULT_LOOP_CONFIG,
+    apply: {...DEFAULT_LOOP_CONFIG.apply},
+    budget: {...DEFAULT_LOOP_CONFIG.budget},
+    candidates: {...DEFAULT_LOOP_CONFIG.candidates},
+  };
   const p = parsed as Record<string, unknown>;
   if (p["minWin"] === undefined) {
     // keep default
@@ -162,6 +182,43 @@ export function loadLoopConfig(path: string = defaultConfigPath()): LoopConfig {
     cfg.apply.dryRun = (apply as Record<string, boolean>)["dryRun"]!;
   } else {
     warnField("apply.dryRun", "not an object with a boolean dryRun");
+  }
+  const budget = p["budget"];
+  if (budget === undefined) {
+    // keep default
+  } else if (budget !== null && typeof budget === "object" && !Array.isArray(budget)) {
+    const b = budget as Record<string, unknown>;
+    if (b["maxTotalTokens"] === undefined) {
+      // keep default
+    } else if (typeof b["maxTotalTokens"] === "number" && Number.isFinite(b["maxTotalTokens"]) && b["maxTotalTokens"] > 0) {
+      cfg.budget.maxTotalTokens = b["maxTotalTokens"];
+    } else {
+      warnField("budget.maxTotalTokens", "not a finite number > 0");
+    }
+    if (b["maxIterations"] === undefined) {
+      // keep default
+    } else if (typeof b["maxIterations"] === "number" && Number.isInteger(b["maxIterations"]) && b["maxIterations"] >= 1) {
+      cfg.budget.maxIterations = b["maxIterations"];
+    } else {
+      warnField("budget.maxIterations", "not an integer ≥ 1");
+    }
+  } else {
+    warnField("budget", "not an object");
+  }
+  const candidates = p["candidates"];
+  if (candidates === undefined) {
+    // keep default
+  } else if (candidates !== null && typeof candidates === "object" && !Array.isArray(candidates)) {
+    const c = candidates as Record<string, unknown>;
+    if (c["maxPerIteration"] === undefined) {
+      // keep default
+    } else if (typeof c["maxPerIteration"] === "number" && Number.isInteger(c["maxPerIteration"]) && c["maxPerIteration"] >= 1) {
+      cfg.candidates.maxPerIteration = c["maxPerIteration"];
+    } else {
+      warnField("candidates.maxPerIteration", "not an integer ≥ 1");
+    }
+  } else {
+    warnField("candidates", "not an object");
   }
   return cfg;
 }

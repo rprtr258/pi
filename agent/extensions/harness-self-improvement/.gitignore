@@ -6,3 +6,4 @@ runs/
 loop/.cache/
 # The run ledger is committed (negate the repo-root ignore of run-history.jsonl)
 !run-history.jsonl
+loop/.stop
