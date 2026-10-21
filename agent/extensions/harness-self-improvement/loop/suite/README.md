@@ -16,8 +16,10 @@ loop/suite/<task-name>/
 ```
 
 Task names are kebab-case and category-prefixed (`git-`, `jq-`, `ts-`,
-`shell-`); the category is the name prefix. Task names must never use the
-`smoke-` prefix — that is reserved for a later step.
+`shell-`); the category is the name prefix. The `smoke-` prefix is reserved
+for smoke checks: trivial, fast (timeout_s ≤ 60) end-to-end sanity tasks the
+/hloop driver runs to verify the whole probe pipeline (see loop/driver.ts);
+they follow exactly the same TASK.md / check.ts / ref+broken contract.
 
 ## TASK.md contract
 

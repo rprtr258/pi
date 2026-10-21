@@ -16,7 +16,7 @@ afterAll(() => {
     rmSync(dir, {recursive: true, force: true});
 });
 
-function makeSuite(): string {
+function useSuite(): string {
   const root = mkdtempSync(join(tmpdir(), "harness-suite-test-"));
   CLEANUPS.push(root);
   mkdirSync(join(root, "suite"), {recursive: true});
@@ -49,7 +49,7 @@ function addControlTask(root: string): void {
 }
 
 function failures(results: TaskCheckResult[]): string[] {
-  return results.filter((r) => !r.ok).map((r) => r.name);
+  return results.filter(r => !r.ok).map(r => r.name);
 }
 
 /**
@@ -75,23 +75,35 @@ function describeResult(r: TaskCheckResult): string {
   return lines.join("\n");
 }
 
+function useDir(root: string, name: string, files: {
+  task: string,
+  check: string,
+  broken: Record<string, string>,
+  ref: Record<string, string>,
+}) {
+  const dir = join(root, "suite", name);
+  mkdirSync(join(dir, "broken"), {recursive: true});
+  for (const [name, content] of Object.entries(files.broken))
+    writeFileSync(join(dir, "broken", name), content);
+  mkdirSync(join(dir, "ref"), {recursive: true});
+  for (const [name, content] of Object.entries(files.ref))
+    writeFileSync(join(dir, "ref", name), content);
+  writeFileSync(join(dir, "TASK.md"), files.task);
+  writeFileSync(join(dir, "check.ts"), files.check);
+  chmodSync(join(dir, "check.ts"), 0o755);
+}
+
 describe("suite validate negative fixtures", () => {
   test("flags a task with malformed frontmatter", () => {
-    const root = makeSuite();
+    const root = useSuite();
     addControlTask(root);
-    const dir = join(root, "suite", "ts-bad-frontmatter");
-    mkdirSync(join(dir, "ref"), {recursive: true});
-    mkdirSync(join(dir, "broken"), {recursive: true});
-    // No closing '---' delimiter.
-    writeFileSync(
-      join(dir, "TASK.md"),
-      "---\nname: ts-bad-frontmatter\ndescription: broken task\ntimeout_s: 120\n",
-    );
-    writeFileSync(join(dir, "ref", "x.txt"), "x\n");
-    writeFileSync(join(dir, "broken", "x.txt"), "x\n");
-    const check = "#!/usr/bin/env bun\nprocess.exit(0);\n";
-    writeFileSync(join(dir, "check.ts"), check);
-    chmodSync(join(dir, "check.ts"), 0o755);
+    useDir(root, "ts-bad-frontmatter", {
+      // No closing '---' delimiter.
+      task: "---\nname: ts-bad-frontmatter\ndescription: broken task\ntimeout_s: 120\n",
+      ref: {"x.txt": "x\n"},
+      broken: {"x.txt": "x\n"},
+      check: "#!/usr/bin/env bun\nprocess.exit(0);\n",
+    });
 
     const {ok, results} = validateSuite(join(root, "suite"));
     expect(ok).toBe(false);
@@ -102,7 +114,7 @@ describe("suite validate negative fixtures", () => {
   });
 
   test("flags a task with a non-executable check.ts", () => {
-    const root = makeSuite();
+    const root = useSuite();
     addControlTask(root);
     const dir = join(root, "suite", "jq-noexec-check");
     mkdirSync(join(dir, "ref"), {recursive: true});
@@ -124,21 +136,15 @@ describe("suite validate negative fixtures", () => {
   });
 
   test("flags a task whose broken fixture passes the checker", () => {
-    const root = makeSuite();
+    const root = useSuite();
     addControlTask(root);
-    const dir = join(root, "suite", "git-never-fails");
-    mkdirSync(join(dir, "ref"), {recursive: true});
-    mkdirSync(join(dir, "broken"), {recursive: true});
-    writeFileSync(
-      join(dir, "TASK.md"),
-      "---\nname: git-never-fails\ndescription: broken task\ntimeout_s: 120\n---\nBody.\n",
-    );
-    writeFileSync(join(dir, "ref", "x.txt"), "x\n");
-    writeFileSync(join(dir, "broken", "x.txt"), "x\n");
-    // Always exits 0: broken/ is not distinguished from ref/.
-    const check = "#!/usr/bin/env bun\nprocess.exit(0);\n";
-    writeFileSync(join(dir, "check.ts"), check);
-    chmodSync(join(dir, "check.ts"), 0o755);
+    useDir(root, "git-never-fails", {
+      task: "---\nname: git-never-fails\ndescription: broken task\ntimeout_s: 120\n---\nBody.\n",
+      ref: {"x.txt": "x\n"},
+      broken: {"x.txt": "x\n"},
+      // Always exits 0: broken/ is not distinguished from ref/.
+      check: "#!/usr/bin/env bun\nprocess.exit(0);\n",
+    });
 
     const {ok, results} = validateSuite(join(root, "suite"));
     expect(ok).toBe(false);
@@ -148,7 +154,7 @@ describe("suite validate negative fixtures", () => {
   });
 
   test("flags a checker that mutates the workspace", () => {
-    const root = makeSuite();
+    const root = useSuite();
     addControlTask(root);
     const dir = join(root, "suite", "shell-writes-workspace");
     mkdirSync(join(dir, "ref"), {recursive: true});
@@ -178,7 +184,7 @@ describe("suite validate negative fixtures", () => {
   });
 
   test("flags a checker that exceeds the timeout", () => {
-    const root = makeSuite();
+    const root = useSuite();
     addControlTask(root);
     const dir = join(root, "suite", "shell-never-terminates");
     mkdirSync(join(dir, "ref"), {recursive: true});
@@ -202,7 +208,7 @@ describe("suite validate negative fixtures", () => {
   });
 
   test("passes a valid suite unchanged", () => {
-    const root = makeSuite();
+    const root = useSuite();
     addControlTask(root);
     const {ok, results} = validateSuite(join(root, "suite"));
     expect(ok).toBe(true);
