@@ -21,6 +21,15 @@ The harness consists of four kinds of always-on context components (the
    included-vs-manifest-only rule applies.
 4. `agents/<name>.md` — pi-subagents subagent definitions (used when the
    agent delegates work). The same included-vs-manifest-only rule applies.
+5. `extensions/<name>/...` — pi extension CODE (Step 9a). ANY extension dir is
+   editable — an existing one or a NEW one (your edits create it) — at most
+   ONE per candidate. Gated before scoring: `bunx tsc --noEmit`, the unit
+   tests (`bun test`), and a full-suite probe with the candidate staged (an
+   extension load error rejects the candidate). The candidate must leave the
+   extension unit-testable: it keeps or adds at least one test file
+   (`extensions/<name>/*.test.ts` or `extensions/<name>/test/**`). Never
+   touch `package.json`, `bun.lock`, or `node_modules/` — dependencies are
+   never installed; imports must resolve from existing node_modules.
 
 {{COMPONENTS}}
 
@@ -59,9 +68,14 @@ these fingerprints, change the proposal.
   - `{"path": "...", "content": null}` — delete the file.
 - Allowed paths: `AGENTS.md`, `skills/<skill-dir>/SKILL.md`,
   `skills/<skill-dir>/scripts/<file>` (lowercase skill dirs),
-  `prompts/<name>.md`, `agents/<name>.md`. Nothing else.
+  `prompts/<name>.md`, `agents/<name>.md`, `extensions/<name>/...` for ANY
+  extension name (existing or new). Nothing else.
 - Per-candidate caps: at most 6 files, every file at most 100KB, and an
   AGENTS.md rewrite at most 48KB.
+- Extension code contract (`extensions/<name>/...`): at most ONE extension
+  per candidate, unit-testable after your edits: it keeps an existing test
+  file or adds one (`extensions/<name>/*.test.ts` or `extensions/<name>/test/**`).
+  Content is always the COMPLETE final file; keep changes minimal and self-contained.
 - Prompt template contract (`prompts/<name>.md`):
   - No YAML frontmatter is required; the first line is shown as the template
     description, so make it a concise one-liner saying what the template is for.
