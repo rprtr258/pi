@@ -7,7 +7,7 @@
  */
 import {spawn} from "node:child_process";
 import {describe, expect, test} from "bun:test";
-import {killProcessGroup, parseJsonlEvents, stripFrontmatter} from "./probe.ts";
+import {killProcessGroup, parseJsonlEvents, redact, stripFrontmatter} from "./probe.ts";
 
 /** True when the process group is still alive. */
 function groupAlive(pid: number): boolean {
@@ -82,6 +82,56 @@ describe("parseJsonlEvents", () => {
     const parsed = parseJsonlEvents(JSON.stringify({type: "message_update", message: {role: "user", content: "hi"}}));
     expect(parsed.trajectoryLines).toEqual([]);
     expect(parsed.usage).toBeNull();
+  });
+
+  test("skips a message_end whose message is JSON null instead of throwing", () => {
+    const raw = [
+      {type: "message_end", message: null},
+      {type: "message_update", message: null},
+    ].map(j => JSON.stringify(j)).join("\n");
+    const parsed = parseJsonlEvents(raw);
+    expect(parsed.trajectoryLines).toEqual([]);
+    expect(parsed.usage).toBeNull();
+  });
+
+  test("a later message_end usage overwrites an earlier message_update usage", () => {
+    const msg = (usage: object) => ({role: "assistant", content: [{type: "text", text: "hi"}], usage});
+    const raw = [
+      {type: "message_update", message: msg({input: 1, output: 1, cacheRead: 0, cacheWrite: 0, totalTokens: 10, cost: {input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0}})},
+      {type: "message_end", message: msg({input: 2, output: 2, cacheRead: 0, cacheWrite: 0, totalTokens: 20, cost: {input: 1, output: 1, cacheRead: 0, cacheWrite: 0, total: 2}})},
+    ].map(j => JSON.stringify(j)).join("\n");
+    const parsed = parseJsonlEvents(raw);
+    expect(parsed.usage!.totalTokens).toBe(20);
+  });
+
+  test("in fallback-only streams the LAST message_end usage wins", () => {
+    const msg = (usage: object) => ({role: "assistant", content: [{type: "text", text: "hi"}], usage});
+    const raw = [
+      {type: "message_end", message: msg({input: 1, output: 1, cacheRead: 0, cacheWrite: 0, totalTokens: 11, cost: {input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0}})},
+      {type: "message_end", message: msg({input: 1, output: 1, cacheRead: 0, cacheWrite: 0, totalTokens: 22, cost: {input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0}})},
+    ].map(j => JSON.stringify(j)).join("\n");
+    const parsed = parseJsonlEvents(raw);
+    expect(parsed.usage!.totalTokens).toBe(22);
+  });
+});
+
+describe("redact", () => {
+  test("redacts sk- style API keys", () => {
+    expect(redact("error with key sk-abc123DEF_-xyz456 at position 0")).toBe("error with key sk-*** at position 0");
+  });
+
+  test("redacts bearer tokens, case-insensitively", () => {
+    expect(redact("Authorization: Bearer eyJhbGciOi.abc-123_x")).toBe("Authorization: Bearer ***");
+  });
+
+  test("redacts api_key assignments but keeps the key reference", () => {
+    expect(redact('api_key = "supersecret123"')).toBe('api_key = "***"');
+    expect(redact("apiKey: hunter2value")).toBe("apiKey: ***");
+    expect(redact("api-key=abc123def")).toBe("api-key=***");
+  });
+
+  test("leaves ordinary text untouched", () => {
+    expect(redact("plain stderr output with no secrets")).toBe("plain stderr output with no secrets");
   });
 });
 
