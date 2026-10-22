@@ -6,7 +6,7 @@
  */
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { Editor, type EditorTheme, Key, matchesKey, Text, truncateToWidth, wrapTextWithAnsi } from "@earendil-works/pi-tui";
+import { Editor, type EditorTheme, Key, matchesKey, Text, truncateToWidth, visibleWidth, wrapTextWithAnsi } from "@earendil-works/pi-tui";
 import { Type } from "typebox";
 
 // Types
@@ -106,6 +106,7 @@ export default function questionnaire(pi: ExtensionAPI) {
         let inputMode = false;
         let inputQuestionId: string | null = null;
         let cachedLines: string[] | undefined;
+        let cachedWidth: number | undefined;
         const answers = new Map<string, Answer>();
 
         // Editor for "Type something" option
@@ -124,6 +125,7 @@ export default function questionnaire(pi: ExtensionAPI) {
         // Helpers
         function refresh() {
           cachedLines = undefined;
+          cachedWidth = undefined;
           tui.requestRender();
         }
 
@@ -260,7 +262,7 @@ export default function questionnaire(pi: ExtensionAPI) {
         }
 
         function render(width: number): string[] {
-          if (cachedLines) return cachedLines;
+          if (cachedLines && cachedWidth === width) return cachedLines;
 
           const lines: string[] = [];
           const q = currentQuestion();
@@ -268,6 +270,17 @@ export default function questionnaire(pi: ExtensionAPI) {
 
           // Helper to add truncated line
           const add = (s: string) => lines.push(truncateToWidth(s, width));
+
+          // Wrap long text (option labels, descriptions) onto multiple lines
+          // instead of clipping it with an ellipsis. `indent` prefixes the first
+          // line; continuation lines get a plain-space pad of the same visible
+          // width so the block stays aligned. truncateToWidth is a safety net
+          // for unbreakable single words only.
+          const addWrapped = (indent: string, s: string) => {
+            const pad = " ".repeat(visibleWidth(indent));
+            const wrapped = wrapTextWithAnsi(s, Math.max(1, width - pad.length));
+            lines.push(...wrapped.map((line, i) => truncateToWidth((i === 0 ? indent : pad) + line, width, "")));
+          };
 
           add(theme.fg("accent", "─".repeat(width)));
 
@@ -304,12 +317,12 @@ export default function questionnaire(pi: ExtensionAPI) {
               const color = selected ? "accent" : "text";
               // Mark "Type something" differently when in input mode
               if (isOther && inputMode) {
-                add(prefix + theme.fg("accent", `${i + 1}. ${opt.label} ✎`));
+                addWrapped(prefix, theme.fg("accent", `${i + 1}. ${opt.label} ✎`));
               } else {
-                add(prefix + theme.fg(color, `${i + 1}. ${opt.label}`));
+                addWrapped(prefix, theme.fg(color, `${i + 1}. ${opt.label}`));
               }
               if (opt.description) {
-                add(`     ${theme.fg("muted", opt.description)}`);
+                addWrapped("     ", theme.fg("muted", opt.description));
               }
             }
           }
@@ -367,6 +380,7 @@ export default function questionnaire(pi: ExtensionAPI) {
           add(theme.fg("accent", "─".repeat(width)));
 
           cachedLines = lines;
+          cachedWidth = width;
           return lines;
         }
 
@@ -374,6 +388,7 @@ export default function questionnaire(pi: ExtensionAPI) {
           render,
           invalidate: () => {
             cachedLines = undefined;
+            cachedWidth = undefined;
           },
           handleInput,
         };
