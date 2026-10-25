@@ -1,10 +1,11 @@
 #!/usr/bin/env bun
 /**
  * Harness cycle stats from pi session logs.
- * Reports: tool call/error counts + categories, token/cost totals, durations,
- * response times, interruptions, git activity, files/lines changed, languages,
- * time-of-day, concurrent-session events, slash-command and skill usage,
- * correction-signal user messages. Used by the /harness analyze phase.
+ * Reports: tool call/error counts + categories (total and per session), token/cost
+ * totals, durations, response times, interruptions, git activity, files/lines
+ * changed, languages, time-of-day, concurrent-session events, slash-command and
+ * skill usage (total and per session), correction-signal user messages.
+ * Used by the /harness analyze phase.
  *
  * Usage:
  *   bun stats.ts                 text summary (default)
@@ -32,10 +33,13 @@ const dir = join(home, ".pi/agent/sessions");
 const limit = Number(flagValue("--limit") ?? 500) || 500;
 
 // ---- session model ----
+type SkillUse = { agent: number; manual: number };
+
 type SessionStats = {
   file: string; id: string; cwd: string; start: number; end: number;
   models: Set<string>; userMessages: number; assistantMessages: number;
   toolCalls: number; toolErrors: number;
+  toolCounts: Map<string, number>; skillUses: Map<string, SkillUse>;
   input: number; output: number; cacheRead: number; cacheWrite: number; reasoning: number; cost: number;
   interruptions: number; responseTimes: number[];
   gitCommits: number; gitPushes: number;
@@ -54,6 +58,7 @@ const newSession = (file: string): SessionStats => ({
   interruptions: 0, responseTimes: [], gitCommits: 0, gitPushes: 0,
   files: new Set(), linesAdded: 0, linesRemoved: 0, languages: {}, messageHours: [],
   userTimestamps: [], corrections: 0, firstPrompt: "", lastAssistant: 0,
+  toolCounts: new Map(), skillUses: new Map(),
 });
 
 const lineCount = (s: unknown): number => (typeof s === "string" && s ? s.split("\n").length : 0);
@@ -83,13 +88,17 @@ const ERROR_CATEGORIES: Array<[RegExp, string]> = [
   [/validation|invalid|schema/i, "Validation Error"],
   [/exit code|command failed|non-zero/i, "Command Failed"],
 ];
-const categorizeError = (text: string): string => {
-  for (const [re, cat] of ERROR_CATEGORIES) if (re.test(text)) return cat;
-  return "Other";
-};
+const categorizeError = (text: string): string => 
+  ERROR_CATEGORIES.find(([re, _cat]) => re.test(text))?.[1] ?? "Other";
 
 const userText = (m: any): string =>
   (m.content ?? []).filter((c: any) => c.type === "text").map((c: any) => c.text).join(" ");
+
+function bumpSkill(s: SessionStats, name: string, kind: keyof SkillUse) {
+  const use = s.skillUses.get(name) ?? { agent: 0, manual: 0 };
+  use[kind]++;
+  s.skillUses.set(name, use);
+}
 
 // insights.ts multi-session ("multi-clauding") detector: two or more sessions
 // with user messages interleaved inside a sliding 30-minute window.
@@ -172,9 +181,13 @@ function buildAggregate() {
     input += s.input; output += s.output; cacheRead += s.cacheRead; cacheWrite += s.cacheWrite;
     reasoning += s.reasoning; cost += s.cost; gitCommits += s.gitCommits; gitPushes += s.gitPushes;
     filesEdited += s.files.size; linesAdded += s.linesAdded; linesRemoved += s.linesRemoved;
-    interruptions += s.interruptions; responseTimes.push(...s.responseTimes); messageHours.push(...s.messageHours);
-    for (const [k, v] of Object.entries(s.languages)) languages[k] = (languages[k] ?? 0) + v;
-    for (const m of s.models) models[m] = (models[m] ?? 0) + 1;
+    interruptions += s.interruptions;
+    responseTimes.push(...s.responseTimes);
+    messageHours.push(...s.messageHours);
+    for (const [k, v] of Object.entries(s.languages))
+      languages[k] = (languages[k] ?? 0) + v;
+    for (const m of s.models)
+      models[m] = (models[m] ?? 0) + 1;
   }
   const starts = sessionStats.filter((s) => s.start).map((s) => s.start);
   const ends = sessionStats.filter((s) => s.end).map((s) => s.end);
@@ -196,7 +209,14 @@ function buildAggregate() {
     skills: skillRows(),
     corrections: correctionExamples,
     sessionList: sessionStats
-      .map((s) => ({id: s.id, cwd: s.cwd, start: s.start, durationMin: Math.round((s.end - s.start) / 60000), userMessages: s.userMessages, tokens: s.input + s.output, cost: s.cost, toolErrors: s.toolErrors, models: [...s.models], firstPrompt: s.firstPrompt, file: s.file}))
+      .map((s) => ({
+        id: s.id, cwd: s.cwd, start: s.start, durationMin: Math.round((s.end - s.start) / 60000),
+        userMessages: s.userMessages, tokens: s.input + s.output, cost: s.cost, toolErrors: s.toolErrors,
+        models: [...s.models], firstPrompt: s.firstPrompt, file: s.file,
+        tools: [...s.toolCounts].sort((x, y) => y[1] - x[1]).map(([name, calls]) => ({ name, calls })),
+        skills: [...s.skillUses].sort((x, y) => (y[1].agent + y[1].manual) - (x[1].agent + x[1].manual))
+          .map(([name, u]) => ({ name, agent: u.agent, manual: u.manual })),
+      }))
       .sort((a, b) => b.start - a.start),
     facets: aggregateFacets(loadFacets(facetsPath)),
     facetsPath,
@@ -207,34 +227,53 @@ function renderText(): string {
   const a = buildAggregate();
   const L: string[] = [];
   L.push(`Sessions scanned: ${a.sessions} (latest ${limit}), unparseable lines: ${a.parseErrors}`);
-  if (a.start) L.push(`Date range: ${day(a.start)} .. ${day(a.end)}`);
+  if (a.start)
+    L.push(`Date range: ${day(a.start)} .. ${day(a.end)}`);
   L.push(`User messages: ${a.userMessages}, assistant messages: ${a.assistantMessages}, correction-signal hits: ${a.correctionHits}, interruptions: ${a.interruptions}`);
   L.push(`Tokens: in ${fmtTok(a.tokens.input)} / out ${fmtTok(a.tokens.output)} / cache-read ${fmtTok(a.tokens.cacheRead)} / cache-write ${fmtTok(a.tokens.cacheWrite)} / reasoning ${fmtTok(a.tokens.reasoning)} · cost ${fmtCost(a.cost)}`);
   L.push(`Models: ${fmtCounts(a.models) || "(none)"}`);
   L.push(`Activity: git commits ${a.gitCommits}, pushes ${a.gitPushes}, files edited ${a.filesEdited}, lines +${a.linesAdded}/-${a.linesRemoved}`);
   const rt = [...a.responseTimes].sort((x, y) => x - y);
-  if (rt.length) L.push(`Response time p50/p90: ${fmtDur(rt[Math.floor(rt.length * 0.5)]!)} / ${fmtDur(rt[Math.floor(rt.length * 0.9)]!)} (n=${rt.length})`);
+  if (rt.length)
+    L.push(`Response time p50/p90: ${fmtDur(rt[Math.floor(rt.length * 0.5)]!)} / ${fmtDur(rt[Math.floor(rt.length * 0.9)]!)} (n=${rt.length})`);
   const c = a.concurrency;
   L.push(`Concurrent sessions: ${c.events} overlapping pairs, ${c.sessionsInvolved} sessions, ${c.messagesDuring} interleaved messages`);
-  for (const ex of a.corrections) L.push(`  [correction] ${ex}`);
+  for (const ex of a.corrections)
+    L.push(`  [correction] ${ex}`);
 
   L.push(`\nTool usage (calls / errors / error rate):`);
-  for (const t of a.tools) L.push(`  ${t.name.padEnd(24)} ${String(t.calls).padStart(6)} / ${String(t.errors).padStart(5)} / ${pct(t.errors, t.calls)}`);
+  for (const t of a.tools)
+    L.push(`  ${t.name.padEnd(24)} ${String(t.calls).padStart(6)} / ${String(t.errors).padStart(5)} / ${pct(t.errors, t.calls)}`);
 
   L.push(`\nTool error categories:`);
-  if (!a.errorCategories.length) L.push("  (none)");
-  for (const e of a.errorCategories) L.push(`  ${e.name.padEnd(24)} ${String(e.count).padStart(5)}`);
+  if (!a.errorCategories.length)
+    L.push("  (none)");
+  for (const e of a.errorCategories)
+    L.push(`  ${e.name.padEnd(24)} ${String(e.count).padStart(5)}`);
 
   L.push(`\nSlash-command usage (extension commands / unexpanded):`);
-  if (!a.slashCommands.length) L.push("  (none)");
-  for (const s of a.slashCommands) L.push(`  /${s.name.padEnd(22)} ${s.count}`);
+  if (!a.slashCommands.length)
+    L.push("  (none)");
+  for (const s of a.slashCommands)
+    L.push(`  /${s.name.padEnd(22)} ${s.count}`);
 
   L.push(`\nSkill usage (manual / agent / total):`);
-  if (!a.skills.length) L.push("  (none)");
-  for (const s of a.skills) L.push(`  ${s.name.padEnd(26)} ${s.manual} / ${s.agent} / ${s.manual + s.agent}`);
+  if (!a.skills.length)
+    L.push("  (none)");
+  for (const s of a.skills)
+    L.push(`  ${s.name.padEnd(26)} ${s.manual} / ${s.agent} / ${s.manual + s.agent}`);
 
   const tod: Record<string, number> = {Morning: 0, Afternoon: 0, Evening: 0, Night: 0};
-  for (const h of a.messageHours) { if (h < 6) tod.Night!++; else if (h < 12) tod.Morning!++; else if (h < 18) tod.Afternoon!++; else tod.Evening!++; }
+  for (const h of a.messageHours) {
+    if (h < 6)
+      tod.Night!++;
+    else if (h < 12)
+      tod.Morning!++;
+    else if (h < 18)
+      tod.Afternoon!++;
+    else
+      tod.Evening!++;
+  }
   L.push(`\nTime of day (user messages): ${fmtCounts(tod, 4)}`);
   L.push(`Languages touched: ${fmtCounts(a.languages, 8) || "(none)"}`);
 
@@ -250,16 +289,26 @@ function renderText(): string {
   return L.join("\n");
 }
 
+const fmtTopCounts = (entries: Array<[string, number]>, max = 4): string => {
+  const top = entries.slice(0, max).map(([n, c]) => `${n}×${c}`).join(",");
+  return entries.length > max ? `${top}+${entries.length - max}` : top;
+};
+
 function renderSessions(): string {
   const a = buildAggregate();
   return a.sessionList
-    .map((s) => `${day(s.start)}  ${String(s.durationMin).padStart(4)}m  ${fmtTok(s.tokens).padStart(6)}  ${fmtCost(s.cost).padStart(8)}  err:${String(s.toolErrors).padStart(3)}  ${(s.cwd || "?").slice(0, 40).padEnd(40)}  ${s.file}`)
+    .map((s) => {
+      const tools = s.tools.length ? `  tools:${fmtTopCounts(s.tools.map((t) => [t.name, t.calls] as [string, number]))}` : "";
+      const skills = s.skills.length ? `  skills:${s.skills.map((k) => `${k.name}×${k.agent + k.manual}`).join(",")}` : "";
+      return `${day(s.start)}  ${String(s.durationMin).padStart(4)}m  ${fmtTok(s.tokens).padStart(6)}  ${fmtCost(s.cost).padStart(8)}  err:${String(s.toolErrors).padStart(3)}${tools}${skills}  ${(s.cwd || "?").slice(0, 40).padEnd(40)}  ${s.file}`;
+    })
     .join("\n");
 }
 
 function bar(data: Record<string, number>, maxItems = 10, color = "#6366f1"): string {
   const entries = Object.entries(data).sort((a, b) => b[1] - a[1]).slice(0, maxItems);
-  if (!entries.length) return `<p class="empty">No data</p>`;
+  if (!entries.length)
+    return `<p class="empty">No data</p>`;
   const max = Math.max(...entries.map((e) => e[1]));
   return entries
     .map(([k, v]) => `<div class="bar"><span class="bl">${esc(titleCase(k))}</span><span class="bt"><i style="width:${(v / max) * 100}%;background:${color}"></i></span><span class="bv">${v}</span></div>`)
@@ -285,7 +334,12 @@ function renderHtml(): string {
          <div class="card"><h3>Friction</h3>${bar(a.facets.friction, 8, "#ef4444")}</div>
        </div>`
     : "";
-  const sessionRows = a.sessionList.slice(0, 60).map((s) => [day(s.start), `${s.durationMin}m`, fmtTok(s.tokens), fmtCost(s.cost), s.toolErrors, s.userMessages, s.models.join(", "), s.cwd]);
+  const sessionRows = a.sessionList.slice(0, 60).map((s) => [
+    day(s.start), `${s.durationMin}m`, fmtTok(s.tokens), fmtCost(s.cost), s.toolErrors, s.userMessages,
+    s.tools.length ? fmtTopCounts(s.tools.map((t) => [t.name, t.calls] as [string, number])) : "—",
+    s.skills.map((k) => k.name).join(", ") || "—",
+    s.models.join(", "), s.cwd,
+  ]);
   return `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Harness session report</title>
@@ -332,7 +386,7 @@ td:nth-child(n+2){font-variant-numeric:tabular-nums}
 ${facetSection}
 <h2>Slash commands</h2>${bar(Object.fromEntries(a.slashCommands.map((s) => ["/" + s.name, s.count])), 10, "#0ea5e9")}
 <h2>Skills</h2>${bar(Object.fromEntries(a.skills.map((s) => [s.name, s.agent + s.manual])), 10, "#22c55e")}
-<h2>Recent sessions</h2>${htmlTable(["Date", "Dur", "Tokens", "Cost", "Err", "Msgs", "Models", "Cwd"], sessionRows)}
+<h2>Recent sessions</h2>${htmlTable(["Date", "Dur", "Tokens", "Cost", "Err", "Msgs", "Tools", "Skills", "Models", "Cwd"], sessionRows)}
 <h2>Corrections</h2>${a.corrections.length ? `<ul>${a.corrections.map((c) => `<li>${esc(c)}</li>`).join("")}</ul>` : `<p class="empty">No correction signals</p>`}
 </body></html>`;
 }
@@ -346,6 +400,8 @@ function selftest() {
   eq(categorizeError("oldText not found in file"), "Edit Failed", "categorize edit");
   eq(categorizeError("spawn fd EACCES"), "Permission Denied", "categorize EACCES");
   eq(categorizeError("total gibberish"), "Other", "categorize other");
+  eq(fmtTopCounts([["read", 40], ["edit", 12], ["bash", 8], ["grep", 3], ["ls", 1]]), "read×40,edit×12,bash×8,grep×3+1", "fmtTopCounts overflow");
+  eq(fmtTopCounts([["read", 2]]), "read×2", "fmtTopCounts short");
   const mk = (id: string, ts: number[]) => { const s = newSession(`/tmp/${id}.jsonl`); s.id = id; s.userTimestamps = ts; return s; };
   eq(detectConcurrency([mk("a", [0, 60000]), mk("b", [30000, 90000])]).sessionsInvolved, 2, "concurrency sessions");
   eq(detectConcurrency([mk("a", [0]), mk("b", [7_200_000])]).events, 0, "concurrency far apart");
@@ -453,13 +509,16 @@ for (const f of listSessionFiles(dir)) {
         const t = tools.get(c.name) ?? { calls: 0, errors: 0 };
         t.calls++;
         tools.set(c.name, t);
+        s.toolCounts.set(c.name, (s.toolCounts.get(c.name) ?? 0) + 1);
         const a = c.arguments ?? {};
         const p: string = a.path ?? "";
         if (c.name === "read") {
           const skill = p.match(/skills\/([^/]+)\/SKILL\.md$/);
           const name = skill?.[1];
-          if (name)
+          if (name) {
             skills.set(name, (skills.get(name) ?? 0) + 1);
+            bumpSkill(s, name, "agent");
+          }
         }
         if (p) {
           const lang = langFor(p);
@@ -521,6 +580,7 @@ for (const f of listSessionFiles(dir)) {
       if (raw || expanded) {
         const name = (raw?.[1] ?? expanded![1] ?? "").toLowerCase();
         skillsManual.set(name, (skillsManual.get(name) ?? 0) + 1);
+        bumpSkill(s, name, "manual");
       } else {
         const slash = t.match(/^\/([a-z0-9][a-z0-9-]*)/);
         if (slash && slash[1])
