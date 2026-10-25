@@ -11,7 +11,7 @@ import {existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync}
 import {tmpdir} from "node:os";
 import {join} from "node:path";
 import {afterAll, describe, expect, test} from "bun:test";
-import {pairedDelta, scoreSuite, type TaskScoreResult} from "./score.ts";
+import {pairedDelta, scoreSuite, type RunProbeFn, type TaskScoreResult} from "./score.ts";
 import {appendEntry, lastRun, newRunId, readLedger, renderReport, type LedgerEntry, type ReportTask, type RunReportData} from "./ledger.ts";
 import {fingerprintSnapshot} from "../baseline.ts";
 import type {LoadedTask} from "./suite.ts";
@@ -180,7 +180,16 @@ describe("scoreSuite resume", () => {
 // fingerprintSnapshot
 
 describe("fingerprintSnapshot", () => {
-  const snap = (agentsMd: string, skills: Array<{relPath: string, content: string}>) => ({agentsMd, skills});
+  const snap = (agentsMd: string, skills: Array<{relPath: string, content: string}>) => ({
+    kinds: {
+      agents: [{relPath: "AGENTS.md", content: agentsMd}],
+      skills: skills.map((s) => ({relPath: `skills/${s.relPath}`, content: s.content})),
+      templates: [] as Array<{relPath: string, content: string}>,
+      subagents: [] as Array<{relPath: string, content: string}>,
+      extensions: [] as Array<{relPath: string, content: string}>,
+      mcp: [] as Array<{relPath: string, content: string}>,
+    },
+  });
 
   test("is deterministic for identical snapshots", () => {
     const a = fingerprintSnapshot(snap("md", [{relPath: "s/SKILL.md", content: "x"}]), "prov/model", {bin: "pi", version: "1.3.0"});
@@ -200,6 +209,13 @@ describe("fingerprintSnapshot", () => {
     expect(fingerprintSnapshot(snap("md", [{relPath: "s/SKILL.md", content: "x"}]), "prov/model", {bin: "pi", version: "1.4.0"})).not.toBe(base);
     expect(fingerprintSnapshot(snap("md", [{relPath: "s/SKILL.md", content: "x"}]), "prov/model", {bin: "pi", version: null})).not.toBe(base);
     expect(fingerprintSnapshot(snap("md", [{relPath: "s/SKILL.md", content: "x"}]), "prov/model", undefined)).not.toBe(base);
+    // Step 9b review fix: a mutating mcp.json content must invalidate the
+    // fingerprint (the baseline cache is keyed on it — a changed MCP config
+    // must never reuse cached results probed against the old config).
+    const mcpFp = (content: string) =>
+      fingerprintSnapshot({kinds: {...snap("md", []).kinds, mcp: [{relPath: "mcp.json", content}]}}, "prov/model", {bin: "pi", version: "1.3.0"});
+    expect(mcpFp('{"mcpServers":{"fs":{"command":"fs-server"}}}')).not.toBe(base);
+    expect(mcpFp('{"mcpServers":{}}')).not.toBe(mcpFp('{"mcpServers":{"fs":{"command":"fs-server"}}}'));
   });
 
   test("is order-independent over skills and separator-ambiguity-safe", () => {
@@ -211,6 +227,119 @@ describe("fingerprintSnapshot", () => {
     const sneaky = fingerprintSnapshot(snap("md", [{relPath: "s", content: "x\0skill\0y"}]), "m", {bin: "pi", version: "1.3.0"});
     expect(sneaky).not.toBe(fingerprintSnapshot(snap("md", [{relPath: "s", content: "x"}, {relPath: "skill", content: "y"}]), "m", {bin: "pi", version: "1.3.0"}));
     expect(sneaky).not.toBe(fingerprintSnapshot(snap("md", [{relPath: "s\0skill", content: "y"}]), "m", {bin: "pi", version: "1.3.0"}));
+  });
+
+  test("changes when a prompt template or subagent changes (S8 kinds)", () => {
+    const withTemplate = (t: Array<{relPath: string, content: string}>) => ({
+      kinds: {...snap("md", []).kinds, templates: t},
+    });
+    const withSubagent = (a: Array<{relPath: string, content: string}>) => ({
+      kinds: {...snap("md", []).kinds, subagents: a},
+    });
+    const base = fingerprintSnapshot(withTemplate([{relPath: "prompts/a.md", content: "x"}]), "m", {bin: "pi", version: "1.3.0"});
+    expect(fingerprintSnapshot(withTemplate([{relPath: "prompts/a.md", content: "x2"}]), "m", {bin: "pi", version: "1.3.0"})).not.toBe(base);
+    expect(fingerprintSnapshot(withTemplate([{relPath: "prompts/b.md", content: "x"}]), "m", {bin: "pi", version: "1.3.0"})).not.toBe(base);
+    // Canonical sort: reverse input order, same fingerprint.
+    expect(fingerprintSnapshot(withTemplate([{relPath: "prompts/a.md", content: "x"}, {relPath: "prompts/b.md", content: "y"}]), "m", {bin: "pi", version: "1.3.0"}))
+      .toBe(fingerprintSnapshot(withTemplate([{relPath: "prompts/b.md", content: "y"}, {relPath: "prompts/a.md", content: "x"}]), "m", {bin: "pi", version: "1.3.0"}));
+    const subBase = fingerprintSnapshot(withSubagent([{relPath: "agents/a.md", content: "x"}]), "m", {bin: "pi", version: "1.3.0"});
+    expect(fingerprintSnapshot(withSubagent([{relPath: "agents/a.md", content: "x2"}]), "m", {bin: "pi", version: "1.3.0"})).not.toBe(subBase);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Step 10: parallel probing (concurrency cap, TMPDIR isolation, determinism)
+
+describe("scoreSuite parallel probing", () => {
+  /** A fake probe that overlaps work via a sleep and records concurrency. */
+  function makeConcurrencyProbe(state: {inFlight: number, max: number, tmpDirs: string[]}, passMap: Record<string, boolean>, sleepMs = 20): RunProbeFn {
+    return async (task, _sandboxDir, _wsDir, options = {}) => {
+      state.tmpDirs.push(options.tmpDir ?? "<none>");
+      state.inFlight++;
+      state.max = Math.max(state.max, state.inFlight);
+      await new Promise((resolve) => setTimeout(resolve, sleepMs));
+      state.inFlight--;
+      return {
+        trajectory: "",
+        usage: {input: 1, output: 0, cacheRead: 0, cacheWrite: 0, totalTokens: 1, cost: {input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0}},
+        exit: 0,
+        checkerResult: {pass: passMap[task.name] ?? true, output: ""},
+        piBinary: {bin: "fake-pi", version: "parallel-test"},
+        timedOut: false,
+        stderrExcerpt: null,
+        rawJsonlPath: null,
+      };
+    };
+  }
+
+  function manyTasks(count: number): LoadedTask[] {
+    return Array.from({length: count}, (_, i) => fakeTask(`par-${String(i).padStart(2, "0")}`));
+  }
+
+  test("cap respected under contention: max in-flight probes ≤ concurrency", async () => {
+    const state = {inFlight: 0, max: 0, tmpDirs: [] as string[]};
+    const runDir = tempRoot();
+    const {stats} = await scoreSuite(manyTasks(8), join(tempRoot(), "sandbox"), runDir, {
+      concurrency: 2,
+      runProbeFn: makeConcurrencyProbe(state, {}),
+    });
+    expect(state.max).toBe(2); // exactly the cap: workers overlap, never exceed
+    expect(stats.maxObservedConcurrency).toBe(2);
+    expect(stats.tasks).toBe(8);
+    expect(stats.probed).toBe(8);
+    expect(stats.reused).toBe(0);
+    expect(stats.wallMs).toBeGreaterThan(0);
+  });
+
+  test("parallel-vs-serial golden: same fake probe data → identical aggregate and per-task results", async () => {
+    const passMap: Record<string, boolean> = {"par-00": true, "par-01": false, "par-02": true, "par-03": true, "par-04": false};
+    const tasks = manyTasks(5);
+    const serialState = {inFlight: 0, max: 0, tmpDirs: [] as string[]};
+    const parallelState = {inFlight: 0, max: 0, tmpDirs: [] as string[]};
+    const serial = await scoreSuite(tasks, join(tempRoot(), "sb"), tempRoot(), {concurrency: 1, runProbeFn: makeConcurrencyProbe(serialState, passMap)});
+    const parallel = await scoreSuite(tasks, join(tempRoot(), "sb"), tempRoot(), {concurrency: 3, runProbeFn: makeConcurrencyProbe(parallelState, passMap)});
+    // Same aggregate...
+    expect(parallel.aggregate).toEqual(serial.aggregate);
+    // ...same result order (input task order, independent of completion order)...
+    expect(parallel.results.map((r) => r.task)).toEqual(tasks.map((t) => t.name));
+    // ...and identical per-task fields. durationMs is a per-task wall measurement
+    // and legitimately differs run-to-run; every ordering-independent field matches.
+    const strip = (r: TaskScoreResult) => {
+      const {durationMs: _durationMs, ...rest} = r;
+      return rest;
+    };
+    expect(parallel.results.map(strip)).toEqual(serial.results.map(strip));
+    expect(parallelState.max).toBe(3);
+    expect(serialState.max).toBe(1);
+  });
+
+  test("per-probe TMPDIR: unique per probe, cleaned up after the run", async () => {
+    const state = {inFlight: 0, max: 0, tmpDirs: [] as string[]};
+    const tmpDirs = state.tmpDirs;
+    await scoreSuite(manyTasks(6), join(tempRoot(), "sandbox"), tempRoot(), {
+      concurrency: 3,
+      runProbeFn: makeConcurrencyProbe(state, {}),
+    });
+    expect(new Set(tmpDirs).size).toBe(6); // every probe got its OWN temp dir
+    for (const dir of tmpDirs) {
+      expect(dir).not.toBe("<none>");
+      expect(existsSync(dir)).toBe(false); // cleaned up after the probe
+    }
+  });
+
+  test("resume still works under concurrency: pre-existing result files are reused, not re-probed", async () => {
+    const runDir = tempRoot();
+    const tasks = manyTasks(3);
+    const tasksDir = join(runDir, "tasks");
+    mkdirSync(tasksDir, {recursive: true});
+    const state = {inFlight: 0, max: 0, tmpDirs: [] as string[]};
+    // First (parallel) run fills all three result files.
+    await scoreSuite(tasks, join(tempRoot(), "sandbox"), runDir, {concurrency: 2, runProbeFn: makeConcurrencyProbe(state, {})});
+    // Second run: everything reused (no probes), stats reflect it.
+    const second = await scoreSuite(tasks, join(tempRoot(), "sandbox"), runDir, {concurrency: 2, runProbeFn: makeConcurrencyProbe(state, {})});
+    expect(second.stats.reused).toBe(3);
+    expect(second.stats.probed).toBe(0);
+    expect(second.aggregate.totalTokens).toBe(3);
   });
 });
 
@@ -239,7 +368,7 @@ describe("ledger", () => {
 
     const all = readLedger(path);
     expect(all).toHaveLength(3);
-    expect(all[2]!.usage.totalTokens).toBe(200);
+    expect(all[2]!.usage!.totalTokens).toBe(200);
     expect(lastRun(undefined, path)!.runId).toBe("20250607-080912-cccc");
     expect(lastRun("baseline", path)!.runId).toBe("20250607-080912-cccc");
     expect(lastRun("baseline-cached", path)!.runId).toBe("20250607-080911-bbbb");
