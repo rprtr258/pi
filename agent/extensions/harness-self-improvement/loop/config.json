@@ -1,0 +1,8 @@
+{
+  "minWin": 1,
+  "minQualityGain": null,
+  "usageFactor": 1.5,
+  "apply": { "dryRun": true },
+  "budget": { "maxTotalTokens": 5000000, "maxIterations": 3 },
+  "candidates": { "maxPerIteration": 3 }
+}
