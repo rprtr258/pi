@@ -99,7 +99,8 @@ export interface RunReportData {
   fingerprint: string | null;
   /** True when the run replayed cached results instead of probing. */
   cached?: boolean;
-  /** Resolved pi binary used by the nested runs (see probe.ts resolvePiBinary). */
+  /** Resolved pi binary used by the nested runs (see probe.ts resolvePiBinary).
+   *  On a cached run this should be the binary recorded in the cached results. */
   piBinary?: {bin: string; version: string | null} | null;
   /** This run's per-task rows (the candidate side when `base` is present). */
   tasks: ReportTask[];
@@ -114,7 +115,7 @@ function fmtDuration(ms: number): string {
 
 function failureExcerpt(output: string): string[] {
   const lines = output.split("\n").filter((l) => l.trim() !== "");
-  return lines.slice(-10); // checker output tail, first ~10 lines
+  return lines.slice(-10); // checker output tail, last ~10 lines
 }
 
 /**
@@ -129,7 +130,10 @@ export function renderReport(data: RunReportData): string {
   out.push(`- **ts:** ${data.ts}`);
   out.push(`- **model:** ${data.model ?? "<pi default>"}`);
   out.push(`- **fingerprint:** ${data.fingerprint ?? "<none>"}`);
-  if (data.piBinary) out.push(`- **pi:** ${data.piBinary.bin}${data.piBinary.version === null ? "" : ` (${data.piBinary.version})`}`);
+  if (data.piBinary) {
+    const version = data.piBinary.version === null ? "" : ` (${data.piBinary.version})`;
+    out.push(`- **pi:** ${data.piBinary.bin}${version}${data.cached ? " [cached run]" : ""}`);
+  }
   if (data.cached !== undefined) out.push(`- **cached:** ${data.cached}`);
   out.push("");
   out.push(`**Aggregate:** ${data.aggregate.passCount}/${data.aggregate.total} pass, ${data.aggregate.totalTokens} tokens`);
