@@ -1,0 +1,10 @@
+[server]
+port=8080
+
+[billing]
+<<<<<<<
+discount=0.15
+=======
+discount=0.2
+vat=0.05
+>>>>>>>

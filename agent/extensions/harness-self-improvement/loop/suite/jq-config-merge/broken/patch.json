@@ -1,0 +1,5 @@
+{
+  "server": {"port": 9090},
+  "tags": ["x"],
+  "feature": {"cache": {"ttl": 120}, "beta": true}
+}
