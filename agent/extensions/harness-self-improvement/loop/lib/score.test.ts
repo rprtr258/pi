@@ -238,7 +238,7 @@ describe("ledger", () => {
 
     const all = readLedger(path);
     expect(all).toHaveLength(3);
-    expect(all[2]!.usage.totalTokens).toBe(200);
+    expect(all[2]!.usage!.totalTokens).toBe(200);
     expect(lastRun(undefined, path)!.runId).toBe("20250607-080912-cccc");
     expect(lastRun("baseline", path)!.runId).toBe("20250607-080912-cccc");
     expect(lastRun("baseline-cached", path)!.runId).toBe("20250607-080911-bbbb");
