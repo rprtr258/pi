@@ -134,8 +134,10 @@ export type LoadedTask = {
 export function listTaskDirs(root: string): string[] {
   if (!existsSync(root))
     return [];
+  // Every suite subdirectory is discovered; dirs without a loadable TASK.md are
+  // surfaced as failures/warnings by loadTask instead of being silently skipped.
   return readdirSync(root, {withFileTypes: true})
-    .filter((e) => e.isDirectory() && existsSync(join(root, e.name, "TASK.md")))
+    .filter((e) => e.isDirectory())
     .map((e) => e.name)
     .sort();
 }
@@ -161,18 +163,18 @@ export function loadTask(root: string, dirName: string): LoadedTask {
     shapeErrors.push("task directory name contains '.'");
   }
   let meta: TaskMeta | null = null;
-  try {
+  if (!existsSync(paths.taskMd) || !statSync(paths.taskMd).isFile()) {
+    shapeErrors.push(existsSync(paths.taskMd) ? "TASK.md is not a file" : "TASK.md missing");
+  } else {
     const parsed = parseTaskMd(readFileSync(paths.taskMd, "utf8"));
     shapeErrors.push(...parsed.errors.map((e) => `TASK.md: ${e}`));
     meta = parsed.meta;
     if (meta && meta.name !== dirName) {
       shapeErrors.push(`TASK.md name '${meta.name}' does not match directory name '${dirName}'`);
     }
-  } catch {
-    shapeErrors.push("TASK.md unreadable");
   }
   try {
-    statSync(paths.checkTs).isFile();
+    if (!statSync(paths.checkTs).isFile()) shapeErrors.push("check.ts is not a file");
   } catch {
     shapeErrors.push("check.ts missing");
   }
@@ -232,7 +234,7 @@ function runSetup(paths: TaskPaths, ws: string): string | null {
   return null;
 }
 
-function runCheckerOnce(paths: TaskPaths, fixtureDir: string, expect: "pass" | "fail"): CheckerRun {
+function runCheckerOnce(paths: TaskPaths, fixtureDir: string, expect: "pass" | "fail", timeoutMs: number): CheckerRun {
   const tmp = mkdtempSync(join(tmpdir(), "harness-suite-"));
   const ws = join(tmp, "ws");
   try {
@@ -246,7 +248,7 @@ function runCheckerOnce(paths: TaskPaths, fixtureDir: string, expect: "pass" | "
     // bash invocation — any language works as long as the shebang is right.
     const proc = spawnSync(paths.checkTs, [ws], {
       cwd: ws,
-      timeout: CHECKER_TIMEOUT_MS,
+      timeout: timeoutMs,
       encoding: "utf8",
       maxBuffer: 16 * 1024 * 1024,
     });
@@ -256,7 +258,7 @@ function runCheckerOnce(paths: TaskPaths, fixtureDir: string, expect: "pass" | "
     const output = `${proc.stdout ?? ""}${proc.stderr ?? ""}`.trim();
     let error: string | null = null;
     if (timedOut)
-      error = `checker timed out after ${CHECKER_TIMEOUT_MS / 1000}s`;
+      error = `checker timed out after ${timeoutMs / 1000}s`;
     else if (proc.error)
       error = `checker failed to run: ${proc.error.message}`;
     else if (mutated)
@@ -281,15 +283,21 @@ function runCheckerOnce(paths: TaskPaths, fixtureDir: string, expect: "pass" | "
 // ---------------------------------------------------------------------------
 // Commands
 
-export function validateSuite(root: string): {ok: boolean; results: TaskCheckResult[]} {
+export type ValidateOptions = {
+  /** Checker timeout override in ms; defaults to 30s. */
+  checkerTimeoutMs?: number,
+};
+
+export function validateSuite(root: string, options: ValidateOptions = {}): {ok: boolean; results: TaskCheckResult[]} {
+  const checkerTimeoutMs = options.checkerTimeoutMs ?? CHECKER_TIMEOUT_MS;
   const results: TaskCheckResult[] = [];
   for (const dirName of listTaskDirs(root)) {
     const task = loadTask(root, dirName);
     let ref: CheckerRun | null = null;
     let broken: CheckerRun | null = null;
     if (task.shapeErrors.length === 0) {
-      ref = runCheckerOnce(task.paths, task.paths.ref, "pass");
-      broken = runCheckerOnce(task.paths, task.paths.broken, "fail");
+      ref = runCheckerOnce(task.paths, task.paths.ref, "pass", checkerTimeoutMs);
+      broken = runCheckerOnce(task.paths, task.paths.broken, "fail", checkerTimeoutMs);
     }
     const ok = task.shapeErrors.length === 0 && (ref?.ok ?? false) && (broken?.ok ?? false);
     results.push({name: task.name, category: task.category, ok, shapeErrors: task.shapeErrors, ref, broken});
@@ -322,6 +330,9 @@ export function runList(root: string): void {
       const task = loadTask(root, name);
       const desc = task.meta?.description ?? "";
       console.log(`${name.padEnd(28)} ${cat.padEnd(8)} ${desc}`);
+      if (task.meta === null) {
+        console.log(`  WARNING: suite/${name} has no loadable TASK.md and will fail validation`);
+      }
     }
   }
   console.log(`\n${dirs.length} tasks in ${byCategory.size} categories: ${[...byCategory.keys()].sort().join(", ")}`);
