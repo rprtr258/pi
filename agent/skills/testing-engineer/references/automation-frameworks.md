@@ -172,7 +172,7 @@ jobs:
         shard: [1, 2, 3, 4]
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v3
       - run: npm ci
       - run: npx playwright install --with-deps
