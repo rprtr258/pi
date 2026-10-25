@@ -4,6 +4,9 @@ harness-facets.json
 # Harness-loop run artifacts (per-run reports, sandboxes, result cache)
 runs/
 loop/.cache/
+# Session-derived replay tasks: materialized from REAL session logs (verbatim
+# internal work product, absolute home paths) — privacy-critical, never track.
+loop/suite-replay/
 # The run ledger is committed (negate the repo-root ignore of run-history.jsonl)
 !run-history.jsonl
 loop/.stop

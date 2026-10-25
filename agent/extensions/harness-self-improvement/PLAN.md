@@ -162,6 +162,8 @@ session by the `/hloop` command group in `index.ts`.
 | `/hloop stop` | Creates the stop flag file `loop/.stop`; a running loop stops before its next probe/iteration and deletes the flag. |
 | `/hloop revert <runId>` | Reverts the apply commit of a run (`git revert` by the `harness-loop(run <runId>):` marker, checkout fallback on conflict). |
 | `/hloop report [runId]` | Lists `runs/<runId>/**/report.md` (default: latest run) and prints the per-iteration baseline aggregates + decisions. |
+| `/hloop-calibrate [--sample N]` | Runs the judge (loop/lib/judge.ts) on N (default: all) suite tasks against their known checker verdicts and prints the agreement table. Verdict CALIBRATED when agreement ≥ `replay.minAgreement`, else ADVISORY. Writes `runs/<runId>/calibration.md` + a `judge-calibration` ledger entry. Trajectories are reused from the baseline result cache when the fingerprint matches; fresh probes otherwise. |
+| `/hloop-replay [--sample N] [--mine M]` | Mines M (default 8) replay-task candidates from real session history into `loop/suite-replay/<id>/`, probes N (default 3) with real nested pi against the reconstructed workspace, judges each, and prints id / provenance / judge score / rationale. Writes `runs/<runId>/replay-report.md` + `replay` ledger entries. **Replay channel: not yet wired into selection (advisory until calibrated)** — `config replay.enabled` is false by default; the gate is `isCalibrated` (agreement ≥ `replay.minAgreement`). |
 
 ### Config (loop/config.json, tolerant loader — per-field fallback to defaults)
 
@@ -170,9 +172,16 @@ session by the `/hloop` command group in `index.ts`.
   "minWin": 1, "minQualityGain": null, "usageFactor": 1.5,
   "apply": {"dryRun": true},
   "budget": {"maxTotalTokens": 5000000, "maxIterations": 3},
-  "candidates": {"maxPerIteration": 3}
+  "candidates": {"maxPerIteration": 3},
+  "replay": {"enabled": false, "minAgreement": 0.8}
 }
 ```
+
+`replay.enabled` is FALSE by default: the replay channel (Step 7, second
+probe objective mined from real sessions + LLM judge) is advisory only and
+not yet wired into selection. It leaves advisory mode only when
+`/hloop-calibrate` records agreement ≥ `replay.minAgreement` (0.8) in the
+ledger (gate: `isCalibrated` in loop/lib/replay.ts).
 
 `apply.dryRun` is TRUE by default: winners are only diff-previewed (ledger
 kind `apply-dryrun`), nothing is written to the live agent config. To enable

@@ -35,7 +35,7 @@ Read PLAN.md first — it defines scope, evidence rules, and the cycle.
 // apply + ledger bookkeeping).
 import {buildLedgerDigest, buildPrompt, loadBaselineFromRunDir, propose, type BuiltPrompt} from "./loop/lib/proposer.ts";
 import {extensionRoot, readLedger} from "./loop/lib/ledger.ts";
-import {captureModelSettings, realPiAgentDir, snapshotReal, type ComponentSnapshot} from "./loop/lib/stage.ts";
+import {captureModelFlag, captureModelSettings, realPiAgentDir, snapshotReal, type ComponentSnapshot} from "./loop/lib/stage.ts";
 
 function byteLen(text: string): number {
   return new TextEncoder().encode(text).length;
@@ -372,9 +372,127 @@ function registerHloop(pi: ExtensionAPI): void {
 }
 // === end harness-loop (S6) ===
 
+// === harness-loop (S7): replay channel — /hloop-calibrate + /hloop-replay ===
+// Second probe objective mined from real session history (loop/lib/replay.ts)
+// scored by an LLM judge (loop/lib/judge.ts). ADVISORY only: not wired into
+// selection (config replay.enabled is false by default) until judge-vs-checker
+// agreement ≥ replay.minAgreement via /hloop-calibrate (gate: isCalibrated).
+import {calibrateJudge, isCalibrated, runReplayChannel} from "./loop/lib/replay.ts";
+import {listTaskDirs, loadTask, suiteRoot} from "./loop/lib/suite.ts";
+import {newRunId} from "./loop/lib/ledger.ts"; // loadLoopConfig/readLedger already imported above
+
+function registerHloopReplayChannel(pi: ExtensionAPI): void {
+  pi.registerCommand("hloop-calibrate", {
+    description: "harness-loop S7: judge-vs-checker agreement on suite tasks; verdict calibrated/advisory (default all tasks, --sample N limits)",
+    handler: async (args: string, ctx: ExtensionCommandContext) => {
+      const argv = args.trim().split(/\s+/).filter(Boolean);
+      let sample: number | undefined;
+      for (let i = 0; i < argv.length; i++) {
+        if (argv[i] === "--sample") sample = Number(argv[++i]);
+      }
+      if (sample !== undefined && (!Number.isInteger(sample) || sample < 1)) {
+        console.error("/hloop-calibrate: --sample must be an integer >= 1");
+        return;
+      }
+      let config;
+      let tasks;
+      try {
+        config = loadLoopConfig();
+        const root = suiteRoot();
+        tasks = listTaskDirs(root).map((dirName) => loadTask(root, dirName)).filter((t) => t.meta !== null && t.shapeErrors.length === 0);
+      } catch (err) {
+        console.error(`/hloop-calibrate: setup failed: ${err instanceof Error ? err.message : String(err)}`);
+        return;
+      }
+      if (tasks.length === 0) {
+        console.error("/hloop-calibrate: no valid suite tasks found — run `bun run loop/lib/suite.ts validate`");
+        return;
+      }
+      console.log(`[hloop-calibrate] COST WARNING: judge calls on ${sample ?? tasks.length} suite task(s) — real model tokens (trajectories reused from the baseline cache when the fingerprint matches; fresh probes otherwise).`);
+      const runId = newRunId();
+      const runDir = join(hloopRunsDir(), runId);
+      try {
+        const result = await calibrateJudge({
+          sample,
+          tasks,
+          callModel: (system, user, options) => callModelViaRegistry(ctx, system, user, options),
+          model: captureModelFlag(),
+          runDir,
+          minAgreement: config.replay.minAgreement,
+        });
+        console.log(`[hloop-calibrate] run ${runId} — ${result.rows.length} task(s), trajectories: ${result.cacheHits} cached / ${result.freshProbes} fresh`);
+        console.log("| task | checker | judge | agree | src | rationale |");
+        for (const r of result.rows) {
+          const agree = (r.judgeScore >= 7) === r.checkerPass ? "✓" : "✗";
+          console.log(`| ${r.task} | ${r.checkerPass ? "pass" : "FAIL"} | ${r.judgeScore}${r.abstained ? " (abst)" : ""} | ${agree} | ${r.trajectorySource} | ${r.rationale} |`);
+        }
+        const pct = result.agreement === null ? "n/a" : `${(result.agreement * 100).toFixed(0)}%`;
+        console.log(`[hloop-calibrate] agreement: ${pct} (threshold ${config.replay.minAgreement})`);
+        console.log(`[hloop-calibrate] verdict: ${result.calibrated ? "CALIBRATED" : "ADVISORY — replay channel stays advisory until agreement ≥ " + config.replay.minAgreement}`);
+        console.log(`[hloop-calibrate] report: ${result.reportPath}`);
+      } catch (err) {
+        console.error(`[hloop-calibrate] failed: ${err instanceof Error ? err.message : String(err)}`);
+      }
+    },
+  });
+
+  pi.registerCommand("hloop-replay", {
+    description: "harness-loop S7 (advisory): mine replay tasks from real sessions, probe + judge them (--sample N probes, --mine M candidates)",
+    handler: async (args: string, ctx: ExtensionCommandContext) => {
+      const argv = args.trim().split(/\s+/).filter(Boolean);
+      let sample: number | undefined;
+      let mine: number | undefined;
+      for (let i = 0; i < argv.length; i++) {
+        if (argv[i] === "--sample") sample = Number(argv[++i]);
+        else if (argv[i] === "--mine") mine = Number(argv[++i]);
+      }
+      for (const [name, value] of [["--sample", sample], ["--mine", mine]] as const) {
+        if (value !== undefined && (!Number.isInteger(value) || value < 1)) {
+          console.error(`/hloop-replay: ${name} must be an integer >= 1`);
+          return;
+        }
+      }
+      const config = loadLoopConfig();
+      if (!config.replay.enabled) {
+        console.log("[hloop-replay] NOTE: replay channel is NOT wired into selection (config replay.enabled=false) — this run is advisory evidence only.");
+      }
+      const gate = isCalibrated(readLedger(), config.replay.minAgreement);
+      console.log(`[hloop-replay] calibration gate: ${gate.calibrated ? "calibrated" : "advisory"}${gate.agreement === null ? " (never calibrated — run /hloop-calibrate first)" : ` (agreement ${(gate.agreement * 100).toFixed(0)}% from ${gate.ts})`}`);
+      console.log("[hloop-replay] COST WARNING: probes run real nested pi sessions on real-task prompts (up to 300s each) + one judge call per probe — real model tokens.");
+      const runId = newRunId();
+      const runDir = join(hloopRunsDir(), runId);
+      try {
+        const result = await runReplayChannel({
+          sample: sample ?? 3,
+          mine: mine ?? 8,
+          runId,
+          callModel: (system, user, options) => callModelViaRegistry(ctx, system, user, options),
+          model: captureModelFlag(),
+        });
+        if (result.rows.length === 0) {
+          console.log(`[hloop-replay] no replay candidates qualified — report: ${result.reportPath}`);
+          return;
+        }
+        for (const r of result.rows) {
+          console.log(`== replay ${r.taskId} [${r.quality}] ==`);
+          console.log(`  provenance: ${r.provenance}`);
+          console.log(`  judge: ${r.judge.score}/10${r.judge.abstained ? " (ABSTAINED — neutral 5)" : ""} — ${r.judge.rationale}`);
+          console.log(`  tokens: ${r.tokens}, exit: ${r.exit}${r.timedOut ? " (TIMED OUT)" : ""}, ${r.durationMs}ms`);
+        }
+        console.log(`[hloop-replay] report: ${result.reportPath}`);
+        console.log(`[hloop-replay] ledger: ${result.rows.length} kind-"replay" entr(y|ies) in run-history.jsonl`);
+      } catch (err) {
+        console.error(`[hloop-replay] failed: ${err instanceof Error ? err.message : String(err)}`);
+      }
+    },
+  });
+}
+// === end harness-loop (S7) ===
+
 export default function (pi: ExtensionAPI) {
   registerHloopPropose(pi);
   registerHloop(pi);
+  registerHloopReplayChannel(pi);
 
   pi.registerCommand("harness", {
     description: "Run an agent harness improvement cycle (see PLAN.md)",
