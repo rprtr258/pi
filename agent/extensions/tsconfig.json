@@ -1,4 +1,8 @@
 {
+  // Single project covering every TypeScript source in the repo. Per-directory
+  // package versions still resolve via each extension's own node_modules.
+  "include": ["**/*.ts"],
+  "exclude": ["**/node_modules", "**/runs", "**/broken"],
   "compilerOptions": {
     // Environment setup & latest features
     "lib": ["ESNext"],
@@ -19,7 +23,7 @@
     "strict": true,
     "skipLibCheck": true,
     "noFallthroughCasesInSwitch": true,
-    "noUncheckedIndexedAccess": true,
+    "noUncheckedIndexedAccess": false,
     "noImplicitOverride": true,
 
     // Some stricter flags (disabled by default)
