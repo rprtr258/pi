@@ -1,0 +1,6 @@
+{
+  "minWin": 1,
+  "minQualityGain": null,
+  "usageFactor": 1.5,
+  "apply": { "dryRun": true }
+}
