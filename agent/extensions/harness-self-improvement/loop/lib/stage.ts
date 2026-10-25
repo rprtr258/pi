@@ -107,6 +107,10 @@ export interface BuildSandboxResult {
  * Create a minimal sandbox at `dir` (recreated from scratch if it exists):
  * minimal settings.json with the captured model keys, READ-ONLY copies of
  * auth.json and models.json when present, AGENTS.md and the skill files.
+ *
+ * WARNING: this wipes `dir` first. Call it only with a directory this tool
+ * created itself (e.g. a fresh mkdtemp path) — never with a caller-supplied
+ * or externally staged path.
  */
 export function buildSandbox(snapshot: ComponentSnapshot, dir: string, piAgentDir: string = realPiAgentDir()): BuildSandboxResult {
   rmSync(dir, {recursive: true, force: true});

@@ -9,16 +9,18 @@
  * nested run is recorded next to the result for debugging.
  *
  * Usage:
- *   bun run loop/lib/probe.ts <task-name> [--sandbox <dir>]
+ *   bun run loop/lib/probe.ts <task-name> [--sandbox <dir>] [--keep-sandbox]
  */
 import {spawn, spawnSync} from "node:child_process";
 import {
+  closeSync,
   existsSync,
   mkdirSync,
   mkdtempSync,
+  openSync,
   readFileSync,
   rmSync,
-  writeFileSync,
+  writeSync,
 } from "node:fs";
 import {tmpdir} from "node:os";
 import {join} from "node:path";
@@ -46,7 +48,7 @@ export type CheckerResult = {
 export type ProbeResult = {
   /** Concatenated assistant message text from the nested pi run. */
   trajectory: string,
-  /** Cumulative usage of the LAST message_update event; null when absent. */
+  /** Cumulative usage of the LAST assistant usage seen (message_update or message_end); null when absent. */
   usage: ProbeUsage | null,
   /** Nested pi exit code (null when killed by signal or never exited). */
   exit: number | null,
@@ -64,9 +66,30 @@ export type RunProbeOptions = {
   timeoutS?: number,
   /** Optional `--model` override passed to the nested pi. */
   model?: string,
-  /** Where to record the raw JSONL (e.g. <ws>/raw.jsonl). */
+  /** Where to record the raw JSONL, streamed as chunks arrive. Must live
+   *  OUTSIDE the checked workspace (e.g. a sibling of wsDir) so checkers
+   *  never see it. */
   rawJsonlPath?: string,
 };
+
+const REDACTION_PATTERNS: Array<[RegExp, string]> = [
+  [/sk-[A-Za-z0-9_-]{8,}/g, "sk-***"],
+  [/Bearer [A-Za-z0-9._-]+/gi, "Bearer ***"],
+  [/(api[_-]?key["\s:=]+)[A-Za-z0-9._-]+/gi, "$1***"],
+];
+
+/** Redact credential-like patterns (API keys, bearer tokens) from text before
+ *  it is stored or printed. */
+export function redact(text: string): string {
+  let out = text;
+  for (const [pattern, replacement] of REDACTION_PATTERNS)
+    out = out.replace(pattern, replacement);
+  return out;
+}
+
+/** In-memory raw-JSONL caps: keep the first 2MB and the last 8MB for parsing. */
+const RAW_HEAD_LIMIT = 2 * 1024 * 1024;
+const RAW_TAIL_LIMIT = 8 * 1024 * 1024;
 
 /** Strip YAML frontmatter from a TASK.md, returning the exact prompt body. */
 export function stripFrontmatter(text: string): string {
@@ -96,8 +119,9 @@ function isProbeUsage(value: unknown): value is ProbeUsage {
  *  - {"type":"message_end","message":{...same assistant message shape...}}
  * message_update fires repeatedly per message with CUMULATIVE content, so the
  * trajectory takes each assistant message's text exactly once from its
- * message_end; usage = the LAST assistant message_update's `message.usage`
- * (falling back to the final message_end when no update carried usage).
+ * message_end; usage = the LAST assistant usage seen regardless of event type
+ * (a later message_end overwrites an earlier message_update, and in
+ * fallback-only streams the LAST message_end wins).
  */
 export function parseJsonlEvents(raw: string): ParsedJsonl {
   const trajectoryLines: string[] = [];
@@ -113,21 +137,22 @@ export function parseJsonlEvents(raw: string): ParsedJsonl {
     if (event === null || typeof event !== "object") continue;
     const ev = event as Record<string, unknown>;
     if (ev.type !== "message_update" && ev.type !== "message_end") continue;
-    const message = ev.message as Record<string, unknown> | undefined;
-    if (message === undefined || message.role !== "assistant") continue;
-    if (ev.type === "message_end" && Array.isArray(message.content)) {
-      for (const item of message.content) {
+    const message = ev.message;
+    if (message === null || typeof message !== "object") continue;
+    const msg = message as Record<string, unknown>;
+    if (msg.role !== "assistant") continue;
+    if (ev.type === "message_end" && Array.isArray(msg.content)) {
+      for (const item of msg.content) {
         if (item && typeof item === "object" && (item as Record<string, unknown>).type === "text") {
           const text = (item as Record<string, unknown>).text;
-          if (typeof text === "string" && text.trim() !== "") trajectoryLines.push(text);
+          if (typeof text === "string" && text.trim() !== "")
+            trajectoryLines.push(text);
         }
       }
     }
-    if (ev.type === "message_update" && isProbeUsage(message.usage)) {
-      usage = message.usage;
-    } else if (ev.type === "message_end" && usage === null && isProbeUsage(message.usage)) {
-      usage = message.usage;
-    }
+    // Last assistant usage wins, whatever event carried it.
+    if (isProbeUsage(msg.usage))
+      usage = msg.usage;
   }
   return {trajectoryLines, usage};
 }
@@ -177,18 +202,49 @@ export async function runProbe(task: LoadedTask, sandboxDir: string, wsDir: stri
     ...partial,
   });
   try {
-    // Fresh workspace for every probe.
-    rmSync(wsDir, {recursive: true, force: true});
-    mkdirSync(wsDir, {recursive: true});
     if (!existsSync(task.paths.taskMd) || !task.meta) {
       return failed({stderrExcerpt: `task '${task.name}' is not loadable (missing/invalid TASK.md)`});
     }
+    // Fresh workspace for every probe — only created after the task validated.
+    rmSync(wsDir, {recursive: true, force: true});
+    mkdirSync(wsDir, {recursive: true});
     const prompt = stripFrontmatter(readFileSync(task.paths.taskMd, "utf8"));
     const args = ["--mode", "json", "--no-session"];
     if (options.model !== undefined) args.push("--model", options.model);
-    args.push(prompt);
+    // `--` ends option parsing so a prompt starting with "-" is not read as a flag.
+    args.push("--", prompt);
 
-    let raw = "";
+    // Raw JSONL is stream-written to rawJsonlPath as chunks arrive; the
+    // in-memory copy for parsing is capped at first 2MB + last 8MB.
+    let rawFd: number | null = null;
+    if (options.rawJsonlPath !== undefined) {
+      try {
+        rmSync(options.rawJsonlPath, {force: true});
+        rawFd = openSync(options.rawJsonlPath, "w");
+      } catch {
+        rawFd = null; // Recording is best-effort; never fail the probe for it.
+      }
+    }
+    let rawHead = "";
+    let rawTail = "";
+    let truncatedBytes = 0;
+    const storeChunk = (chunk: string): void => {
+      if (rawFd !== null) {
+        try {
+          writeSync(rawFd, chunk);
+        } catch {
+          // Recording is best-effort; never fail the probe for it.
+        }
+      }
+      if (rawHead.length < RAW_HEAD_LIMIT) rawHead += chunk.slice(0, RAW_HEAD_LIMIT - rawHead.length);
+      rawTail += chunk;
+      const overflow = rawTail.length - RAW_TAIL_LIMIT;
+      if (overflow > 0) {
+        truncatedBytes += overflow;
+        rawTail = rawTail.slice(overflow);
+      }
+    };
+
     let stderrTail = "";
     let timedOut = false;
     const child = spawn("pi", args, {
@@ -201,7 +257,7 @@ export async function runProbe(task: LoadedTask, sandboxDir: string, wsDir: stri
     child.stdout!.setEncoding("utf8");
     child.stderr!.setEncoding("utf8");
     child.stdout!.on("data", (chunk: string) => {
-      raw += chunk;
+      storeChunk(chunk);
     });
     child.stderr!.on("data", (chunk: string) => {
       stderrTail = (stderrTail + chunk).slice(-2000);
@@ -223,14 +279,19 @@ export async function runProbe(task: LoadedTask, sandboxDir: string, wsDir: stri
       });
     });
 
-    if (options.rawJsonlPath !== undefined) {
+    if (rawFd !== null) {
       try {
-        writeFileSync(options.rawJsonlPath, raw);
+        closeSync(rawFd);
       } catch {
-        // Recording is best-effort; never fail the probe for it.
+        // best-effort
       }
+      rawFd = null;
     }
-    const parsed = parseJsonlEvents(raw);
+    const parseInput =
+      truncatedBytes > 0
+        ? `${rawHead}\n==[raw JSONL truncated: ${truncatedBytes} middle bytes not retained in memory]==\n${rawTail}`
+        : rawHead + rawTail;
+    const parsed = parseJsonlEvents(parseInput);
     const checkerResult = runChecker(task.paths.checkTs, wsDir);
     return {
       trajectory: parsed.trajectoryLines.join("\n"),
@@ -238,11 +299,11 @@ export async function runProbe(task: LoadedTask, sandboxDir: string, wsDir: stri
       exit,
       checkerResult,
       timedOut,
-      stderrExcerpt: stderrTail.trim() === "" ? null : stderrTail.trim().split("\n").slice(-5).join("\n"),
+      stderrExcerpt: stderrTail.trim() === "" ? null : redact(stderrTail.trim().split("\n").slice(-5).join("\n")),
       rawJsonlPath: options.rawJsonlPath ?? null,
     };
   } catch (err) {
-    return failed({stderrExcerpt: err instanceof Error ? err.message : String(err)});
+    return failed({stderrExcerpt: redact(err instanceof Error ? err.message : String(err))});
   }
 }
 
@@ -275,8 +336,9 @@ if (import.meta.main) {
   const name = argv[0];
   const sandboxIdx = argv.indexOf("--sandbox");
   const sandboxArg = sandboxIdx !== -1 ? argv[sandboxIdx + 1] : undefined;
+  const keepSandbox = argv.includes("--keep-sandbox");
   if (name === undefined || name.startsWith("-") || (sandboxIdx !== -1 && sandboxArg === undefined)) {
-    console.error("usage: bun run loop/lib/probe.ts <task-name> [--sandbox <dir>]");
+    console.error("usage: bun run loop/lib/probe.ts <task-name> [--sandbox <dir>] [--keep-sandbox]");
     process.exitCode = 2;
   } else {
     const task = loadTask(suiteRoot(), name!);
@@ -288,31 +350,33 @@ if (import.meta.main) {
       const snapshot = snapshotReal();
       buildSandbox(snapshot, sandboxDir);
     } else if (!existsSync(join(sandboxDir!, "settings.json"))) {
-      // Pointed at a directory that is not a staged sandbox: try to build it,
-      // but staging failures must surface as a report, not a crash.
-      try {
-        buildSandbox(snapshotReal(), sandboxDir!);
-        console.log(`(re)built sandbox at ${sandboxDir}`);
-      } catch (err) {
-        console.error(`== probe report: ${task.name} ==`);
-        console.error(`sandbox staging FAILED for ${sandboxDir}: ${err instanceof Error ? err.message : String(err)}`);
-        process.exitCode = 1;
-        process.exit(1);
-      }
+      // Externally staged sandboxes are used AS-IS: buildSandbox wipes its
+      // target, so it may only ever run against a directory this tool created
+      // itself — never a caller-supplied path. A missing settings.json is a
+      // staging failure: report it and leave the external directory untouched.
+      console.error(`== probe report: ${task.name} ==`);
+      console.error(`sandbox staging FAILED for ${sandboxDir}: settings.json missing — external sandboxes are used as-is and are never rebuilt`);
+      process.exit(1);
     }
     const model = captureModelFlag();
     const wsRoot = mkdtempSync(join(tmpdir(), "harness-probe-"));
     const wsDir = join(wsRoot, "ws");
     const result = await runProbe(task, sandboxDir!, wsDir, {
       model,
-      rawJsonlPath: join(wsDir, "raw.jsonl"),
+      // Sibling of the workspace, not inside it: checkers must never see raw.jsonl.
+      rawJsonlPath: join(wsRoot, "raw.jsonl"),
     });
     printReport(result, task.name, sandboxDir!, wsDir);
     // Failure outcomes: checker fail, timeout, or spawn/abnormal exit.
     const ok = result.checkerResult.pass && !result.timedOut && result.exit === 0;
     process.exitCode = ok ? 0 : 1;
     if (externalSandbox === null) {
-      console.log(`\n(temporary sandbox kept for inspection: ${sandboxDir})`);
+      if (keepSandbox) {
+        console.log(`\n(temporary sandbox kept for inspection: ${sandboxDir})`);
+      } else {
+        rmSync(sandboxDir!, {recursive: true, force: true});
+        console.log(`\n(temporary sandbox deleted: ${sandboxDir}; pass --keep-sandbox to keep it)`);
+      }
     }
   }
 }
