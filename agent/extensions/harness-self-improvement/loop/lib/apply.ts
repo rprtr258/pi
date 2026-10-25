@@ -2,8 +2,7 @@
 /**
  * Auto-apply + revert for the harness self-improvement loop (Step 5).
  *
- * SAFETY CONTRACT (this module is the only place that writes to the live
- * agent config):
+ * SAFETY CONTRACT (this module is the only place that writes to the live agent config):
  *   - The target directory is `agentDir`, DEFAULTING TO the real
  *     ~/.pi/agent. Tests NEVER rely on the default: every test passes an
  *     `agentDir` override pointing at a temp-dir copy of a fake config git
@@ -15,10 +14,30 @@
  *     the caller's earlier validation is never trusted on its own.
  *   - Git staging uses EXPLICIT PATHS ONLY ("AGENTS.md", "skills/") — never
  *     -A, ., or --all, so nothing outside the loop's scope can be committed.
- *   - Prior state of every affected path is snapshotted BEFORE any write; if
- *     a file write, `git add`, or `git commit` fails, all writes are rolled
- *     back (prior content restored / created files deleted) and the staged
- *     index is reset, before "apply-failed" is reported.
+ *   - Prior state of every affected path is snapshotted BEFORE any write as
+ *     raw Buffers (never decoded); if a file write, `git add`, or `git commit`
+ *     fails, all writes are rolled back (prior content restored byte-exactly /
+ *     created files deleted) and the staged index is reset, before
+ *     "apply-failed" is reported.
+ *   - Symlink containment: before ANY read-snapshot/write/delete/mkdir, every
+ *     path component of every edit path below agentDir (including the final
+ *     one) is lstat'd; ANY symlink rejects the whole candidate, so a planted
+ *     symlink can never redirect a loop write or delete outside agentDir.
+ *   - Dirty-tree preflight: before any write (and before every revert),
+ *     `git status --porcelain -- AGENTS.md skills/` must be EMPTY; a dirty
+ *     tree refuses the apply. This also SHRINKS THE CRASH WINDOW: if the
+ *     process is killed between the file writes and the commit, the loop's
+ *     own writes are left uncommitted in the tree — the next apply (or
+ *     revert) sees that dirty state under AGENTS.md/skills/ and refuses
+ *     until the residue is resolved manually (inspect `git diff`, then
+ *     commit or checkout the leftover loop writes). That residue is
+ *     deliberate: an uncommitted half-apply is never silently committed or
+ *     silently discarded by a later run.
+ *   - Single-flight: an advisory lockfile <agentDir>/.harness-loop.apply.lock
+ *     is created with open(wx) for the whole apply/revert and unlinked in a
+ *     finally block. A second concurrent apply is refused ("another apply in
+ *     progress"); a lock older than 10 minutes is stolen (crashed writer)
+ *     with a warning.
  *   - Dry-run mode (config.apply.dryRun, DEFAULT TRUE via loop/config.json)
  *     computes and returns the full per-file diff preview and appends a
  *     kind "apply-dryrun" ledger entry without touching any file.
@@ -40,12 +59,15 @@
  *                             "apply-failed", reasons, files, sha?,
  *                             proposalFingerprint?, scores?, usage?}
  *   kind "apply-dryrun":     same minus sha, decision omitted (kind says it)
+ *   kind "revert":           {runId, ts, decision: "reverted"|"revert-failed",
+ *                             sha?, method? ("revert"|"checkout-fallback"),
+ *                             error?}
  *   kind "proposal-rejected":{runId, ts, proposalFingerprint, scores, usage,
  *                             reasons, candidateFingerprints?} — EXACTLY the
  *                             shape proposer.ts's buildLedgerDigest reads.
  */
 import {spawnSync} from "node:child_process";
-import {existsSync, mkdirSync, readFileSync, rmSync, writeFileSync} from "node:fs";
+import {closeSync, existsSync, lstatSync, mkdirSync, openSync, readFileSync, rmSync, rmdirSync, statSync, unlinkSync, writeFileSync, writeSync} from "node:fs";
 import {homedir} from "node:os";
 import {dirname, join} from "node:path";
 import {fileURLToPath} from "node:url";
@@ -56,7 +78,7 @@ import {appendEntry, ledgerPath, type LedgerEntry} from "./ledger.ts";
 // Config
 
 export interface LoopConfig {
-  /** Minimum passDelta for a straight pass-count win (see selectWinner). */
+  /** Minimum passDelta for a straight pass-count win (integer ≥ 1). */
   minWin: number;
   /**
    * Minimum relative duration improvement for a pass-equal candidate to win.
@@ -114,10 +136,10 @@ export function loadLoopConfig(path: string = defaultConfigPath()): LoopConfig {
   const p = parsed as Record<string, unknown>;
   if (p["minWin"] === undefined) {
     // keep default
-  } else if (typeof p["minWin"] === "number" && Number.isFinite(p["minWin"])) {
+  } else if (typeof p["minWin"] === "number" && Number.isInteger(p["minWin"]) && p["minWin"] >= 1) {
     cfg.minWin = p["minWin"];
   } else {
-    warnField("minWin", "not a finite number");
+    warnField("minWin", "not an integer ≥ 1");
   }
   if (p["minQualityGain"] === undefined) {
     // keep default
@@ -221,15 +243,17 @@ function diffExcerpt(before: string | null, after: string | null): string {
   return lines.join("\n");
 }
 
-function previewFor(edit: ProposedEdit, agentDir: string): {preview: ApplyFilePreview; prior: string | null} {
+function previewFor(edit: ProposedEdit, agentDir: string): {preview: ApplyFilePreview; prior: Buffer | null} {
   const full = join(agentDir, edit.path);
-  const prior = existsSync(full) ? readFileSync(full, "utf8") : null;
+  // Raw Buffer (no encoding): the snapshot must round-trip non-UTF-8 prior
+  // content byte-exactly on rollback. The excerpt is only a utf8 decode.
+  const prior = existsSync(full) ? readFileSync(full) : null;
   const preview: ApplyFilePreview = {
     path: edit.path,
     action: edit.content === null ? "delete" : prior === null ? "create" : "write",
-    bytesBefore: prior === null ? null : byteSize(prior),
+    bytesBefore: prior === null ? null : prior.length,
     bytesAfter: edit.content === null ? null : byteSize(edit.content),
-    excerpt: diffExcerpt(prior, edit.content),
+    excerpt: diffExcerpt(prior === null ? null : prior.toString("utf8"), edit.content),
   };
   return {preview, prior};
 }
@@ -238,6 +262,116 @@ function previewFor(edit: ProposedEdit, agentDir: string): {preview: ApplyFilePr
 function git(agentDir: string, args: string[]): {status: number; stdout: string; stderr: string} {
   const res = spawnSync("git", args, {cwd: agentDir, encoding: "utf8"});
   return {status: res.status ?? -1, stdout: res.stdout ?? "", stderr: res.stderr ?? ""};
+}
+
+/**
+ * Dirty-tree preflight, scoped to the loop-managed paths. Returns a refusal
+ * reason when AGENTS.md or skills/ has uncommitted changes, null when clean.
+ * A non-repo agentDir is NOT dirty (git add fails later on its own); status
+ * failure is treated the same way.
+ */
+function dirtyManagedPathsReason(agentDir: string): string | null {
+  const st = git(agentDir, ["status", "--porcelain", "--", "AGENTS.md", "skills/"]);
+  if (st.status !== 0) return null;
+  return st.stdout.trim() !== "" ? "working tree dirty under AGENTS.md/skills — resolve before apply" : null;
+}
+
+/**
+ * Symlink containment: lstat every component of `rel` below agentDir —
+ * INCLUDING the final one. ANY symlink rejects the whole candidate, because a
+ * symlinked component can point outside agentDir and a write or delete
+ * through it would escape the loop's containment. Missing components are fine
+ * (apply's mkdir -p may create them). Runs BEFORE the prior-state snapshot and
+ * before ANY write/delete/mkdir. Returns a rejection reason or null.
+ */
+function symlinkContainmentReason(agentDir: string, rel: string): string | null {
+  let acc = agentDir;
+  for (const part of rel.split("/")) {
+    if (part === "" || part === ".") continue;
+    acc = join(acc, part);
+    try {
+      if (lstatSync(acc).isSymbolicLink()) {
+        return `symlink in path escapes containment: ${rel} (symlinked component "${part}")`;
+      }
+    } catch {
+      return null; // component does not exist yet — nothing below it either
+    }
+  }
+  return null;
+}
+
+// ---------------------------------------------------------------------------
+// Single-flight advisory lock
+
+const LOCK_FILE_NAME = ".harness-loop.apply.lock";
+/** A lock older than this is stale (crashed writer) and is stolen. */
+const LOCK_STALE_MS = 10 * 60 * 1000;
+
+interface ApplyLock {
+  acquired: boolean;
+  /** Refusal reason when acquired is false. */
+  error: string | null;
+  /** Idempotent release; tolerates a missing lock file. */
+  release: () => void;
+}
+
+function createLockFile(lockPath: string): void {
+  const fd = openSync(lockPath, "wx");
+  try {
+    writeSync(fd, `${process.pid}\n`);
+  } finally {
+    closeSync(fd);
+  }
+}
+
+/**
+ * Advisory single-flight lock for apply/revert: created with open(wx) so two
+ * concurrent callers cannot both hold it. If the lock exists AND its mtime is
+ * older than LOCK_STALE_MS it is stolen (crashed writer — the finally-block
+ * release never ran) with a warning; otherwise the caller is refused with
+ * "another apply in progress".
+ */
+function acquireApplyLock(agentDir: string): ApplyLock {
+  const lockPath = join(agentDir, LOCK_FILE_NAME);
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      createLockFile(lockPath);
+      return {
+        acquired: true,
+        error: null,
+        release: () => {
+          try {
+            unlinkSync(lockPath);
+          } catch {
+            // already gone (stolen after a 10-min hang) — nothing to do
+          }
+        },
+      };
+    } catch (err) {
+      const code = (err as NodeJS.ErrnoException).code;
+      if (code !== "EEXIST") {
+        return {acquired: false, error: `failed to create the apply lock ${lockPath}: ${err instanceof Error ? err.message : String(err)}`, release: () => {}};
+      }
+      if (attempt > 0) break; // stole the lock but lost the re-create race
+      let stale = false;
+      try {
+        stale = Date.now() - statSync(lockPath).mtimeMs > LOCK_STALE_MS;
+      } catch {
+        continue; // lock vanished between open and stat — retry the create
+      }
+      if (stale) {
+        console.warn(`[apply] stealing stale apply lock ${lockPath} (mtime older than ${LOCK_STALE_MS / 60000} min)`);
+        try {
+          unlinkSync(lockPath);
+        } catch {
+          // someone else stole it first — re-create will then race/lose
+        }
+        continue;
+      }
+      break;
+    }
+  }
+  return {acquired: false, error: `another apply in progress (lock ${LOCK_FILE_NAME} held in the agent dir)`, release: () => {}};
 }
 
 function applyLedgerEntry(input: ApplyCandidateInput, kind: string, decision: string, reasons: string[], files: ApplyFilePreview[], sha: string | undefined, ledger: string): void {
@@ -256,8 +390,13 @@ function applyLedgerEntry(input: ApplyCandidateInput, kind: string, decision: st
   appendEntry(entry, ledger);
 }
 
-/** Restore the snapshotted prior state of every affected path (best-effort). */
-function rollback(agentDir: string, prior: Map<string, string | null>): void {
+/**
+ * Restore the snapshotted prior state of every affected path (best-effort).
+ * Prior content is a raw Buffer so non-UTF-8 files come back byte-exactly.
+ * `createdDirs` lists directories this apply's mkdir -p created (shallowest
+ * first); they are rmdir'd innermost-first, only when empty.
+ */
+function rollback(agentDir: string, prior: Map<string, Buffer | null>, createdDirs: string[] = []): void {
   for (const [rel, content] of prior) {
     const full = join(agentDir, rel);
     try {
@@ -269,6 +408,13 @@ function rollback(agentDir: string, prior: Map<string, string | null>): void {
       }
     } catch (err) {
       console.error(`[apply] rollback of ${rel} failed: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+  for (let i = createdDirs.length - 1; i >= 0; i--) {
+    try {
+      rmdirSync(join(agentDir, createdDirs[i]!)); // fails on non-empty dirs — leave those
+    } catch {
+      // non-empty or already gone: keep the directory
     }
   }
   // Unstage whatever the failed add/commit left in the index. No-op (and an
@@ -292,6 +438,21 @@ export function applyCandidate(input: ApplyCandidateInput): ApplyResult {
   const agentDir = input.agentDir ?? join(homedir(), ".pi", "agent");
   const ledger = input.ledgerPath ?? ledgerPath();
 
+  // Single-flight: one apply (or revert) at a time per agent dir.
+  const lock = acquireApplyLock(agentDir);
+  if (!lock.acquired) {
+    const reasons = [lock.error!];
+    applyLedgerEntry(input, "apply", "rejected", reasons, [], undefined, ledger);
+    return {ok: false, decision: "rejected", reasons, files: []};
+  }
+  try {
+    return applyCandidateLocked(input, agentDir, ledger);
+  } finally {
+    lock.release();
+  }
+}
+
+function applyCandidateLocked(input: ApplyCandidateInput, agentDir: string, ledger: string): ApplyResult {
   // Re-validate through proposer's pipeline — never trust the caller's check.
   const validationReasons = validateCandidate(input.winner.edits);
   if (validationReasons.length > 0) {
@@ -299,8 +460,20 @@ export function applyCandidate(input: ApplyCandidateInput): ApplyResult {
     return {ok: false, decision: "rejected", reasons: validationReasons, files: []};
   }
 
+  // Symlink containment BEFORE the prior-state snapshot and before ANY
+  // write/delete/mkdir: a symlinked component could redirect the write or
+  // delete outside agentDir. A symlink anywhere in ANY edit path rejects the
+  // whole candidate.
+  const symlinkReasons = input.winner.edits
+    .map((edit) => symlinkContainmentReason(agentDir, edit.path))
+    .filter((r): r is string => r !== null);
+  if (symlinkReasons.length > 0) {
+    applyLedgerEntry(input, "apply", "rejected", symlinkReasons, [], undefined, ledger);
+    return {ok: false, decision: "rejected", reasons: symlinkReasons, files: []};
+  }
+
   // Snapshot prior state of every affected path BEFORE touching anything.
-  const prior = new Map<string, string | null>();
+  const prior = new Map<string, Buffer | null>();
   const previews: ApplyFilePreview[] = [];
   for (const edit of input.winner.edits) {
     const {preview, prior: oldContent} = previewFor(edit, agentDir);
@@ -313,7 +486,17 @@ export function applyCandidate(input: ApplyCandidateInput): ApplyResult {
     return {ok: true, decision: "dry-run", reasons: ["dry-run: no files touched (config.apply.dryRun)"], files: previews};
   }
 
+  // Dirty-tree preflight BEFORE any write. Refusing on a dirty tree also
+  // shrinks the crash window: loop writes left uncommitted by a killed apply
+  // make the next apply refuse until the residue is resolved (see header).
+  const dirtyReason = dirtyManagedPathsReason(agentDir);
+  if (dirtyReason !== null) {
+    applyLedgerEntry(input, "apply", "rejected", [dirtyReason], previews, undefined, ledger);
+    return {ok: false, decision: "rejected", reasons: [dirtyReason], files: previews};
+  }
+
   // Write / delete the winner's files.
+  const createdDirs: string[] = [];
   let failure: string | null = null;
   for (const edit of input.winner.edits) {
     const full = join(agentDir, edit.path);
@@ -321,7 +504,18 @@ export function applyCandidate(input: ApplyCandidateInput): ApplyResult {
       if (edit.content === null) {
         if (existsSync(full)) rmSync(full);
       } else {
-        mkdirSync(dirname(full), {recursive: true});
+        const relDir = dirname(edit.path);
+        if (!existsSync(join(agentDir, relDir))) {
+          // Record every ancestor this mkdir -p creates (shallowest first) so
+          // rollback can rmdir them innermost-first, only when empty.
+          let acc = "";
+          for (const part of relDir.split("/")) {
+            if (part === "" || part === ".") continue;
+            acc = acc === "" ? part : `${acc}/${part}`;
+            if (!existsSync(join(agentDir, acc))) createdDirs.push(acc);
+          }
+          mkdirSync(join(agentDir, relDir), {recursive: true});
+        }
         writeFileSync(full, edit.content);
       }
     } catch (err) {
@@ -357,7 +551,7 @@ export function applyCandidate(input: ApplyCandidateInput): ApplyResult {
   }
 
   if (failure !== null) {
-    rollback(agentDir, prior);
+    rollback(agentDir, prior, createdDirs);
     applyLedgerEntry(input, "apply", "apply-failed", [failure], previews, undefined, ledger);
     return {ok: false, decision: "apply-failed", reasons: [failure], files: previews};
   }
@@ -371,6 +565,8 @@ export function applyCandidate(input: ApplyCandidateInput): ApplyResult {
 
 export interface RevertOptions {
   agentDir?: string;
+  /** Override the ledger file; default run-history.jsonl. Tests override. */
+  ledgerPath?: string;
 }
 
 export interface RevertResult {
@@ -392,6 +588,14 @@ export interface RevertResult {
  *     some other commit.
  *   - Refuse when the marker commit is not an ancestor of HEAD (its changes
  *     are not in the current tree; reverting would surprise).
+ *   - Refuse when the working tree is dirty under AGENTS.md/skills/ — checked
+ *     BOTH before `git revert` AND before the destructive checkout fallback
+ *     (no uncommitted manual change is ever swept into a revert or clobbered
+ *     by the fallback checkout).
+ *   - Runs under the same single-flight advisory lock as applyCandidate.
+ *   - Every terminal outcome appends a kind "revert" ledger entry
+ *     {runId, decision: "reverted"|"revert-failed", sha?, method?, error?}
+ *     to the ledger (RevertOptions.ledgerPath override for tests).
  *   - Only the marker commit is ever reverted — non-harness-loop commits are
  *     never touched, because we revert by that exact sha and nothing else.
  *   - Prefer `git revert --no-edit <sha>`; on CONFLICT, abort the revert and
@@ -400,13 +604,45 @@ export interface RevertResult {
  *     edits to those paths made after the apply commit are overwritten —
  *     documented trade-off of the fallback).
  */
+/** Append a kind "revert" ledger entry for a terminal revert outcome. */
+function revertLedgerEntry(runId: string, ledger: string, decision: "reverted" | "revert-failed", fields: {sha?: string; method?: string; error?: string}): void {
+  const entry: LedgerEntry = {
+    runId,
+    ts: new Date().toISOString(),
+    kind: "revert",
+    decision,
+  };
+  if (fields.sha !== undefined) entry.sha = fields.sha;
+  if (fields.method !== undefined) entry.method = fields.method;
+  if (fields.error !== undefined) entry.error = fields.error;
+  appendEntry(entry, ledger);
+}
+
 export function revertByRunId(runId: string, options: RevertOptions = {}): RevertResult {
   const agentDir = options.agentDir ?? join(homedir(), ".pi", "agent");
+  const ledger = options.ledgerPath ?? ledgerPath();
+
+  // Same single-flight lock as apply: never revert while an apply runs.
+  const lock = acquireApplyLock(agentDir);
+  if (!lock.acquired) {
+    revertLedgerEntry(runId, ledger, "revert-failed", {method: "revert", error: lock.error!});
+    return {ok: false, method: "revert", error: lock.error!};
+  }
+  try {
+    return revertByRunIdLocked(runId, agentDir, ledger);
+  } finally {
+    lock.release();
+  }
+}
+
+function revertByRunIdLocked(runId: string, agentDir: string, ledger: string): RevertResult {
   const marker = `harness-loop(run ${runId}):`;
 
   const log = git(agentDir, ["log", "--format=%H%x00%s"]);
   if (log.status !== 0) {
-    return {ok: false, method: "revert", error: `git log failed: ${log.stderr.trim() || `exit ${log.status}`}`};
+    const error = `git log failed: ${log.stderr.trim() || `exit ${log.status}`}`;
+    revertLedgerEntry(runId, ledger, "revert-failed", {method: "revert", error});
+    return {ok: false, method: "revert", error};
   }
   const commits = log.stdout.split("\n").filter((l) => l.trim() !== "").map((line) => {
     const nul = line.indexOf("\0");
@@ -414,29 +650,54 @@ export function revertByRunId(runId: string, options: RevertOptions = {}): Rever
   });
   const target = commits.find((c) => c.subject.startsWith(marker));
   if (target === undefined) {
-    return {ok: false, method: "revert", error: `no harness-loop commit found for run ${runId} (marker "${marker}")`};
+    const error = `no harness-loop commit found for run ${runId} (marker "${marker}")`;
+    revertLedgerEntry(runId, ledger, "revert-failed", {method: "revert", error});
+    return {ok: false, method: "revert", error};
   }
   const ancestor = git(agentDir, ["merge-base", "--is-ancestor", target.sha, "HEAD"]);
   if (ancestor.status !== 0) {
-    return {ok: false, method: "revert", error: `commit ${target.sha} for run ${runId} is not an ancestor of HEAD — refusing to revert`};
+    const error = `commit ${target.sha} for run ${runId} is not an ancestor of HEAD — refusing to revert`;
+    revertLedgerEntry(runId, ledger, "revert-failed", {method: "revert", sha: target.sha, error});
+    return {ok: false, method: "revert", error};
+  }
+
+  // Dirty-tree preflight BEFORE the revert (and again before the destructive
+  // checkout fallback below): uncommitted changes under AGENTS.md/skills
+  // would be mixed into (or destroyed by) the revert.
+  const dirtyReason = dirtyManagedPathsReason(agentDir);
+  if (dirtyReason !== null) {
+    revertLedgerEntry(runId, ledger, "revert-failed", {method: "revert", sha: target.sha, error: dirtyReason});
+    return {ok: false, method: "revert", error: dirtyReason};
   }
 
   const revert = git(agentDir, ["revert", "--no-edit", target.sha]);
   if (revert.status === 0) {
+    revertLedgerEntry(runId, ledger, "reverted", {sha: target.sha, method: "revert"});
     return {ok: true, method: "revert", sha: target.sha};
   }
 
   // Conflict (or other failure): abort the in-progress revert, then fall back
   // to restoring the loop-managed paths from the apply commit's parent.
   git(agentDir, ["revert", "--abort"]);
+  const dirtyAfterAbort = dirtyManagedPathsReason(agentDir);
+  if (dirtyAfterAbort !== null) {
+    const error = `git revert failed (${revert.stderr.trim() || `exit ${revert.status}`}) and the working tree is dirty after the abort — refusing the destructive checkout fallback: ${dirtyAfterAbort}`;
+    revertLedgerEntry(runId, ledger, "revert-failed", {method: "checkout-fallback", sha: target.sha, error});
+    return {ok: false, method: "checkout-fallback", sha: target.sha, error};
+  }
   const checkout = git(agentDir, ["checkout", `${target.sha}^`, "--", "AGENTS.md", "skills/"]);
   if (checkout.status !== 0) {
-    return {ok: false, method: "checkout-fallback", sha: target.sha, error: `git revert failed (${revert.stderr.trim() || `exit ${revert.status}`}) and checkout fallback also failed: ${checkout.stderr.trim() || `exit ${checkout.status}`}`};
+    const error = `git revert failed (${revert.stderr.trim() || `exit ${revert.status}`}) and checkout fallback also failed: ${checkout.stderr.trim() || `exit ${checkout.status}`}`;
+    revertLedgerEntry(runId, ledger, "revert-failed", {method: "checkout-fallback", sha: target.sha, error});
+    return {ok: false, method: "checkout-fallback", sha: target.sha, error};
   }
   const commit = git(agentDir, ["commit", "-m", `harness-loop(revert run ${runId}): restore pre-apply state of AGENTS.md and skills/`]);
   if (commit.status !== 0) {
-    return {ok: false, method: "checkout-fallback", sha: target.sha, error: `revert conflicted; checkout fallback staged the restore but the commit failed: ${commit.stderr.trim() || `exit ${commit.status}`}`};
+    const error = `revert conflicted; checkout fallback staged the restore but the commit failed: ${commit.stderr.trim() || `exit ${commit.status}`}`;
+    revertLedgerEntry(runId, ledger, "revert-failed", {method: "checkout-fallback", sha: target.sha, error});
+    return {ok: false, method: "checkout-fallback", sha: target.sha, error};
   }
+  revertLedgerEntry(runId, ledger, "reverted", {sha: target.sha, method: "checkout-fallback"});
   return {ok: true, method: "checkout-fallback", sha: target.sha};
 }
 

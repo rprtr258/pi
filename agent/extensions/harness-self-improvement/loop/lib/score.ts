@@ -222,8 +222,11 @@ export function selectWinner(baselineResults: TaskScoreResult[], candidateResult
   if (agg.passDelta >= config.minWin) {
     passWin = true;
     reasons.push(`WIN-MET: pass delta ${agg.passDelta} ≥ minWin ${config.minWin}`);
-  } else if (agg.passDelta < 0) {
-    reasons.push(`NOT-WIN: pass delta ${agg.passDelta} is negative`);
+  } else if (agg.passDelta !== 0) {
+    // Below minWin AND not pass-equal (covers negative deltas and
+    // 0 < passDelta < minWin): the duration branch is pass-equal only, so a
+    // fast partial pass improvement must never win here.
+    reasons.push(`NOT-WIN: pass delta ${agg.passDelta} is below minWin ${config.minWin} and not pass-equal`);
   } else if (config.minQualityGain === null) {
     reasons.push("NOT-WIN: pass-equal (passDelta 0) and minQualityGain is null — pass-equal candidates never win by default");
   } else if (baseTotalDurationMs <= 0) {
