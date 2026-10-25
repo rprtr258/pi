@@ -2,7 +2,7 @@
 /**
  * Probe runner for the harness self-improvement loop: executes one suite task
  * with a nested `pi` coding agent inside a staged sandbox (see stage.ts) and
- * scores the resulting workspace with the task's check.sh.
+ * scores the resulting workspace with the task's check.ts.
  *
  * The runner never throws — provider failures, missing events and spawn errors
  * surface as failed results with a short stderr excerpt. Raw JSONL from the
@@ -31,6 +31,16 @@ import {buildSandbox, captureModelFlag, realPiAgentDir, snapshotReal} from "./st
 
 const CHECKER_TIMEOUT_MS = 30_000;
 const DEFAULT_PROBE_TIMEOUT_S = 120;
+/**
+ * Capture cap for the nested-pi stderr tail, persisted verbatim (redacted) as
+ * ProbeResult.stderrExcerpt. Gate 4's load-error scan (gates.ts
+ * scanProbeLoadErrors) reads this field from tasks/<task>.json: the earlier
+ * 5-line/2000-char excerpt could truncate the window ABOVE where nested pi
+ * prints an extension load error, so the whole 8KB tail is kept and scanned.
+ * The raw JSONL file already carries everything; this excerpt cap was the
+ * bottleneck for stderr-only failure shapes.
+ */
+const STDERR_TAIL_CAP = 8 * 1024;
 
 export type ProbeUsage = {
   input: number,
@@ -58,7 +68,7 @@ export type ProbeResult = {
   piBinary: {bin: string, version: string | null} | null,
   /** True when the probe hit the timeout and the process group was killed. */
   timedOut: boolean,
-  /** Short stderr excerpt; null when the run produced no stderr. */
+  /** Redacted stderr tail (up to 8KB — see STDERR_TAIL_CAP); null when the run produced no stderr. */
   stderrExcerpt: string | null,
   /** Where the raw JSONL was recorded, when a location was provided. */
   rawJsonlPath: string | null,
@@ -73,6 +83,12 @@ export type RunProbeOptions = {
    *  OUTSIDE the checked workspace (e.g. a sibling of wsDir) so checkers
    *  never see it. */
   rawJsonlPath?: string,
+  /** Optional workspace staging hook (replay channel): invoked AFTER the
+   *  fresh workspace is created and BEFORE the nested pi run spawns, so a
+   *  task can start from a materialized starting state instead of an empty
+   *  workspace. A throwing callback fails the probe with the error as the
+   *  stderr excerpt (never a partially staged silent run). */
+  stageWorkspace?: (wsDir: string) => void,
 };
 
 /**
@@ -109,14 +125,35 @@ function piVersion(bin: string): string | null {
   }
 }
 
-/** Spawn env for nested pi: caller env minus node_modules/.bin PATH entries. */
+/**
+ * Spawn env for nested pi: caller env minus node_modules/.bin PATH entries,
+ * plus PI_OFFLINE=1 and HARNESS_LOOP_SAMPLE=1.
+ *
+ * PI_OFFLINE=1 (S8): write-protection for the shared real npm store that the
+ * sandbox reads through the <sandbox>/npm/node_modules symlink (see stage.ts).
+ * Without it, pi network-installs packages missing from <sandbox>/npm and
+ * update-checks the symlinked ones. PI_OFFLINE only disables background
+ * network activity (package installs/update checks) — NOT model calls — so
+ * probes still run their normal model traffic. Callers may override it via
+ * `extra` (spread last).
+ *
+ * HARNESS_LOOP_SAMPLE=1 (Step 9a): sandbox probes run with the env-gated
+ * sample extension's flag set, so a staged candidate extension that registers
+ * tools only under the flag (the harness-loop-sample pattern) is loadable and
+ * exercisable in probe sandboxes while staying INERT in every normal session
+ * (the flag is never set outside sandbox probes). The variable is inert
+ * unless an extension chooses to read it.
+ */
 export function nestedPiEnv(extra: Record<string, string> = {}): NodeJS.ProcessEnv {
-  if (process.env.PI_BIN !== undefined && process.env.PI_BIN !== "") return {...process.env, ...extra};
-  const path = (process.env.PATH ?? "")
+  const base = process.env.PI_BIN !== undefined && process.env.PI_BIN !== "" ? {...process.env} : {...process.env, PATH: filteredPath()};
+  return {...base, PI_OFFLINE: "1", HARNESS_LOOP_SAMPLE: "1", ...extra};
+}
+
+function filteredPath(): string {
+  return (process.env.PATH ?? "")
     .split(":")
     .filter((entry) => entry !== "" && !entry.endsWith("node_modules/.bin"))
     .join(":");
-  return {...process.env, PATH: path, ...extra};
 }
 
 const REDACTION_PATTERNS: Array<[RegExp, string]> = [
@@ -256,6 +293,15 @@ export async function runProbe(task: LoadedTask, sandboxDir: string, wsDir: stri
     // Fresh workspace for every probe — only created after the task validated.
     rmSync(wsDir, {recursive: true, force: true});
     mkdirSync(wsDir, {recursive: true});
+    // Optional starting-state staging (replay channel) — before the prompt is
+    // read and the pi process spawns; failures fail the probe explicitly.
+    if (options.stageWorkspace !== undefined) {
+      try {
+        options.stageWorkspace(wsDir);
+      } catch (err) {
+        return failed({stderrExcerpt: `workspace staging failed: ${err instanceof Error ? err.message : String(err)}`});
+      }
+    }
     const prompt = stripFrontmatter(readFileSync(task.paths.taskMd, "utf8"));
     const args = ["--mode", "json", "--no-session"];
     if (options.model !== undefined) args.push("--model", options.model);
@@ -311,7 +357,7 @@ export async function runProbe(task: LoadedTask, sandboxDir: string, wsDir: stri
       storeChunk(chunk);
     });
     child.stderr!.on("data", (chunk: string) => {
-      stderrTail = (stderrTail + chunk).slice(-2000);
+      stderrTail = (stderrTail + chunk).slice(-STDERR_TAIL_CAP);
     });
 
     const exit = await new Promise<number | null>((resolve) => {
@@ -351,7 +397,7 @@ export async function runProbe(task: LoadedTask, sandboxDir: string, wsDir: stri
       checkerResult,
       piBinary,
       timedOut,
-      stderrExcerpt: stderrTail.trim() === "" ? null : redact(stderrTail.trim().split("\n").slice(-5).join("\n")),
+      stderrExcerpt: stderrTail.trim() === "" ? null : redact(stderrTail.trim()),
       rawJsonlPath: options.rawJsonlPath ?? null,
     };
   } catch (err) {

@@ -10,34 +10,53 @@
  *     1. "agents-md", the AGENTS.md text
  *     2. for each skill file, in ascending relPath order (a < b UTF-16
  *        code-unit comparison, locale-independent — never localeCompare):
- *        "skill", the skill's relPath (POSIX-style, relative to skills/),
+ *        "skill", the skill's relPath (POSIX-style, relative to the agent
+ *        dir, e.g. "skills/x/SKILL.md" — S8 note: pre-S8 this was relative
+ *        to skills/; the form changed with the kinds-generic snapshot),
  *        then the skill file's full text as its own NUL-terminated field —
  *        relPath and content are separate fields so their boundary can never
  *        be shifted by crafting either string
- *     3. "pi", the resolved pi binary's version ("unknown" when it could not
+ *     3. for each prompt template file, same pattern: "template", relPath,
+ *        content (ascending relPath order)
+ *     4. for each subagent file, same pattern: "subagent", relPath, content
+ *     4b. for the mcp.json snapshot (Step 9b), same pattern: "mcp", relPath,
+ *        content — mcp.json is staged into every probe sandbox, so a config
+ *        change must invalidate the baseline cache (S9b CACHE-INVALIDATION
+ *        NOTE: adding this field makes every pre-S9b cache miss ONCE by
+ *        design, like the S8 migration). An absent mcp.json contributes no
+ *        field (the kind snapshots as an empty list).
+ *     5. "pi", the resolved pi binary's version ("unknown" when it could not
  *        be determined) — a cache written under a different pi version is
  *        therefore never reused
- *     4. "model", the captured --model flag for nested pi runs (provider +
+ *     6. "model", the captured --model flag for nested pi runs (provider +
  *        model id, e.g. "ozon-real/AgentLLM-big"), or "" when no model was
  *        captured — a model change therefore invalidates the fingerprint
  *   The NUL separator makes the encoding prefix-free: no field boundary is
  *   ambiguous regardless of file content.
+ *   S8 CACHE-INVALIDATION NOTE: the S8 surface-registry migration changed the
+ *   canonical form (templates + subagents fields added, skills relPaths now
+ *   agent-dir-relative), so every pre-S8 baseline cache misses ONCE by design
+ *   and a full probed baseline rebuild is expected.
  *
- * RESULT CACHE: loop/.cache/baseline-<fingerprint>.json holds the per-task
- * results. When it exists, NO new probes run — the report is regenerated from
- * cached results with cached: true, and the ledger entry gets kind
- * "baseline-cached". --cached forces cache-only mode and errors out when no
- * cache exists for the current fingerprint.
+ * RESULT CACHE: loop/.cache/baseline-<fingerprint>[-<taskset>].json holds the
+ * per-task results. <taskset> (a 16-hex-char digest of the sorted task-name
+ * set) is appended whenever a caller scopes the baseline to a task subset
+ * (the /hloop driver always passes one, so a --suite-filtered baseline can
+ * never replay a different task set's cached results). When the cache file
+ * exists, NO new probes run — the report is regenerated from cached results
+ * with cached: true, and the ledger entry gets kind "baseline-cached".
+ * --cached forces cache-only mode and errors out when no cache exists for
+ * the current fingerprint.
  *
  * Usage:
  *   bun run loop/baseline.ts [--cached] [--sandbox <dir>]
  */
 import {existsSync, mkdirSync, readFileSync, writeFileSync} from "node:fs";
 import {createHash} from "node:crypto";
-import {join} from "node:path";
+import {dirname, join} from "node:path";
 import {fileURLToPath} from "node:url";
 import {listTaskDirs, loadTask, suiteRoot} from "./lib/suite.ts";
-import {buildSandbox, captureModelFlag, snapshotReal, type ComponentSnapshot} from "./lib/stage.ts";
+import {agentsMdOf, buildSandbox, captureModelFlag, snapshotReal, type ComponentSnapshot} from "./lib/stage.ts";
 import {scoreSuite, type ScoreSuiteResult, type TaskScoreResult} from "./lib/score.ts";
 import {appendEntry, newRunId, renderReport, type ReportTask} from "./lib/ledger.ts";
 import {resolvePiBinary} from "./lib/probe.ts";
@@ -48,8 +67,9 @@ const cacheDir = join(extensionRoot, "loop", ".cache");
 
 /**
  * sha256 over the canonical snapshot form described in the file header:
- * agentsMd + skills (relPath and content as separate fields, sorted by UTF-16
- * code-unit relPath order) + resolved pi version + captured model flag.
+ * agentsMd + skills + prompt templates + subagents + mcp.json (relPath and
+ * content as separate fields, each group sorted by UTF-16 code-unit relPath
+ * order) + resolved pi version + captured model flag.
  */
 export function fingerprintSnapshot(
   snapshot: ComponentSnapshot,
@@ -61,10 +81,23 @@ export function fingerprintSnapshot(
     for (const part of parts) hash.update(part, "utf8");
     hash.update("\0");
   };
-  field("agents-md", snapshot.agentsMd);
-  for (const skill of [...snapshot.skills].sort((a, b) => (a.relPath < b.relPath ? -1 : a.relPath > b.relPath ? 1 : 0))) {
+  const byRelPath = (a: {relPath: string}, b: {relPath: string}): number => (a.relPath < b.relPath ? -1 : a.relPath > b.relPath ? 1 : 0);
+  field("agents-md", agentsMdOf(snapshot));
+  for (const skill of [...snapshot.kinds.skills].sort(byRelPath)) {
     field("skill", skill.relPath);
     field(skill.content);
+  }
+  for (const template of [...snapshot.kinds.templates].sort(byRelPath)) {
+    field("template", template.relPath);
+    field(template.content);
+  }
+  for (const subagent of [...snapshot.kinds.subagents].sort(byRelPath)) {
+    field("subagent", subagent.relPath);
+    field(subagent.content);
+  }
+  for (const mcpFile of [...snapshot.kinds.mcp].sort(byRelPath)) {
+    field("mcp", mcpFile.relPath);
+    field(mcpFile.content);
   }
   field("pi", piBinary?.version ?? "unknown");
   field("model", model ?? "");
@@ -88,6 +121,63 @@ type CachePayload = {
   ts: string,
   results: TaskScoreResult[],
 };
+
+/** Cache payload shape shared by baseline.ts and the /hloop driver. */
+export type BaselineCachePayload = {} & CachePayload
+
+/** loop/.cache — where baseline result caches live. */
+export function baselineCacheDir(): string {
+  return cacheDir;
+}
+
+/**
+ * Cache file for a fingerprint, optionally scoped to a task-name set (the
+ * 16-hex digest of the sorted NUL-joined names). Without taskNames this is
+ * the legacy fingerprint-only path (compatible with pre-S6 cache files).
+ * `dir` overrides the cache directory (the /hloop driver's selftest uses a
+ * temp dir so fake runs never touch the real cache).
+ */
+export function baselineCachePath(fingerprint: string, taskNames?: string[], dir: string = cacheDir): string {
+  if (taskNames === undefined || taskNames.length === 0) return join(dir, `baseline-${fingerprint}.json`);
+  const digest = createHash("sha256").update([...taskNames].sort().join("\0")).digest("hex").slice(0, 16);
+  return join(dir, `baseline-${fingerprint}-${digest}.json`);
+}
+
+function isCacheResult(v: unknown): v is TaskScoreResult {
+  return v !== null && typeof v === "object" &&
+    typeof (v as TaskScoreResult).task === "string" &&
+    typeof (v as TaskScoreResult).pass === "boolean" &&
+    typeof (v as TaskScoreResult).durationMs === "number";
+}
+
+/**
+ * Read + validate a baseline cache file; null when missing, unreadable, or
+ * malformed (a malformed cache is a cache miss, never fatal).
+ */
+export function readBaselineCache(path: string): BaselineCachePayload | null {
+  if (!existsSync(path)) return null;
+  try {
+    const payload = JSON.parse(readFileSync(path, "utf8")) as BaselineCachePayload;
+    if (typeof payload.fingerprint !== "string" || !Array.isArray(payload.results) || !payload.results.every(isCacheResult)) {
+      throw new Error("cache results are not an array of {task, pass, durationMs} entries");
+    }
+    return payload;
+  } catch (err) {
+    console.log(`[baseline] cache file unreadable, treating as cache miss: ${err instanceof Error ? err.message : String(err)}`);
+    return null;
+  }
+}
+
+/** Write a baseline cache file (creating the cache dir as needed). */
+export function writeBaselineCache(payload: BaselineCachePayload, path: string): void {
+  mkdirSync(dirname(path), {recursive: true});
+  writeFileSync(path, `${JSON.stringify(payload, null, 2)}\n`);
+}
+
+/** True when the result list's task-name set equals `taskNames` exactly. */
+export function cacheMatchesTaskSet(results: Array<{task: string}>, taskNames: string[]): boolean {
+  return results.length === taskNames.length && [...results.map((r) => r.task)].sort().join("\0") === [...taskNames].sort().join("\0");
+}
 
 function loadAllTasks() {
   const root = suiteRoot();
@@ -130,7 +220,11 @@ async function main(): Promise<void> {
   const model = captureModelFlag() ?? null;
   let reportPiBinary = piBinary;
   const fingerprint = fingerprintSnapshot(snapshot, model ?? undefined, piBinary);
-  const cachePath = join(cacheDir, `baseline-${fingerprint}.json`);
+  // Cache is keyed by fingerprint + task set: a --suite-scoped baseline must
+  // never replay a cache written for a different set of tasks.
+  const tasks = loadAllTasks();
+  const taskNames = tasks.map((t) => t.name);
+  const cachePath = baselineCachePath(fingerprint, taskNames);
 
   let results: TaskScoreResult[];
   let aggregate: ScoreSuiteResult["aggregate"];
@@ -142,22 +236,10 @@ async function main(): Promise<void> {
   mkdirSync(runDir, {recursive: true});
 
   let cachedPayload: CachePayload | null = null;
-  if (existsSync(cachePath)) {
-    try {
-      const payload = JSON.parse(readFileSync(cachePath, "utf8")) as CachePayload;
-      const isCacheResult = (v: unknown): v is TaskScoreResult =>
-        v !== null && typeof v === "object" &&
-        typeof (v as TaskScoreResult).task === "string" &&
-        typeof (v as TaskScoreResult).pass === "boolean" &&
-        typeof (v as TaskScoreResult).durationMs === "number";
-      if (!Array.isArray(payload.results) || !payload.results.every(isCacheResult)) {
-        throw new Error("cache results are not an array of {task, pass, durationMs} entries");
-      }
-      cachedPayload = payload;
-      console.log(`[baseline] cache hit for fingerprint ${fingerprint} — regenerating report, no probes`);
-    } catch (err) {
-      console.log(`[baseline] cache file unreadable, treating as cache miss: ${err instanceof Error ? err.message : String(err)}`);
-    }
+  const hit = readBaselineCache(cachePath);
+  if (hit !== null && cacheMatchesTaskSet(hit.results, taskNames)) {
+    cachedPayload = hit;
+    console.log(`[baseline] cache hit for fingerprint ${fingerprint} (${taskNames.length} tasks) — regenerating report, no probes`);
   }
 
   if (cachedPayload !== null) {
@@ -174,7 +256,6 @@ async function main(): Promise<void> {
       console.error(`--cached: no baseline cache for fingerprint ${fingerprint} (expected ${cachePath})`);
       process.exit(1);
     }
-    const tasks = loadAllTasks();
     // --sandbox hands a caller-supplied dir over to the baseline run;
     // buildSandbox wipes its target, which is safe for dirs this tool owns
     // (runs/<runId>/sandbox) and is the documented behavior for --sandbox too.
@@ -184,9 +265,7 @@ async function main(): Promise<void> {
     const scored = await scoreSuite(tasks, sandboxDir, runDir, {model: model ?? undefined});
     results = scored.results;
     aggregate = scored.aggregate;
-    mkdirSync(cacheDir, {recursive: true});
-    const payload: CachePayload = {fingerprint, model, ts: new Date().toISOString(), results};
-    writeFileSync(cachePath, `${JSON.stringify(payload, null, 2)}\n`);
+    writeBaselineCache({fingerprint, model, ts: new Date().toISOString(), results}, cachePath);
     cached = false;
   }
 
