@@ -14,16 +14,21 @@ import {randomBytes} from "node:crypto";
 import {join} from "node:path";
 import {fileURLToPath} from "node:url";
 
-/** One run-history.jsonl line. Extra fields (e.g. model, cached) are allowed. */
+/**
+ * One run-history.jsonl line. Extra fields (e.g. model, cached) are allowed.
+ * scores/usage are optional since Step 5: decision entries (kind "apply",
+ * "apply-dryrun") carry the apply outcome, not run scores, and may omit them
+ * (buildLedgerDigest never reads them).
+ */
 export type LedgerEntry = {
   runId: string,
   /** ISO 8601 timestamp of when the entry was appended. */
   ts: string,
-  /** Run kind, e.g. "baseline", "baseline-cached". */
+  /** Run kind, e.g. "baseline", "baseline-cached", "apply", "apply-dryrun". */
   kind: string,
   fingerprint?: string,
-  scores: {passCount: number, total: number},
-  usage: {totalTokens: number},
+  scores?: {passCount: number, total: number},
+  usage?: {totalTokens: number},
   /** Decision recorded for the run by a later step (optional). */
   decision?: string,
   [extra: string]: unknown,
@@ -99,6 +104,13 @@ export type RunReportData = {
   /** Resolved pi binary used by the nested runs (see probe.ts resolvePiBinary).
    *  On a cached run this should be the binary recorded in the cached results. */
   piBinary?: {bin: string, version: string | null} | null,
+  /** Step 10 probing stats (score.ts): wall time + concurrency aggregate. */
+  probeStats?: {tasks: number, probed: number, reused: number, maxObservedConcurrency: number, wallMs: number},
+  /** Step 11 role map; rendered only when at least one role overrides the session model. */
+  roleModels?: {proposer: string | null, judge: string | null, probe: string | null},
+  /** Step 11 per-iteration recursion mode + resolution reason (iterations only). */
+  mode?: string,
+  modeReason?: string,
   /** This run's per-task rows (the candidate side when `base` is present). */
   tasks: ReportTask[],
   /** Optional baseline rows to compare against (comparison table mode). */
@@ -132,6 +144,20 @@ export function renderReport(data: RunReportData): string {
     out.push(`- **pi:** ${data.piBinary.bin}${version}${data.cached ? " [cached run]" : ""}`);
   }
   if (data.cached !== undefined) out.push(`- **cached:** ${data.cached}`);
+  if (data.probeStats !== undefined) {
+    out.push(`- **probing:** ${data.probeStats.tasks} task(s) — ${data.probeStats.probed} probed, ${data.probeStats.reused} reused; max concurrent probes ${data.probeStats.maxObservedConcurrency}; wall ${fmtDuration(data.probeStats.wallMs)}`);
+  }
+  // Step 11 role map: shown only when a role overrides the session model
+  // (data.model is the session model; a role equal to it is not an override).
+  if (data.roleModels !== undefined) {
+    const overrides = Object.entries(data.roleModels).filter(([, m]) => m !== null && m !== data.model);
+    if (overrides.length > 0) {
+      out.push(`- **role models:** ${overrides.map(([role, m]) => `${role}: ${m}`).join(", ")}${overrides.length < 3 ? " (other roles: session model)" : ""}`);
+    }
+  }
+  if (data.mode !== undefined) {
+    out.push(`- **mode:** ${data.mode}${data.modeReason ? ` (${data.modeReason})` : ""}`);
+  }
   out.push("");
   out.push(`**Aggregate:** ${data.aggregate.passCount}/${data.aggregate.total} pass, ${data.aggregate.totalTokens} tokens`);
   out.push("");
