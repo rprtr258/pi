@@ -8,9 +8,9 @@ import { Type } from "typebox";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Editor, type EditorTheme, Key, matchesKey, Text, truncateToWidth, visibleWidth, wrapTextWithAnsi } from "@earendil-works/pi-tui";
 
-interface OptionWithDesc {
-  label: string;
-  description?: string;
+type OptionWithDesc = {
+  label: string,
+  description?: string,
 }
 
 type DisplayOption = OptionWithDesc & { isOther?: boolean };
@@ -57,7 +57,7 @@ export default function question(pi: ExtensionAPI) {
 
       const allOptions: DisplayOption[] = [...params.options, { label: "Type something.", isOther: true }];
 
-      const result = await ctx.ui.custom<{ answer: string; wasCustom: boolean; index?: number } | null>((tui, theme, _kb, done) => {
+      const result = await ctx.ui.custom<{ answer: string, wasCustom: boolean, index?: number } | null>((tui, theme, _kb, done) => {
         let optionIndex = 0;
         let editMode = false;
         let cachedLines: string[] | undefined;

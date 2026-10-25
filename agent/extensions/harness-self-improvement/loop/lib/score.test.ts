@@ -180,7 +180,7 @@ describe("scoreSuite resume", () => {
 // fingerprintSnapshot
 
 describe("fingerprintSnapshot", () => {
-  const snap = (agentsMd: string, skills: Array<{relPath: string; content: string}>) => ({agentsMd, skills});
+  const snap = (agentsMd: string, skills: Array<{relPath: string, content: string}>) => ({agentsMd, skills});
 
   test("is deterministic for identical snapshots", () => {
     const a = fingerprintSnapshot(snap("md", [{relPath: "s/SKILL.md", content: "x"}]), "prov/model", {bin: "pi", version: "1.3.0"});

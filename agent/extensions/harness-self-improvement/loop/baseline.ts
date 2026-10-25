@@ -54,7 +54,7 @@ const cacheDir = join(extensionRoot, "loop", ".cache");
 export function fingerprintSnapshot(
   snapshot: ComponentSnapshot,
   model: string | undefined,
-  piBinary?: {bin: string; version: string | null} | null,
+  piBinary?: {bin: string, version: string | null} | null,
 ): string {
   const hash = createHash("sha256");
   const field = (...parts: string[]): void => {
@@ -103,7 +103,7 @@ function loadAllTasks() {
   return tasks;
 }
 
-function parseArgs(argv: string[]): {cachedOnly: boolean; sandboxArg: string | undefined} {
+function parseArgs(argv: string[]): {cachedOnly: boolean, sandboxArg: string | undefined} {
   let cachedOnly = false;
   let sandboxArg: string | undefined;
   const sandboxIdx = argv.indexOf("--sandbox");
@@ -119,7 +119,7 @@ function parseArgs(argv: string[]): {cachedOnly: boolean; sandboxArg: string | u
 async function main(): Promise<void> {
   const {cachedOnly, sandboxArg} = parseArgs(process.argv.slice(2));
   // Fail fast on a bad PI_BIN before creating any run directory or probing.
-  let piBinary: {bin: string; version: string | null};
+  let piBinary: {bin: string, version: string | null};
   try {
     piBinary = resolvePiBinary();
   } catch (err) {

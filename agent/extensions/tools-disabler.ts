@@ -14,8 +14,8 @@ import { getSettingsListTheme } from "@earendil-works/pi-coding-agent";
 import { Container, type SettingItem, SettingsList } from "@earendil-works/pi-tui";
 
 // State persisted to session
-interface ToolsState {
-  enabledTools: string[];
+type ToolsState = {
+  enabledTools: string[],
 }
 
 export default function toolsExtension(pi: ExtensionAPI) {

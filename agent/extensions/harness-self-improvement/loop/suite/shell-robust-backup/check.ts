@@ -22,12 +22,12 @@ const backup = join(ws, "backup.sh");
 if (!existsSync(backup)) fail("backup.sh missing");
 if (!(statSync(backup).mode & 0o111)) fail("backup.sh is not executable");
 
-function run(args: string[]): {code: number; stderr: string} {
+function run(args: string[]): {code: number, stderr: string} {
   try {
     execFileSync(backup, args, {stdio: ["ignore", "pipe", "pipe"]});
     return {code: 0, stderr: ""};
   } catch (e) {
-    const err = e as {status?: number; stderr?: Buffer};
+    const err = e as {status?: number, stderr?: Buffer};
     return {code: err.status ?? -1, stderr: (err.stderr ?? "").toString()};
   }
 }

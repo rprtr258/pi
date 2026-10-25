@@ -146,7 +146,7 @@ export default function (pi: ExtensionAPI) {
           }
 
           return response.content
-            .filter((c): c is { type: "text"; text: string } => c.type === "text")
+            .filter((c): c is { type: "text", text: string } => c.type === "text")
             .map((c) => c.text)
             .join("\n");
         };

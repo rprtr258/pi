@@ -6,9 +6,8 @@
  * multiple lines instead of being clipped with an ellipsis.
  */
 
-import { describe, expect, test } from "bun:test";
+import { expect, test } from "bun:test";
 import { visibleWidth } from "@earendil-works/pi-tui";
-// eslint-disable-next-line import/no-relative-packages
 import questionExtension from "./question.ts";
 
 type ToolConfig = Parameters<Parameters<typeof questionExtension>[0]["registerTool"]>[0];
@@ -24,8 +23,8 @@ questionExtension({
 } as unknown as Parameters<typeof questionExtension>[0]);
 
 /** Open the interactive question UI and return the rendered component. */
-function openQuestionUI(params: { question: string; options: { label: string; description?: string }[] }) {
-  let component!: { render: (width: number) => string[]; invalidate: () => void; handleInput: (data: string) => void };
+function openQuestionUI(params: { question: string, options: { label: string, description?: string }[] }) {
+  let component!: { render: (width: number) => string[], invalidate: () => void, handleInput: (data: string) => void };
   const ctx = {
     hasUI: true,
     ui: {

@@ -1,4 +1,4 @@
-type Price = { item: string; cents: number };
+type Price = { item: string, cents: number };
 
 async function loadPrices(): Promise<Price[]> {
   return [

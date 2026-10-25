@@ -11,7 +11,6 @@
 
 import { expect, test } from "bun:test";
 import { visibleWidth } from "@earendil-works/pi-tui";
-// eslint-disable-next-line import/no-relative-packages
 import questionnaireExtension from "./index.ts";
 
 type ToolConfig = Parameters<Parameters<typeof questionnaireExtension>[0]["registerTool"]>[0];
@@ -26,17 +25,17 @@ questionnaireExtension({
   },
 } as unknown as Parameters<typeof questionnaireExtension>[0]);
 
-interface QuestionInput {
-  id: string;
-  label?: string;
-  prompt: string;
-  options: { value: string; label: string; description?: string }[];
-  allowOther?: boolean;
+type QuestionInput = {
+  id: string,
+  label?: string,
+  prompt: string,
+  options: { value: string, label: string, description?: string }[],
+  allowOther?: boolean,
 }
 
 /** Open the questionnaire UI on its first tab and return the rendered component. */
 function openQuestionnaireUI(params: { questions: QuestionInput[] }) {
-  let component!: { render: (width: number) => string[]; invalidate: () => void; handleInput: (data: string) => void };
+  let component!: { render: (width: number) => string[], invalidate: () => void, handleInput: (data: string) => void };
   const ctx = {
     hasUI: true,
     ui: {
