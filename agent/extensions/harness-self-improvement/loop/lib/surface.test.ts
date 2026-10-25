@@ -1,0 +1,361 @@
+#!/usr/bin/env bun
+/**
+ * Unit tests for the surface registry (surface.ts, Step 8): allowlists,
+ * per-kind content validators, snapshot skip rules, and staging.
+ *
+ *   bun test loop/lib/surface.test.ts
+ */
+import {mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync} from "node:fs";
+import {tmpdir} from "node:os";
+import {join} from "node:path";
+import {afterAll, describe, expect, test} from "bun:test";
+import {
+  kindForPath,
+  parseFrontmatterField,
+  SURFACE_KINDS,
+  surfaceKind,
+  validateMcpJson,
+  validateSubagent,
+  validateTemplate,
+  type SurfaceKindName,
+} from "./surface.ts";
+
+const tmpRoots: string[] = [];
+afterAll(() => {
+  for (const root of tmpRoots) rmSync(root, {recursive: true, force: true});
+});
+
+function tempDir(): string {
+  const root = mkdtempSync(join(tmpdir(), "surface-test-"));
+  tmpRoots.push(root);
+  return root;
+}
+
+describe("registry routing (kindForPath)", () => {
+  test("routes each managed path to its owning kind", () => {
+    expect(kindForPath("AGENTS.md")!.name).toBe("agents");
+    expect(kindForPath("skills/cli-jq/SKILL.md")!.name).toBe("skills");
+    expect(kindForPath("skills/cli-jq/scripts/run.sh")!.name).toBe("skills");
+    expect(kindForPath("prompts/mode-ask.md")!.name).toBe("templates");
+    expect(kindForPath("agents/miner.md")!.name).toBe("subagents");
+  });
+
+  test("rejects paths outside every allowlist", () => {
+    for (const path of [
+      "agents.md", // case variant
+      "skills/CLI-JQ/SKILL.md", // uppercase skill dir
+      "skills/cli-jq/other.md",
+      "prompts/sub/deep.md", // no subdirectories
+      "prompts/.hidden.md", // no dotfiles
+      "prompts/notes.txt", // md only
+      "agents/flow.chain.md", // chain files excluded
+      "agents/sub/deep.md", // flat only
+      "extensions/x.ts",
+      "sessions/s.json",
+    ]) {
+      expect(kindForPath(path)).toBeNull();
+    }
+  });
+
+  test("every registry kind exposes its gitPath and applyDir", () => {
+    const byName = Object.fromEntries(SURFACE_KINDS.map((k) => [k.name, k])) as Record<SurfaceKindName, (typeof SURFACE_KINDS)[number]>;
+    expect(byName.agents!.gitPath).toBe("AGENTS.md");
+    expect(byName.agents!.applyDir).toBe("");
+    expect(byName.skills!.gitPath).toBe("skills/");
+    expect(byName.skills!.applyDir).toBe("skills");
+    expect(byName.templates!.gitPath).toBe("prompts/");
+    expect(byName.templates!.applyDir).toBe("prompts");
+    expect(byName.subagents!.gitPath).toBe("agents/");
+    expect(byName.subagents!.applyDir).toBe("agents");
+  });
+
+  test("surfaceKind throws on an unknown name", () => {
+    expect(() => surfaceKind("nope" as SurfaceKindName)).toThrow(/unknown surface kind/);
+  });
+});
+
+describe("template validator", () => {
+  test("unbalanced {{ without }} rejected; balanced accepted", () => {
+    expect(validateTemplate("Use {{MODE here", "prompts/x.md")).toEqual(["template prompts/x.md: unbalanced {{ without }} (placeholder opener has no closer)"]);
+    expect(validateTemplate("Use {{MODE}} here", "prompts/x.md")).toEqual([]);
+    // Multiple balanced placeholders pass.
+    expect(validateTemplate("{{A}} and {{B}}", "prompts/x.md")).toEqual([]);
+  });
+
+  test("frontmatter-less templates accepted (pi falls back to the first line)", () => {
+    expect(validateTemplate("# Just a heading\n\nBody with no {{tokens}}.\n", "prompts/x.md")).toEqual([]);
+  });
+
+  test("deletion allowed", () => {
+    expect(validateTemplate(null, "prompts/x.md")).toEqual([]);
+  });
+});
+
+describe("subagent validator", () => {
+  test("missing name rejected", () => {
+    const reasons = validateSubagent("---\ndescription: Does work.\n---\nbody", "agents/worker.md");
+    expect(reasons.some((r) => r.includes('frontmatter field "name" is required'))).toBe(true);
+  });
+
+  test("missing description rejected", () => {
+    const reasons = validateSubagent("---\nname: worker\n---\nbody", "agents/worker.md");
+    expect(reasons.some((r) => r.includes('frontmatter field "description" is required'))).toBe(true);
+  });
+
+  test("no frontmatter rejected", () => {
+    expect(validateSubagent("# just text", "agents/worker.md").some((r) => r.includes("YAML frontmatter"))).toBe(true);
+  });
+
+  test("name + description present accepted; empty values rejected; deletion allowed", () => {
+    expect(validateSubagent("---\nname: worker\ndescription: Does work.\n---\nbody", "agents/worker.md")).toEqual([]);
+    expect(validateSubagent('---\nname: worker\ndescription: ""\n---\nbody', "agents/worker.md").length).toBe(1);
+    expect(validateSubagent(null, "agents/worker.md")).toEqual([]);
+  });
+});
+
+describe("parseFrontmatterField", () => {
+  test("reads scalar values, strips quotes, null when absent/empty", () => {
+    const fm = "name: miner\ndescription: \"Mines logs\"\ntools: bash\n";
+    expect(parseFrontmatterField(fm, "name")).toBe("miner");
+    expect(parseFrontmatterField(fm, "description")).toBe("Mines logs");
+    expect(parseFrontmatterField(fm, "thinking")).toBeNull();
+    expect(parseFrontmatterField("name:   \n", "name")).toBeNull();
+  });
+});
+
+describe("kind snapshots", () => {
+  test("agents kind: AGENTS.md text or empty list when absent", () => {
+    const dir = tempDir();
+    expect(surfaceKind("agents").snapshot(dir)).toEqual([]);
+    writeFileSync(join(dir, "AGENTS.md"), "# rules\n");
+    expect(surfaceKind("agents").snapshot(dir)).toEqual([{relPath: "AGENTS.md", content: "# rules\n"}]);
+  });
+
+  test("skills kind snapshot: recursive, agent-dir-relative, skips node_modules/dotfiles", () => {
+    const dir = tempDir();
+    mkdirSync(join(dir, "skills", "a", "node_modules", "pkg"), {recursive: true});
+    writeFileSync(join(dir, "skills", "a", "SKILL.md"), "a\n");
+    mkdirSync(join(dir, "skills", "a", "scripts"), {recursive: true});
+    writeFileSync(join(dir, "skills", "a", "scripts", "run.sh"), "s\n");
+    writeFileSync(join(dir, "skills", "a", "node_modules", "pkg", "i.js"), "dep\n");
+    writeFileSync(join(dir, "skills", ".hidden"), "no\n");
+    const files = surfaceKind("skills").snapshot(dir);
+    expect(files.map((f) => f.relPath).sort()).toEqual(["skills/a/SKILL.md", "skills/a/scripts/run.sh"]);
+  });
+
+  test("templates kind snapshot: flat prompts/*.md only", () => {
+    const dir = tempDir();
+    mkdirSync(join(dir, "prompts", "sub"), {recursive: true});
+    writeFileSync(join(dir, "prompts", "a.md"), "a\n");
+    writeFileSync(join(dir, "prompts", "b.txt"), "no\n");
+    writeFileSync(join(dir, "prompts", ".c.md"), "no\n");
+    writeFileSync(join(dir, "prompts", "sub", "d.md"), "no\n");
+    expect(surfaceKind("templates").snapshot(dir)).toEqual([{relPath: "prompts/a.md", content: "a\n"}]);
+  });
+
+  test("subagents kind snapshot: flat agents/*.md, *.chain.md excluded", () => {
+    const dir = tempDir();
+    mkdirSync(join(dir, "agents"));
+    writeFileSync(join(dir, "agents", "miner.md"), "---\nname: miner\n---\n");
+    writeFileSync(join(dir, "agents", "flow.chain.md"), "chain\n");
+    expect(surfaceKind("subagents").snapshot(dir)).toEqual([{relPath: "agents/miner.md", content: "---\nname: miner\n---\n"}]);
+  });
+
+  test("staging round-trips every kind's files at their agent-dir-relative paths", () => {
+    const src = tempDir();
+    mkdirSync(join(src, "skills", "a"), {recursive: true});
+    mkdirSync(join(src, "prompts"));
+    mkdirSync(join(src, "agents"));
+    writeFileSync(join(src, "AGENTS.md"), "# rules\n");
+    writeFileSync(join(src, "skills", "a", "SKILL.md"), "skill\n");
+    writeFileSync(join(src, "prompts", "a.md"), "template\n");
+    writeFileSync(join(src, "agents", "a.md"), "agent\n");
+    const sandbox = tempDir();
+    for (const kind of SURFACE_KINDS) kind.stage(sandbox, kind.snapshot(src));
+    expect(readFileSync(join(sandbox, "AGENTS.md"), "utf8")).toBe("# rules\n");
+    expect(readFileSync(join(sandbox, "skills", "a", "SKILL.md"), "utf8")).toBe("skill\n");
+    expect(readFileSync(join(sandbox, "prompts", "a.md"), "utf8")).toBe("template\n");
+    expect(readFileSync(join(sandbox, "agents", "a.md"), "utf8")).toBe("agent\n");
+    // Top-level entries are exactly the staged kinds.
+    expect(readdirSync(sandbox).sort()).toEqual(["AGENTS.md", "agents", "prompts", "skills"]);
+  });
+
+  test("agents stage always writes AGENTS.md, even from an empty file list (Phase I behavior)", () => {
+    const sandbox = tempDir();
+    surfaceKind("agents").stage(sandbox, []);
+    expect(readFileSync(join(sandbox, "AGENTS.md"), "utf8")).toBe("");
+  });
+});
+
+describe("extensions kind (Step 9a)", () => {
+  test("static shape allowlist routes extensions/<name>/... only", () => {
+    expect(kindForPath("extensions/sample/index.ts")!.name).toBe("extensions");
+    expect(kindForPath("extensions/sample-2/test/unit.test.ts")!.name).toBe("extensions");
+    expect(kindForPath("extensions/sample/package.json")!.name).toBe("extensions"); // routed, rejected by the validator
+    // Shape rejections: bad name charset, missing file segment.
+    expect(kindForPath("extensions/.hidden/x.ts")).toBeNull();
+    expect(kindForPath("extensions/BAD NAME/x.ts")).toBeNull();
+    expect(kindForPath("extensions/sample")).toBeNull();
+  });
+
+  test("static exclusions: package.json, bun.lock, node_modules hard-rejected even for allow-listed names", () => {
+    expect(surfaceKind("extensions").validate("{}", "extensions/sample/package.json")).toHaveLength(1);
+    expect(surfaceKind("extensions").validate("{}", "extensions/sample/bun.lock")).toHaveLength(1);
+    expect(surfaceKind("extensions").validate("x", "extensions/sample/node_modules/pkg/index.js")).toHaveLength(1);
+    expect(surfaceKind("extensions").validate("x", "extensions/sample/node_modules")).toHaveLength(1);
+    expect(surfaceKind("extensions").validate("export {}", "extensions/sample/index.ts")).toEqual([]);
+    expect(surfaceKind("extensions").validate(null, "extensions/sample/index.ts")).toEqual([]); // deletion allowed (gate 4 catches breakage)
+  });
+
+  test("the loop's own extension is hard-rejected (self-modification ban, independent of code.allow)", () => {
+    for (const p of [
+      "extensions/harness-self-improvement/index.ts",
+      "extensions/harness-self-improvement/loop/lib/gates.ts",
+      "extensions/harness-self-improvement/run-history.jsonl",
+    ]) {
+      const reasons = surfaceKind("extensions").validate("x", p);
+      expect(reasons).toHaveLength(1);
+      expect(reasons[0]).toContain("not loop-editable");
+      // Deletions of the loop's own files are equally banned.
+      expect(surfaceKind("extensions").validate(null, p)).toHaveLength(1);
+    }
+    // Sanity: a normal extension file still passes.
+    expect(surfaceKind("extensions").validate("x", "extensions/other/index.ts")).toEqual([]);
+  });
+
+  test("caps: 100KB/file", () => {
+    expect(surfaceKind("extensions").caps.maxFileBytes).toBe(100 * 1024);
+  });
+
+  test("snapshot contributes NO files (extensions are not ambient-sandbox staged; candidates staged by gates.ts)", () => {
+    const dir = tempDir();
+    mkdirSync(join(dir, "extensions", "sample"), {recursive: true});
+    writeFileSync(join(dir, "extensions", "sample", "index.ts"), "x\n");
+    expect(surfaceKind("extensions").snapshot(dir)).toEqual([]);
+  });
+
+  test("gitPath/applyDir registered so apply preflight + pathspec staging cover code applies", () => {
+    expect(surfaceKind("extensions").gitPath).toBe("extensions/");
+    expect(surfaceKind("extensions").applyDir).toBe("extensions");
+  });
+
+  test("stage writes files at their agent-dir-relative paths (used by gates.ts candidate staging)", () => {
+    const sandbox = tempDir();
+    surfaceKind("extensions").stage(sandbox, [{relPath: "extensions/sample/index.ts", content: "export {}\n"}]);
+    expect(readFileSync(join(sandbox, "extensions", "sample", "index.ts"), "utf8")).toBe("export {}\n");
+  });
+});
+
+describe("mcp kind (Step 9b)", () => {
+  // The REAL pi 1.3.0 shape (read from ~/.pi/agent/mcp.json + pi's own
+  // validateMcpServerConfig): stdio {command, args}, streamable HTTP {url,
+  // oauth}, plus tolerated extra fields like exposure.
+  const REAL_SHAPED = `${JSON.stringify(
+    {
+      mcpServers: {
+        "chrome-devtools": {command: "bunx", args: ["-y", "chrome-devtools-mcp@latest"]},
+        fetch: {command: "uvx", args: ["mcp-server-fetch"]},
+        "sequential-thinking": {exposure: "direct", command: "bunx", args: ["-y", "@modelcontextprotocol/server-sequential-thinking"]},
+        logging: {url: "https://mcp-gateway.example/logging/mcp", oauth: {clientId: "k8s.mcp-gateway", callbackUrl: "http://localhost:6274/oauth/callback"}},
+      },
+    },
+    null,
+    2,
+  )}\n`;
+
+  test("static allowlist routes mcp.json only", () => {
+    expect(kindForPath("mcp.json")!.name).toBe("mcp");
+    for (const path of ["mcp.json.bak", "MCP.JSON", "mcp/config.json", ".mcp.json", "sub/mcp.json"]) {
+      expect(kindForPath(path)).toBeNull();
+    }
+  });
+
+  test("valid real-shaped mcp.json passes the shape validator (empty server map too)", () => {
+    expect(validateMcpJson(REAL_SHAPED, "mcp.json")).toEqual([]);
+    expect(validateMcpJson('{"mcpServers":{}}\n', "mcp.json")).toEqual([]); // empty server map is legitimate
+  });
+
+  test("malformed JSON rejected", () => {
+    expect(validateMcpJson("{ not json", "mcp.json")[0]).toContain("not valid JSON");
+  });
+
+  test("non-object top level and missing/non-object mcpServers rejected", () => {
+    expect(validateMcpJson("[]", "mcp.json")[0]).toContain("must be a JSON object");
+    expect(validateMcpJson('"str"', "mcp.json")[0]).toContain("must be a JSON object");
+    expect(validateMcpJson("{}", "mcp.json")[0]).toContain('"mcpServers" must be an object');
+    expect(validateMcpJson('{"mcpServers":[]}', "mcp.json")[0]).toContain('"mcpServers" must be an object');
+  });
+
+  test("server entry with non-string command rejected", () => {
+    const reasons = validateMcpJson('{"mcpServers":{"x":{"command":42}}}', "mcp.json");
+    expect(reasons.some((r) => r.includes('server "x"') && r.includes('"command" must be a string'))).toBe(true);
+  });
+
+  test("non-string-array args rejected; string array args accepted", () => {
+    const bad = validateMcpJson('{"mcpServers":{"x":{"command":"c","args":[1,"ok"]}}}', "mcp.json");
+    expect(bad.some((r) => r.includes('"args" must be an array of strings'))).toBe(true);
+    const bad2 = validateMcpJson('{"mcpServers":{"x":{"command":"c","args":"-y"}}}', "mcp.json");
+    expect(bad2.some((r) => r.includes('"args" must be an array of strings'))).toBe(true);
+    expect(validateMcpJson('{"mcpServers":{"x":{"command":"c","args":["-y"]}}}', "mcp.json")).toEqual([]);
+  });
+
+  test("url entries: unparseable/non-http url rejected; http/https accepted (pi 1.3.0 alignment)", () => {
+    for (const url of ["not a url", "/local/path", "ftp://x/y", "file:///etc/passwd"]) {
+      const reasons = validateMcpJson(`{"mcpServers":{"x":{"url":${JSON.stringify(url)}}}}`, "mcp.json");
+      expect(reasons.some((r) => r.includes('server "x"') && r.includes('"url" must be an http or https URL'))).toBe(true);
+    }
+    expect(validateMcpJson('{"mcpServers":{"x":{"url":"https://example.com/mcp"}}}', "mcp.json")).toEqual([]);
+    expect(validateMcpJson('{"mcpServers":{"x":{"url":"http://localhost:6274/mcp"}}}', "mcp.json")).toEqual([]);
+  });
+
+  test("stdio env and url headers must be string records when present (pi 1.3.0 alignment)", () => {
+    const badEnv = validateMcpJson('{"mcpServers":{"x":{"command":"c","env":{"A":1}}}}', "mcp.json");
+    expect(badEnv.some((r) => r.includes('server "x"') && r.includes('"env" must map names to strings'))).toBe(true);
+    expect(validateMcpJson('{"mcpServers":{"x":{"command":"c","env":{"A":"b"}}}}', "mcp.json")).toEqual([]);
+    const badHeaders = validateMcpJson('{"mcpServers":{"x":{"url":"https://example.com/mcp","headers":{"Authorization":42}}}}', "mcp.json");
+    expect(badHeaders.some((r) => r.includes('server "x"') && r.includes('"headers" must map names to strings'))).toBe(true);
+    expect(validateMcpJson('{"mcpServers":{"x":{"url":"https://example.com/mcp","headers":{"Authorization":"Bearer t"}}}}', "mcp.json")).toEqual([]);
+  });
+
+  test("non-object server entries and missing command+url rejected", () => {
+    expect(validateMcpJson('{"mcpServers":{"x":"stdio"}}', "mcp.json")[0]).toContain('server "x": must be an object');
+    expect(validateMcpJson('{"mcpServers":{"x":{}}}', "mcp.json")[0]).toContain('needs either "command" (stdio) or "url" (streamable HTTP)');
+    expect(validateMcpJson('{"mcpServers":{"x":{"command":null}}}', "mcp.json")[0]).toContain('needs either "command"');
+  });
+
+  test("invalid server names rejected (pi's SERVER_NAME rule)", () => {
+    expect(validateMcpJson('{"mcpServers":{"bad name!":{"command":"c"}}}', "mcp.json")[0]).toContain("invalid server name");
+  });
+
+  test("deleting mcp.json rejected outright (empty server map is the disable path)", () => {
+    expect(validateMcpJson(null, "mcp.json")[0]).toContain("mcp.json cannot be deleted");
+  });
+
+  test("the REAL ~/.pi/agent/mcp.json passes the shape validator (read-only check)", () => {
+    const realPath = join(process.env["HOME"] ?? "", ".pi", "agent", "mcp.json");
+    let real: string;
+    try {
+      real = readFileSync(realPath, "utf8");
+    } catch {
+      console.log("  (no real ~/.pi/agent/mcp.json — shape check skipped)");
+      return;
+    }
+    expect(validateMcpJson(real, "mcp.json")).toEqual([]);
+  });
+
+  test("256KB cap; snapshot returns the file or nothing (absence flag); gitPath/applyDir at the agent-dir root", () => {
+    expect(surfaceKind("mcp").caps.maxFileBytes).toBe(256 * 1024);
+    const dir = tempDir();
+    expect(surfaceKind("mcp").snapshot(dir)).toEqual([]); // absent real file → empty list
+    writeFileSync(join(dir, "mcp.json"), REAL_SHAPED);
+    expect(surfaceKind("mcp").snapshot(dir)).toEqual([{relPath: "mcp.json", content: REAL_SHAPED}]);
+    expect(surfaceKind("mcp").gitPath).toBe("mcp.json");
+    expect(surfaceKind("mcp").applyDir).toBe("");
+  });
+
+  test("stage writes mcp.json at the sandbox root", () => {
+    const sandbox = tempDir();
+    surfaceKind("mcp").stage(sandbox, [{relPath: "mcp.json", content: REAL_SHAPED}]);
+    expect(readFileSync(join(sandbox, "mcp.json"), "utf8")).toBe(REAL_SHAPED);
+  });
+});

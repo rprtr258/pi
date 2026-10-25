@@ -2,11 +2,18 @@
 /**
  * Probe runner for the harness self-improvement loop: executes one suite task
  * with a nested `pi` coding agent inside a staged sandbox (see stage.ts) and
- * scores the resulting workspace with the task's check.sh.
+ * scores the resulting workspace with the task's check.ts.
  *
  * The runner never throws — provider failures, missing events and spawn errors
  * surface as failed results with a short stderr excerpt. Raw JSONL from the
  * nested run is recorded next to the result for debugging.
+ *
+ * Step 12 retry hardening: a PROVIDER-ISH failure (spawn error, non-zero exit
+ * with an empty trajectory, or no events parsed at all — see
+ * isProviderishFailure) is retried exactly ONCE after a 2s backoff; both
+ * attempts' info is recorded on the result (attemptedRetry, firstError).
+ * Deterministic outcomes — task timeouts, checker failures against real
+ * trajectories, setup errors — are never retried.
  *
  * Usage:
  *   bun run loop/lib/probe.ts <task-name> [--sandbox <dir>] [--keep-sandbox]
@@ -31,6 +38,16 @@ import {buildSandbox, captureModelFlag, realPiAgentDir, snapshotReal} from "./st
 
 const CHECKER_TIMEOUT_MS = 30_000;
 const DEFAULT_PROBE_TIMEOUT_S = 120;
+/**
+ * Capture cap for the nested-pi stderr tail, persisted verbatim (redacted) as
+ * ProbeResult.stderrExcerpt. Gate 4's load-error scan (gates.ts
+ * scanProbeLoadErrors) reads this field from tasks/<task>.json: the earlier
+ * 5-line/2000-char excerpt could truncate the window ABOVE where nested pi
+ * prints an extension load error, so the whole 8KB tail is kept and scanned.
+ * The raw JSONL file already carries everything; this excerpt cap was the
+ * bottleneck for stderr-only failure shapes.
+ */
+const STDERR_TAIL_CAP = 8 * 1024;
 
 export type ProbeUsage = {
   input: number,
@@ -58,10 +75,25 @@ export type ProbeResult = {
   piBinary: {bin: string, version: string | null} | null,
   /** True when the probe hit the timeout and the process group was killed. */
   timedOut: boolean,
-  /** Short stderr excerpt; null when the run produced no stderr. */
+  /** Redacted stderr tail (up to 8KB — see STDERR_TAIL_CAP); null when the run produced no stderr. */
   stderrExcerpt: string | null,
   /** Where the raw JSONL was recorded, when a location was provided. */
   rawJsonlPath: string | null,
+  /**
+   * Step 12 retry hardening: true when the FIRST attempt hit a provider-ish
+   * failure (see isProviderishFailure) and ONE retry attempt ran after the
+   * backoff. Absent/false when the first attempt was healthy or the failure
+   * was deterministic (timeout, checker failure, setup error) — those are
+   * never retried.
+   */
+  attemptedRetry?: boolean,
+  /**
+   * Step 12: what the FIRST (failed) attempt looked like, kept when a retry
+   * ran — the stderr excerpt, or a synthetic exit/trajectory summary when the
+   * first attempt produced no stderr. Both attempts' info is thus always
+   * recorded on the returned result.
+   */
+  firstError?: string | null,
 };
 
 export type RunProbeOptions = {
@@ -73,6 +105,29 @@ export type RunProbeOptions = {
    *  OUTSIDE the checked workspace (e.g. a sibling of wsDir) so checkers
    *  never see it. */
   rawJsonlPath?: string,
+  /** Optional workspace staging hook (replay channel): invoked AFTER the
+   *  fresh workspace is created and BEFORE the nested pi run spawns, so a
+   *  task can start from a materialized starting state instead of an empty
+   *  workspace. A throwing callback fails the probe with the error as the
+   *  stderr excerpt (never a partially staged silent run). */
+  stageWorkspace?: (wsDir: string) => void,
+  /**
+   * Per-probe temp directory (Step 10 parallel probing): when set, TMPDIR,
+   * TMP and TEMP in the nested pi's env AND the checker's env point here, so
+   * probes running concurrently against the same sandbox cannot collide in
+   * the shared /tmp (a checker that violates the S1 workspace-only contract
+   * with a fixed temp path would otherwise race at concurrency ≥ 2). The
+   * caller (score.ts) creates a unique dir per probe and cleans it up.
+   */
+  tmpDir?: string,
+  /**
+   * Step 12 retry backoff: milliseconds to wait before the single retry of a
+   * provider-ish failure (spawn error, non-zero exit with empty trajectory,
+   * no events parsed). Default 2000ms; 0 is legal (tests). The retry runs at
+   * most ONCE per probe — a second consecutive provider-ish failure is
+   * recorded as the task failure.
+   */
+  retryBackoffMs?: number,
 };
 
 /**
@@ -109,14 +164,35 @@ function piVersion(bin: string): string | null {
   }
 }
 
-/** Spawn env for nested pi: caller env minus node_modules/.bin PATH entries. */
+/**
+ * Spawn env for nested pi: caller env minus node_modules/.bin PATH entries,
+ * plus PI_OFFLINE=1 and HARNESS_LOOP_SAMPLE=1.
+ *
+ * PI_OFFLINE=1 (S8): write-protection for the shared real npm store that the
+ * sandbox reads through the <sandbox>/npm/node_modules symlink (see stage.ts).
+ * Without it, pi network-installs packages missing from <sandbox>/npm and
+ * update-checks the symlinked ones. PI_OFFLINE only disables background
+ * network activity (package installs/update checks) — NOT model calls — so
+ * probes still run their normal model traffic. Callers may override it via
+ * `extra` (spread last).
+ *
+ * HARNESS_LOOP_SAMPLE=1 (Step 9a): sandbox probes run with the env-gated
+ * sample extension's flag set, so a staged candidate extension that registers
+ * tools only under the flag (the harness-loop-sample pattern) is loadable and
+ * exercisable in probe sandboxes while staying INERT in every normal session
+ * (the flag is never set outside sandbox probes). The variable is inert
+ * unless an extension chooses to read it.
+ */
 export function nestedPiEnv(extra: Record<string, string> = {}): NodeJS.ProcessEnv {
-  if (process.env.PI_BIN !== undefined && process.env.PI_BIN !== "") return {...process.env, ...extra};
-  const path = (process.env.PATH ?? "")
+  const base = process.env.PI_BIN !== undefined && process.env.PI_BIN !== "" ? {...process.env} : {...process.env, PATH: filteredPath()};
+  return {...base, PI_OFFLINE: "1", HARNESS_LOOP_SAMPLE: "1", ...extra};
+}
+
+function filteredPath(): string {
+  return (process.env.PATH ?? "")
     .split(":")
     .filter((entry) => entry !== "" && !entry.endsWith("node_modules/.bin"))
     .join(":");
-  return {...process.env, PATH: path, ...extra};
 }
 
 const REDACTION_PATTERNS: Array<[RegExp, string]> = [
@@ -222,9 +298,10 @@ export function killProcessGroup(pid: number, signal: NodeJS.Signals = "SIGKILL"
   }
 }
 
-function runChecker(checkTs: string, wsDir: string): CheckerResult {
+function runChecker(checkTs: string, wsDir: string, env?: NodeJS.ProcessEnv): CheckerResult {
   const proc = spawnSync(checkTs, [wsDir], {
     cwd: wsDir,
+    env,
     timeout: CHECKER_TIMEOUT_MS,
     encoding: "utf8",
     maxBuffer: 16 * 1024 * 1024,
@@ -237,17 +314,69 @@ function runChecker(checkTs: string, wsDir: string): CheckerResult {
 
 /** Run one task probe. Resolves with a result for every outcome; never throws. */
 export async function runProbe(task: LoadedTask, sandboxDir: string, wsDir: string, options: RunProbeOptions = {}): Promise<ProbeResult> {
+  const first = await attemptProbe(task, sandboxDir, wsDir, options);
+  if (!first.retryable) return first.result;
+  // Step 12: ONE retry after a short backoff — only for provider-ish
+  // failures (spawn error / non-zero exit with empty trajectory / no events
+  // parsed). Deterministic outcomes (task timeout, checker failure, setup
+  // errors) never reach this branch. attemptProbe re-creates the workspace,
+  // so the retry starts from a clean staging state.
+  const backoffMs = options.retryBackoffMs ?? PROVIDER_RETRY_BACKOFF_MS;
+  if (backoffMs > 0) await new Promise<void>((resolve) => setTimeout(resolve, backoffMs));
+  const second = await attemptProbe(task, sandboxDir, wsDir, options);
+  return {
+    ...second.result,
+    attemptedRetry: true,
+    firstError: first.result.stderrExcerpt ??
+      `first attempt: exit ${first.result.exit ?? "<no exit>"}, no trajectory${first.result.usage === null ? ", no usage" : ""}`,
+  };
+}
+
+/** Backoff before the single provider-failure retry (Step 12). */
+const PROVIDER_RETRY_BACKOFF_MS = 2_000;
+
+/**
+ * Provider-ish failure (Step 12): the nested run shows no evidence that the
+ * MODEL ever did work — spawn error, killed by signal, non-zero exit with an
+ * empty trajectory, or no events parsed at all (no assistant text AND no
+ * usage). These are transient infra/provider shapes worth exactly one retry.
+ * NOT provider-ish (deterministic, never retried): a task timeout (the task
+ * genuinely ran out of budget), a checker failure against a real trajectory,
+ * a non-zero exit WITH trajectory output, and setup errors (unloadable task,
+ * staging failure, PI_BIN misconfig — they fail identically on retry).
+ */
+export function isProviderishFailure(result: ProbeResult): boolean {
+  if (result.timedOut) return false;
+  if (result.exit === null) return true; // spawn error or killed by signal
+  if (result.exit !== 0 && result.trajectory.trim() === "") return true;
+  if (result.trajectory.trim() === "" && result.usage === null) return true; // no events parsed
+  return false;
+}
+
+type AttemptOutcome = {
+  result: ProbeResult,
+  /** True when runProbe may retry this outcome once (provider-ish shape). */
+  retryable: boolean,
+}
+
+/** One probe attempt: the pre-Step-12 runProbe body. Never throws. */
+async function attemptProbe(task: LoadedTask, sandboxDir: string, wsDir: string, options: RunProbeOptions = {}): Promise<AttemptOutcome> {
   const timeoutS = options.timeoutS ?? task.meta?.timeoutS ?? DEFAULT_PROBE_TIMEOUT_S;
-  const failed = (partial: Partial<ProbeResult>): ProbeResult => ({
-    trajectory: "",
-    usage: null,
-    exit: null,
-    checkerResult: {pass: false, output: ""},
-    piBinary: null,
-    timedOut: false,
-    stderrExcerpt: null,
-    rawJsonlPath: null,
-    ...partial,
+  const failed = (partial: Partial<ProbeResult>): AttemptOutcome => ({
+    result: {
+      trajectory: "",
+      usage: null,
+      exit: null,
+      checkerResult: {pass: false, output: ""},
+      piBinary: null,
+      timedOut: false,
+      stderrExcerpt: null,
+      rawJsonlPath: null,
+      ...partial,
+    },
+    // Setup failures (unloadable task, staging error, PI_BIN misconfig) are
+    // deterministic — they fail identically on a retry.
+    retryable: false,
   });
   try {
     if (!existsSync(task.paths.taskMd) || !task.meta) {
@@ -256,6 +385,15 @@ export async function runProbe(task: LoadedTask, sandboxDir: string, wsDir: stri
     // Fresh workspace for every probe — only created after the task validated.
     rmSync(wsDir, {recursive: true, force: true});
     mkdirSync(wsDir, {recursive: true});
+    // Optional starting-state staging (replay channel) — before the prompt is
+    // read and the pi process spawns; failures fail the probe explicitly.
+    if (options.stageWorkspace !== undefined) {
+      try {
+        options.stageWorkspace(wsDir);
+      } catch (err) {
+        return failed({stderrExcerpt: `workspace staging failed: ${err instanceof Error ? err.message : String(err)}`});
+      }
+    }
     const prompt = stripFrontmatter(readFileSync(task.paths.taskMd, "utf8"));
     const args = ["--mode", "json", "--no-session"];
     if (options.model !== undefined) args.push("--model", options.model);
@@ -293,6 +431,10 @@ export async function runProbe(task: LoadedTask, sandboxDir: string, wsDir: stri
       }
     };
 
+    // Step 10: per-probe TMPDIR isolation (see RunProbeOptions.tmpDir) — the
+    // nested pi AND the checker both see the isolated temp dir, so concurrent
+    // probes never share temp paths.
+    const tmpEnv: Record<string, string> | null = options.tmpDir !== undefined ? {TMPDIR: options.tmpDir, TMP: options.tmpDir, TEMP: options.tmpDir} : null;
     let stderrTail = "";
     let timedOut = false;
     // Resolved after task validation: a bad PI_BIN fails the probe with a
@@ -300,7 +442,7 @@ export async function runProbe(task: LoadedTask, sandboxDir: string, wsDir: stri
     const piBinary = resolvePiBinary();
     const child = spawn(piBinary.bin, args, {
       cwd: wsDir,
-      env: nestedPiEnv({PI_CODING_AGENT_DIR: sandboxDir}),
+      env: nestedPiEnv({PI_CODING_AGENT_DIR: sandboxDir, ...(tmpEnv ?? {})}),
       // New process group (setsid) so the timeout kill takes the whole tree.
       detached: true,
       stdio: ["ignore", "pipe", "pipe"],
@@ -311,7 +453,7 @@ export async function runProbe(task: LoadedTask, sandboxDir: string, wsDir: stri
       storeChunk(chunk);
     });
     child.stderr!.on("data", (chunk: string) => {
-      stderrTail = (stderrTail + chunk).slice(-2000);
+      stderrTail = (stderrTail + chunk).slice(-STDERR_TAIL_CAP);
     });
 
     const exit = await new Promise<number | null>((resolve) => {
@@ -338,22 +480,34 @@ export async function runProbe(task: LoadedTask, sandboxDir: string, wsDir: stri
       }
       rawFd = null;
     }
-    const parseInput =
-      truncatedBytes > 0
-        ? `${rawHead}\n==[raw JSONL truncated: ${truncatedBytes} middle bytes not retained in memory]==\n${rawTail}`
-        : rawHead + rawTail;
+    // Step 12 fix: assemble the parse input WITHOUT double-counting the
+    // head/tail overlap. rawHead holds the first ≤2MB and rawTail the last
+    // ≤8MB of the stream, so for output under 8MB rawTail alone IS the whole
+    // stream; between 8MB and 10MB the two windows overlap (emit the overlap
+    // once); beyond 10MB a real gap opens between them (marked inline).
+    let parseInput: string;
+    if (truncatedBytes === 0) {
+      parseInput = rawTail; // ≤ 8MB: rawTail is the complete stream
+    } else if (truncatedBytes <= RAW_HEAD_LIMIT) {
+      const overlap = RAW_HEAD_LIMIT - truncatedBytes;
+      parseInput = rawHead.slice(0, Math.max(0, rawHead.length - overlap)) + rawTail;
+    } else {
+      const gapBytes = truncatedBytes - RAW_HEAD_LIMIT;
+      parseInput = `${rawHead}\n==[raw JSONL truncated: ${gapBytes} middle bytes not retained in memory]==\n${rawTail}`;
+    }
     const parsed = parseJsonlEvents(parseInput);
-    const checkerResult = runChecker(task.paths.checkTs, wsDir);
-    return {
+    const checkerResult = runChecker(task.paths.checkTs, wsDir, options.tmpDir === undefined ? undefined : {...process.env, TMPDIR: options.tmpDir, TMP: options.tmpDir, TEMP: options.tmpDir});
+    const result: ProbeResult = {
       trajectory: parsed.trajectoryLines.join("\n"),
       usage: parsed.usage,
       exit,
       checkerResult,
       piBinary,
       timedOut,
-      stderrExcerpt: stderrTail.trim() === "" ? null : redact(stderrTail.trim().split("\n").slice(-5).join("\n")),
+      stderrExcerpt: stderrTail.trim() === "" ? null : redact(stderrTail.trim()),
       rawJsonlPath: options.rawJsonlPath ?? null,
     };
+    return {result, retryable: isProviderishFailure(result)};
   } catch (err) {
     return failed({stderrExcerpt: redact(err instanceof Error ? err.message : String(err))});
   }

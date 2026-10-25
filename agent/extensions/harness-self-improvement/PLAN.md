@@ -143,3 +143,199 @@ is a normal implement-step candidate, not a special case.
 Each completed cycle appends one entry to `harness-log.md` (this directory):
 date, evidence scanned, findings, approved changes, verification results, reverted
 items. PLAN.md itself stays process-only — history lives in the log.
+
+## Recursive optimization loop (/hloop)
+
+Step 6 of the harness-loop plan turns the manual cycle into a measurable,
+closed loop: snapshot the agent components, score them with the task suite
+(`loop/suite/`), let the Proposer generate candidates, score the candidates in
+identical sandboxes, and auto-apply the winner — with budget, state, and
+revert machinery. Implemented in `loop/driver.ts` (`runLoop`), wired to the
+session by the `/hloop` command group in `index.ts`. Architecture reference:
+[loop/README.md](loop/README.md) (surface registry, data flow, gate pipeline,
+failure semantics); the task suite itself: [loop/suite/README.md](loop/suite/README.md).
+
+### Commands
+
+| command | what it does |
+| --- | --- |
+| `/hloop start [--iterations N] [--suite <glob>] [--max-candidates K] [--resume <runId>]` | Runs the loop to completion, synchronously in the handler — the session BLOCKS for the whole loop (nested pi probes + proposer model calls). Prints a cost warning first. Refuses to start while another run's `state.json` says "running" with a live pid. `--resume` continues an interrupted (crashed) run: completed iterations are skipped, partially scored phases reuse their on-disk per-task results. |
+| `/hloop status` | Prints the latest run's `state.json` summary (status, budget, per-iteration decisions) plus the last ≤5 `run-history.jsonl` entries. |
+| `/hloop stop` | Creates the stop flag file `loop/.stop`; a running loop stops before its next probe/iteration and deletes the flag. |
+| `/hloop revert <runId>` | Reverts the apply commit of a run (`git revert` by the `harness-loop(run <runId>):` marker, checkout fallback on conflict). |
+| `/hloop report [runId]` | Lists `runs/<runId>/**/report.md` (default: latest run) and prints the per-iteration baseline aggregates + decisions. |
+| `/hloop-calibrate [--sample N]` | Runs the judge (loop/lib/judge.ts) on N (default: all) suite tasks against their known checker verdicts and prints the agreement table. Verdict CALIBRATED when agreement ≥ `replay.minAgreement`, else ADVISORY. Writes `runs/<runId>/calibration.md` + a `judge-calibration` ledger entry. Trajectories are reused from the baseline result cache when the fingerprint matches; fresh probes otherwise. |
+| `/hloop-propose --fixture <runId> [--dry-run]` | S4 debug command (superseded by the driver): rebuilds the Proposer prompt from a past run's fixture and (without `--dry-run`) makes one proposer model call — for inspecting the prompt/digest/proposal path without running the loop. |
+| `/hloop-replay [--sample N] [--mine M]` | Mines M (default 8) replay-task candidates from real session history into `loop/suite-replay/<id>/`, probes N (default 3) with real nested pi against the reconstructed workspace, judges each, and prints id / provenance / judge score / rationale. Writes `runs/<runId>/replay-report.md` + `replay` ledger entries. **Replay channel: not yet wired into selection (advisory until calibrated)** — `config replay.enabled` is false by default; the gate is `isCalibrated` (agreement ≥ `replay.minAgreement`). |
+
+### Config (loop/config.json, tolerant loader — per-field fallback to defaults)
+
+> Fresh-clone caveat: `extensions/harness-loop-sample/node_modules` is a committed symlink (git mode 120000) into the gitignored `extensions/node_modules` store — dangling on fresh clones; gate 1 then rejects the sample as un-editable (fails safe).
+
+```json
+{
+  "minWin": 1, "minQualityGain": null, "usageFactor": 1.5,
+  "apply": {"dryRun": true},
+  "budget": {"maxTotalTokens": 5000000, "maxIterations": 3},
+  "candidates": {"maxPerIteration": 3},
+  "replay": {"enabled": false, "minAgreement": 0.8}
+}
+```
+
+`replay.enabled` is FALSE by default: the replay channel (Step 7, second
+probe objective mined from real sessions + LLM judge) is advisory only and
+not yet wired into selection. It leaves advisory mode only when
+`/hloop-calibrate` records agreement ≥ `replay.minAgreement` (0.8) in the
+ledger (gate: `isCalibrated` in loop/lib/replay.ts).
+
+`apply.dryRun` is TRUE by default: winners are only diff-previewed (ledger
+kind `apply-dryrun`), nothing is written to the live agent config. To enable
+real apply, edit `loop/config.json` and set `"apply": {"dryRun": false}` —
+applies then commit to `~/.pi/agent` (git, single-flight lock, rollback on
+failure) and can be undone with `/hloop revert <runId>`.
+
+### Surface registry (what the loop may propose edits to)
+
+The registry (`loop/lib/surface.ts`, `SURFACE_KINDS`) drives validation,
+staging, apply pathspecs, and revert for all components:
+
+| kind | files | caps / rules |
+| --- | --- | --- |
+| `agents` | `AGENTS.md` | non-deletable, non-empty, ≤48KB |
+| `skills` | `skills/<dir>/SKILL.md` + `skills/<dir>/scripts/*` | lowercase dirs, ≤100KB/file |
+| `templates` | `prompts/<name>.md` | no frontmatter required; `{{…}}` tokens balance-checked; ≤100KB |
+| `subagents` | `agents/<name>.md` | frontmatter `name` + `description` REQUIRED; `*.chain.md` excluded; ≤100KB |
+| `extensions` | `extensions/<name>/...` | the ONLY code-bearing kind — see code gates below |
+| `mcp` | `mcp.json` | validated against pi's real config shape; deletion rejected (empty `mcpServers` disables); runs the startup-probe gate |
+
+### Code gates (extensions kind)
+
+Editing an extension requires BOTH allowlist layers to pass:
+
+1. **Config allowlist** — `"code": {"allow": ["<extension-name>"], "minWin": N}`
+   in `loop/config.json` names the ONLY editable extensions (default allow
+   list is empty; the real `loop/config.json` allowlists
+   `harness-loop-sample`). `package.json`, `bun.lock`, `node_modules/`, and
+   the loop's own extension are hard-rejected regardless of the allowlist.
+2. **Real-FS gates** — the extension must carry a test file (`*.test.ts` in
+   the extension dir or `test/`) and a resolvable `node_modules`; candidates
+   on such extensions then run, in order: the startup probe (mcp-bearing only)
+   → `bunx tsc --noEmit` → `bun test` in a staged sandbox → the full suite
+   probe with the candidate staged.
+
+Because code changes are riskier, selection uses `code.minWin` (default 2)
+instead of the global `minWin`: a code-bearing candidate (or composition
+containing one) must win by at least `code.minWin` net task wins.
+
+### Iteration modes + roles
+
+Per-iteration mode resolution (highest precedence first):
+
+1. explicit `--mode` flag on `/hloop start` (the user always wins);
+2. `post-targeted-confirmation` — the previous iteration ran `targeted` AND
+   applied its winner (decision `applied` or `dry-run`): the next iteration
+   is forced to `surface` so the subset-validated candidate is re-measured on
+   the FULL suite;
+3. `auto-switch` (`mode.auto`, default true) — the previous baseline had ≥1
+   failing task → the next iteration targets those tasks (`targeted`);
+4. the config default (`mode.default`, `surface`).
+
+Role models (`config roles`, resolved once per run, persisted in state.json
+and the report header): `proposer` (the Proposer model call), `judge` (the
+LLM judge — calibration is keyed by this model), `probe` (nested-pi probes;
+hashed into the baseline fingerprint, so changing it re-keys the cache once).
+An unset role = the session model.
+
+### Budget semantics
+
+The budget metric is the SUM of probe `usage.totalTokens` across the run
+(baseline + candidate probes) — NOT cost: `cost.total` is always 0 on this
+gateway, so tokens are the only meaningful meter. The loop checks the budget
+between iterations and before each probe spawn, and stops with reason
+`budget-exceeded` when the sum reaches `budget.maxTotalTokens`. Other stop
+reasons: `iterations-reached`, `stop-flag` (flag file seen + consumed),
+`no-valid-candidates` (an iteration whose proposal had zero validated
+candidates stops the whole loop).
+
+**Overshoot bound:** the check runs BEFORE each spawn; probes already in
+flight when the threshold is crossed are not killed, so real spend may
+overshoot the cap by at most `maxConcurrentProbes − 1` probes (documented,
+accepted).
+
+### Budget semantics
+
+The budget metric is the SUM of probe `usage.totalTokens` across the run
+(baseline + candidate probes) — NOT cost: `cost.total` is always 0 on this
+gateway, so tokens are the only meaningful meter. The loop checks the budget
+between iterations and before each probe spawn, and stops with reason
+`budget-exceeded` when the sum reaches `budget.maxTotalTokens`. Other stop
+reasons: `iterations-reached`, `stop-flag` (flag file seen + consumed),
+`no-valid-candidates` (an iteration whose proposal had zero validated
+candidates stops the whole loop).
+
+### State, ledger, reports
+
+Every run persists `runs/<runId>/state.json` after every mutation (iteration
+number, phase, budget spent, per-candidate decisions, proposed edits). Every
+scored run and decision appends to `run-history.jsonl` (kinds: `baseline`,
+`baseline-cached`, `candidate`, `apply`/`apply-dryrun`, `proposal-rejected`,
+`revert`). Each iteration writes `runs/<runId>/iter-<n>/report.md` (baseline)
+and per-candidate comparison reports `iter-<n>/cand-<i>/report.md`. The
+baseline result cache (`loop/.cache/baseline-<fingerprint>-<taskset>.json`)
+makes repeat baselines free (cache hit = no probes); a changed fingerprint
+(AGENTS.md/skills/prompts/subagents/mcp.json/pi version/probe model)
+invalidates it.
+
+### Reading a report (`runs/<runId>/**/report.md`)
+
+- **Header lines.** `kind` (`baseline` | `candidate`), `ts`, `model`, and the
+  **fingerprint** — the sha256 of the snapshot + pi version + probe model; a
+  candidate report's fingerprint differing from its baseline's means the
+  ambient components moved mid-run (the driver refuses such comparisons).
+  `cached: true` (and `[cached run]`) = results replayed from the baseline
+  cache, no probes.
+- **`probing:` line (probeStats).** `<tasks> task(s) — X probed, Y reused;
+  max concurrent probes N; wall <duration>` — X/Y shows how much of the run
+  came from the cache; N is the observed parallelism (bounded by
+  `parallel.maxConcurrentProbes`).
+- **`mode:` line.** The iteration's resolved mode + reason (`explicit-flag`,
+  `post-targeted-confirmation`, `auto-switch`, `config-default`). A `targeted`
+  report scores only the failing subset; its `boundTo` results are re-probed
+  on the confirming full-suite iteration.
+- **`role models:` line.** Only present when a role override differs from the
+  session model.
+- **Comparison tables** (`base pass` vs `cand pass` per task) drive selection:
+  the candidate must net ≥ `minWin` (`code.minWin` for code-bearing) wins.
+- **Failure excerpts.** A failed task with checker output shows the excerpt.
+  A failed task with **null/zero token usage** is flagged
+  **"suspected probe failure (no usage events)"** — the nested run never
+  produced model events (provider/spawn breakdown), NOT evidence about the
+  task. Retried probes record `attemptedRetry` + the first attempt's error in
+  the per-task JSON result.
+- **Composition.** When one iteration has multiple winners, the ledger gets
+  `composed-out` entries for dropped/overlapping edits and the merged
+  candidate is re-probed as a whole before apply (see loop/README.md,
+  Compose).
+
+### Revert procedure
+
+1. `/hloop status` (or `git -C ~/.pi/agent log --grep 'harness-loop(run'`) to
+   find the runId.
+2. `/hloop revert <runId>` — refuses on a dirty tree under AGENTS.md/skills/,
+   reverts only the marker commit, records a `revert` ledger entry.
+   (In dry-run mode there is nothing to revert — no commit was made.)
+
+### Cost expectations
+
+- Full-suite baseline probe: ≈ 300–550k tokens per run (14 real tasks), once
+  per fingerprint; cached afterwards.
+- `/hloop start --suite "smoke-*"`: ≈ 2–8 smoke probes + 1–2 proposer calls
+  per iteration (tens of k tokens) — the intended first live run.
+- `bash loop/chaos.sh`: ≈ 6 min + real smoke-probe spend (~7 smoke baselines
+  across the five kill scenarios + the lock check; runs/ + cache redirected
+  to temp dirs, applies always dry-run).
+- Unit/selftest layers (`bun test loop/lib/`, `driver.ts selftest`,
+  `apply-test.ts`, `chaos-apply-refusal.ts`, `chaos-isolation.ts`): no model
+  spend (fakes only).
+- The FIRST live run should be: `/hloop start --suite "smoke-*" --iterations 2`
+  (dry-run apply stays on until you flip `apply.dryRun` yourself).
