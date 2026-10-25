@@ -86,7 +86,7 @@ export type RunProbeOptions = {
  * lookup entirely; if it is set but not an existing executable file, this
  * throws (fail fast — never silently fall back).
  */
-export function resolvePiBinary(): {bin: string; version: string | null} {
+export function resolvePiBinary(): {bin: string, version: string | null} {
   const override = process.env.PI_BIN;
   if (override !== undefined && override !== "") {
     if (!existsSync(override) || !statSync(override).isFile() || !(statSync(override).mode & 0o111)) {

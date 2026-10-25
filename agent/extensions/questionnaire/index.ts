@@ -10,34 +10,34 @@ import { Editor, type EditorTheme, Key, matchesKey, Text, truncateToWidth, visib
 import { Type } from "typebox";
 
 // Types
-interface QuestionOption {
-  value: string;
-  label: string;
-  description?: string;
+type QuestionOption = {
+  value: string,
+  label: string,
+  description?: string,
 }
 
 type RenderOption = QuestionOption & { isOther?: boolean };
 
-interface Question {
-  id: string;
-  label: string;
-  prompt: string;
-  options: QuestionOption[];
-  allowOther: boolean;
+type Question = {
+  id: string,
+  label: string,
+  prompt: string,
+  options: QuestionOption[],
+  allowOther: boolean,
 }
 
-interface Answer {
-  id: string;
-  value: string;
-  label: string;
-  wasCustom: boolean;
-  index?: number;
+type Answer = {
+  id: string,
+  value: string,
+  label: string,
+  wasCustom: boolean,
+  index?: number,
 }
 
-interface QuestionnaireResult {
-  questions: Question[];
-  answers: Answer[];
-  cancelled: boolean;
+type QuestionnaireResult = {
+  questions: Question[],
+  answers: Answer[],
+  cancelled: boolean,
 }
 
 // Schema
@@ -66,7 +66,7 @@ const QuestionnaireParams = Type.Object({
 function errorResult(
   message: string,
   questions: Question[] = [],
-): { content: { type: "text"; text: string }[]; details: QuestionnaireResult } {
+): { content: { type: "text", text: string }[], details: QuestionnaireResult } {
   return {
     content: [{ type: "text", text: message }],
     details: { questions, answers: [], cancelled: true },

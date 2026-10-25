@@ -288,7 +288,7 @@ export type ValidateOptions = {
   checkerTimeoutMs?: number,
 };
 
-export function validateSuite(root: string, options: ValidateOptions = {}): {ok: boolean; results: TaskCheckResult[]} {
+export function validateSuite(root: string, options: ValidateOptions = {}): {ok: boolean, results: TaskCheckResult[]} {
   const checkerTimeoutMs = options.checkerTimeoutMs ?? CHECKER_TIMEOUT_MS;
   const results: TaskCheckResult[] = [];
   for (const dirName of listTaskDirs(root)) {

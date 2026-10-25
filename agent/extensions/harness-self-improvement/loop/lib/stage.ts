@@ -22,15 +22,15 @@ import {
 import {homedir} from "node:os";
 import {join} from "node:path";
 
-export interface SkillSnapshot {
+export type SkillSnapshot = {
   /** Path relative to skills/, e.g. "coding-standards/SKILL.md". */
-  relPath: string;
-  content: string;
+  relPath: string,
+  content: string,
 }
 
-export interface ComponentSnapshot {
-  agentsMd: string;
-  skills: SkillSnapshot[];
+export type ComponentSnapshot = {
+  agentsMd: string,
+  skills: SkillSnapshot[],
 }
 
 export const realPiAgentDir = (): string => join(homedir(), ".pi", "agent");
@@ -99,10 +99,10 @@ export function captureModelFlag(piAgentDir: string = realPiAgentDir()): string 
   return captured.defaultProvider === undefined ? captured.defaultModel : `${captured.defaultProvider}/${captured.defaultModel}`;
 }
 
-export interface BuildSandboxResult {
-  dir: string;
+export type BuildSandboxResult = {
+  dir: string,
   /** Model-capture keys written into the sandbox settings.json (may be empty). */
-  captured: Record<string, string>;
+  captured: Record<string, string>,
 }
 
 /**

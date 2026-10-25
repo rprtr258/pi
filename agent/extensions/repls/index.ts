@@ -30,7 +30,7 @@ function ensureCleanup(): void {
   });
 }
 
-function tmux(args: string[]): { stdout: string; stderr: string; status: number } {
+function tmux(args: string[]): { stdout: string, stderr: string, status: number } {
   const r = spawnSync("tmux", args, { encoding: "utf8", timeout: 10000 });
   return {
     stdout: (r.stdout ?? "") as string,

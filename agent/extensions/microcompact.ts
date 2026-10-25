@@ -63,7 +63,7 @@ const IDLE_GAP_THRESHOLD_MINUTES = 60;
 /** Track which messages we've already cleared to avoid redundant operations. */
 const clearedMessageKeys = new Set<string>();
 
-function messageKey(msg: { role: string; toolCallId?: string; timestamp?: number }): string {
+function messageKey(msg: { role: string, toolCallId?: string, timestamp?: number }): string {
   return `${msg.role}:${msg.toolCallId ?? ""}:${msg.timestamp ?? 0}`;
 }
 
@@ -71,7 +71,7 @@ function messageKey(msg: { role: string; toolCallId?: string; timestamp?: number
  * Check if the session has been idle (no recent assistant message).
  * Returns true when the gap since the last assistant message exceeds the threshold.
  */
-function isIdleSession(messages: readonly { role: string; timestamp?: number }[]): boolean {
+function isIdleSession(messages: readonly { role: string, timestamp?: number }[]): boolean {
   const now = Date.now();
   // Walk backwards to find the most recent assistant message
   for (let i = messages.length - 1; i >= 0; i--) {
@@ -90,7 +90,7 @@ function isIdleSession(messages: readonly { role: string; timestamp?: number }[]
 function estimateContentSize(content: unknown): string {
   if (typeof content === "string") return `${content.length} chars`;
   if (Array.isArray(content)) {
-    const totalChars = content.reduce((sum: number, c: string | { text?: string; type?: string }) => {
+    const totalChars = content.reduce((sum: number, c: string | { text?: string, type?: string }) => {
       if (typeof c === "string") return sum + c.length;
       return sum + (c.text?.length ?? 0);
     }, 0);
@@ -104,7 +104,7 @@ function estimateContentSize(content: unknown): string {
  * Content-clear a tool result message in-place.
  * Replaces text/ content blocks with a placeholder showing original size.
  */
-function clearToolResult(msg: { content: unknown; toolName?: string }): void {
+function clearToolResult(msg: { content: unknown, toolName?: string }): void {
   const size = estimateContentSize(msg.content);
   const placeholder = `[Cleared by microcompact - old tool result. Original size: ${size}]`;
   msg.content = [{ type: "text" as const, text: placeholder }];

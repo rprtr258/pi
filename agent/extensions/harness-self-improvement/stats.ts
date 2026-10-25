@@ -33,19 +33,19 @@ const dir = join(home, ".pi/agent/sessions");
 const limit = Number(flagValue("--limit") ?? 500) || 500;
 
 // ---- session model ----
-type SkillUse = { agent: number; manual: number };
+type SkillUse = { agent: number, manual: number };
 
 type SessionStats = {
-  file: string; id: string; cwd: string; start: number; end: number;
-  models: Set<string>; userMessages: number; assistantMessages: number;
-  toolCalls: number; toolErrors: number;
-  toolCounts: Map<string, number>; skillUses: Map<string, SkillUse>;
-  input: number; output: number; cacheRead: number; cacheWrite: number; reasoning: number; cost: number;
-  interruptions: number; responseTimes: number[];
-  gitCommits: number; gitPushes: number;
-  files: Set<string>; linesAdded: number; linesRemoved: number;
-  languages: Record<string, number>; messageHours: number[]; userTimestamps: number[];
-  corrections: number; firstPrompt: string; lastAssistant: number;
+  file: string, id: string, cwd: string, start: number, end: number,
+  models: Set<string>, userMessages: number, assistantMessages: number,
+  toolCalls: number, toolErrors: number,
+  toolCounts: Map<string, number>, skillUses: Map<string, SkillUse>,
+  input: number, output: number, cacheRead: number, cacheWrite: number, reasoning: number, cost: number,
+  interruptions: number, responseTimes: number[],
+  gitCommits: number, gitPushes: number,
+  files: Set<string>, linesAdded: number, linesRemoved: number,
+  languages: Record<string, number>, messageHours: number[], userTimestamps: number[],
+  corrections: number, firstPrompt: string, lastAssistant: number,
 };
 
 const sessionStats: SessionStats[] = [];
@@ -104,7 +104,7 @@ function bumpSkill(s: SessionStats, name: string, kind: keyof SkillUse) {
 // with user messages interleaved inside a sliding 30-minute window.
 // ponytail: events = distinct interleaved session pairs, not distinct overlap episodes;
 // enough to flag concurrent-session work. Upgrade if episode counts ever matter.
-function detectConcurrency(all: SessionStats[], windowMs = 30 * 60 * 1000): {events: number; sessionsInvolved: number; messagesDuring: number} {
+function detectConcurrency(all: SessionStats[], windowMs = 30 * 60 * 1000): {events: number, sessionsInvolved: number, messagesDuring: number} {
   const stamps = all.flatMap((s) => s.userTimestamps.map((t) => ({t, id: s.id}))).sort((a, b) => a.t - b.t);
   const pairs = new Set<string>();
   const involved = new Set<string>();
@@ -124,7 +124,7 @@ function detectConcurrency(all: SessionStats[], windowMs = 30 * 60 * 1000): {eve
 }
 
 // ---- facets (LLM classification, produced by analyze subagents) ----
-type Facet = {sessionId?: string; type?: string; outcome?: string; satisfaction?: string; goal?: string; friction?: Array<{type?: string; detail?: string}>};
+type Facet = {sessionId?: string, type?: string, outcome?: string, satisfaction?: string, goal?: string, friction?: Array<{type?: string, detail?: string}>};
 function loadFacets(path: string): Facet[] {
   try {
     const j: any = JSON.parse(readFileSync(path, "utf8"));
@@ -439,7 +439,7 @@ function listSessionFiles(root: string): string[] {
 }
 
 type Counts = {
-  calls: number; errors: number };
+  calls: number, errors: number, };
 
 const tools = new Map<string, Counts>();
 const slashCommands = new Map<string, number>();
