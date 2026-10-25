@@ -90,7 +90,7 @@ function isIdleSession(messages: readonly { role: string; timestamp?: number }[]
 function estimateContentSize(content: unknown): string {
   if (typeof content === "string") return `${content.length} chars`;
   if (Array.isArray(content)) {
-    const totalChars = content.reduce((sum: number, c: { text?: string; type?: string }) => {
+    const totalChars = content.reduce((sum: number, c: string | { text?: string; type?: string }) => {
       if (typeof c === "string") return sum + c.length;
       return sum + (c.text?.length ?? 0);
     }, 0);
@@ -153,6 +153,8 @@ export default function (pi: ExtensionAPI) {
     let clearedCount = 0;
     for (const idx of clearIndices) {
       const msg = cloned[idx];
+      if (!("content" in msg))
+        continue; // not a content-bearing message (e.g. bash execution)
       const key = messageKey(msg);
       if (clearedMessageKeys.has(key))
         continue; // already cleared
