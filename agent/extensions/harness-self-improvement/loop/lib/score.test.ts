@@ -180,7 +180,15 @@ describe("scoreSuite resume", () => {
 // fingerprintSnapshot
 
 describe("fingerprintSnapshot", () => {
-  const snap = (agentsMd: string, skills: Array<{relPath: string, content: string}>) => ({agentsMd, skills});
+  const snap = (agentsMd: string, skills: Array<{relPath: string, content: string}>) => ({
+    kinds: {
+      agents: [{relPath: "AGENTS.md", content: agentsMd}],
+      skills: skills.map((s) => ({relPath: `skills/${s.relPath}`, content: s.content})),
+      templates: [] as Array<{relPath: string, content: string}>,
+      subagents: [] as Array<{relPath: string, content: string}>,
+      extensions: [] as Array<{relPath: string, content: string}>,
+    },
+  });
 
   test("is deterministic for identical snapshots", () => {
     const a = fingerprintSnapshot(snap("md", [{relPath: "s/SKILL.md", content: "x"}]), "prov/model", {bin: "pi", version: "1.3.0"});
@@ -212,6 +220,23 @@ describe("fingerprintSnapshot", () => {
     expect(sneaky).not.toBe(fingerprintSnapshot(snap("md", [{relPath: "s", content: "x"}, {relPath: "skill", content: "y"}]), "m", {bin: "pi", version: "1.3.0"}));
     expect(sneaky).not.toBe(fingerprintSnapshot(snap("md", [{relPath: "s\0skill", content: "y"}]), "m", {bin: "pi", version: "1.3.0"}));
   });
+
+  test("changes when a prompt template or subagent changes (S8 kinds)", () => {
+    const withTemplate = (t: Array<{relPath: string, content: string}>) => ({
+      kinds: {...snap("md", []).kinds, templates: t},
+    });
+    const withSubagent = (a: Array<{relPath: string, content: string}>) => ({
+      kinds: {...snap("md", []).kinds, subagents: a},
+    });
+    const base = fingerprintSnapshot(withTemplate([{relPath: "prompts/a.md", content: "x"}]), "m", {bin: "pi", version: "1.3.0"});
+    expect(fingerprintSnapshot(withTemplate([{relPath: "prompts/a.md", content: "x2"}]), "m", {bin: "pi", version: "1.3.0"})).not.toBe(base);
+    expect(fingerprintSnapshot(withTemplate([{relPath: "prompts/b.md", content: "x"}]), "m", {bin: "pi", version: "1.3.0"})).not.toBe(base);
+    // Canonical sort: reverse input order, same fingerprint.
+    expect(fingerprintSnapshot(withTemplate([{relPath: "prompts/a.md", content: "x"}, {relPath: "prompts/b.md", content: "y"}]), "m", {bin: "pi", version: "1.3.0"}))
+      .toBe(fingerprintSnapshot(withTemplate([{relPath: "prompts/b.md", content: "y"}, {relPath: "prompts/a.md", content: "x"}]), "m", {bin: "pi", version: "1.3.0"}));
+    const subBase = fingerprintSnapshot(withSubagent([{relPath: "agents/a.md", content: "x"}]), "m", {bin: "pi", version: "1.3.0"});
+    expect(fingerprintSnapshot(withSubagent([{relPath: "agents/a.md", content: "x2"}]), "m", {bin: "pi", version: "1.3.0"})).not.toBe(subBase);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -239,7 +264,7 @@ describe("ledger", () => {
 
     const all = readLedger(path);
     expect(all).toHaveLength(3);
-    expect(all[2]!.usage.totalTokens).toBe(200);
+    expect(all[2]!.usage!.totalTokens).toBe(200);
     expect(lastRun(undefined, path)!.runId).toBe("20250607-080912-cccc");
     expect(lastRun("baseline", path)!.runId).toBe("20250607-080912-cccc");
     expect(lastRun("baseline-cached", path)!.runId).toBe("20250607-080911-bbbb");

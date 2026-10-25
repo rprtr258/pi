@@ -1,0 +1,10 @@
+{
+  "minWin": 1,
+  "minQualityGain": null,
+  "usageFactor": 1.5,
+  "apply": { "dryRun": true },
+  "budget": { "maxTotalTokens": 5000000, "maxIterations": 3 },
+  "candidates": { "maxPerIteration": 3 },
+  "replay": { "enabled": false, "minAgreement": 0.8 },
+  "code": { "allow": ["harness-loop-sample"], "minWin": 2 }
+}
