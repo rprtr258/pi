@@ -18,6 +18,8 @@ import {
   extractJsonArray,
   FILE_CAP_BYTES,
   includeSkills,
+  includeSubagents,
+  includeTemplates,
   loadBaselineFromRunDir,
   MAX_FILES_PER_CANDIDATE,
   proposalFingerprintOf,
@@ -26,11 +28,29 @@ import {
   type CallModel,
   type ProposeInput,
 } from "./proposer.ts";
+import type {ComponentSnapshot} from "./stage.ts";
 
 const tmpRoots: string[] = [];
 afterAll(() => {
   for (const root of tmpRoots) rmSync(root, {recursive: true, force: true});
 });
+
+/** Build a ComponentSnapshot (kinds-generic shape, S8) from legacy-style parts. */
+function snap(
+  agentsMd: string,
+  skills: Array<{relPath: string; content: string}> = [],
+  templates: Array<{relPath: string; content: string}> = [],
+  subagents: Array<{relPath: string; content: string}> = [],
+): ComponentSnapshot {
+  return {
+    kinds: {
+      agents: agentsMd === "" ? [] : [{relPath: "AGENTS.md", content: agentsMd}],
+      skills: skills.map((s) => ({relPath: `skills/${s.relPath}`, content: s.content})),
+      templates: templates.map((t) => ({relPath: t.relPath, content: t.content})),
+      subagents: subagents.map((t) => ({relPath: t.relPath, content: t.content})),
+    },
+  };
+}
 
 const TEMPLATE = [
   "# Role",
@@ -42,10 +62,9 @@ const TEMPLATE = [
 
 function makeInput(overrides: Partial<ProposeInput> = {}): ProposeInput {
   return {
-    snapshot: {
-      agentsMd: "# Agents rules\n",
-      skills: [{relPath: "cli-jq/SKILL.md", content: "---\nname: cli-jq\ndescription: jq helper.\n---\nbody"}],
-    },
+    snapshot: snap("# Agents rules\n", [
+      {relPath: "cli-jq/SKILL.md", content: "---\nname: cli-jq\ndescription: jq helper.\n---\nbody"},
+    ]),
     baseline: {
       tasks: [{task: "jq-config-merge", category: "jq", pass: false, durationMs: 1000, tokens: 10, checkerOutput: "FAIL: wrong output"}],
       aggregate: {passCount: 11, total: 12},
@@ -254,14 +273,11 @@ describe("validation bypass attempts", () => {
 
 describe("includeSkills", () => {
   test("AGENTS.md-referenced skills come first; budget respected greedily", () => {
-    const snapshot = {
-      agentsMd: "Use the zz-zeta skill for Z work.",
-      skills: [
-        {relPath: "a/other/SKILL.md", content: "a".repeat(50)},
-        {relPath: "zz-zeta/SKILL.md", content: "z".repeat(60)},
-        {relPath: "zz-zeta/scripts/run.sh", content: "s".repeat(30)},
-      ],
-    };
+    const snapshot = snap("Use the zz-zeta skill for Z work.", [
+      {relPath: "a/other/SKILL.md", content: "a".repeat(50)},
+      {relPath: "zz-zeta/SKILL.md", content: "z".repeat(60)},
+      {relPath: "zz-zeta/scripts/run.sh", content: "s".repeat(30)},
+    ]);
     const inclusion = includeSkills(snapshot, 100);
     // zz-zeta files (referenced) first, then relPath ascending; the second
     // zz-zeta file fits in the remaining budget (greedy, not stop-on-first).
@@ -270,18 +286,104 @@ describe("includeSkills", () => {
   });
 
   test("manifest covers ALL files with sizes and descriptions", () => {
-    const snapshot = {
-      agentsMd: "",
-      skills: [
-        {relPath: "a/SKILL.md", content: "---\nname: a\ndescription: The a skill.\n---\nbody"},
-        {relPath: "b/scripts/tool.py", content: "print()"},
-      ],
-    };
+    const snapshot = snap("", [
+      {relPath: "a/SKILL.md", content: "---\nname: a\ndescription: The a skill.\n---\nbody"},
+      {relPath: "b/scripts/tool.py", content: "print()"},
+    ]);
     const inclusion = includeSkills(snapshot, 1000);
     expect(inclusion.manifestLines).toEqual([
       "- a/SKILL.md (46B) — The a skill.",
       "- b/scripts/tool.py (7B)",
     ]);
+  });
+});
+
+describe("per-kind validation routing (S8 surface registry)", () => {
+  test("template edit routes to the template validator: unbalanced {{ rejected, balanced accepted", () => {
+    const unbalanced = validateCandidate([{path: "prompts/mode-ask.md", content: "# Mode\nUse {{MODE here"}]);
+    expect(unbalanced.some((r) => r.includes("unbalanced {{ without }}"))).toBe(true);
+    // Balanced {{...}} tokens and frontmatter-less content are accepted.
+    expect(validateCandidate([{path: "prompts/mode-ask.md", content: "# Mode\nUse {{MODE}} wisely."}])).toEqual([]);
+  });
+
+  test("subagent edit routes to the subagent validator: missing name/description rejected", () => {
+    const missingName = validateCandidate([{path: "agents/worker.md", content: "---\ndescription: Does work.\n---\nbody"}]);
+    expect(missingName.some((r) => r.includes('frontmatter field "name" is required'))).toBe(true);
+    const missingDescription = validateCandidate([{path: "agents/worker.md", content: "---\nname: worker\n---\nbody"}]);
+    expect(missingDescription.some((r) => r.includes('frontmatter field "description" is required'))).toBe(true);
+    expect(validateCandidate([{path: "agents/worker.md", content: "---\nname: worker\ndescription: Does work.\n---\nbody"}])).toEqual([]);
+    // No frontmatter at all is rejected too.
+    expect(validateCandidate([{path: "agents/worker.md", content: "# just text"}]).length).toBeGreaterThan(0);
+  });
+
+  test("chain.md subagent paths rejected by the allowlist", () => {
+    expect(validateCandidate([{path: "agents/flow.chain.md", content: "---\nname: x\ndescription: y\n---\nbody"}]).some((r) => r.includes("path outside the allowlist"))).toBe(true);
+  });
+
+  test("skills and AGENTS.md routing unchanged: skills edit has no content rules; AGENTS.md delete still rejected", () => {
+    expect(validateCandidate([{path: "skills/new-skill/SKILL.md", content: "anything goes"}])).toEqual([]);
+    expect(validateCandidate([{path: "AGENTS.md", content: null}]).some((r) => r.includes("AGENTS.md cannot be deleted or emptied"))).toBe(true);
+  });
+
+  test("per-kind caps: template over 100KB rejected; AGENTS.md over 48KB rejected", () => {
+    expect(validateCandidate([{path: "prompts/big.md", content: "x".repeat(FILE_CAP_BYTES + 1)}]).some((r) => r.includes(`cap ${FILE_CAP_BYTES}`))).toBe(true);
+    expect(validateCandidate([{path: "AGENTS.md", content: "x".repeat(AGENTS_MD_CAP_BYTES + 1)}]).some((r) => r.includes(`cap ${AGENTS_MD_CAP_BYTES}`))).toBe(true);
+  });
+
+  test("proposer end-to-end: invalid template candidate rejected through propose()", async () => {
+    const candidate = {rationale: "r", edits: [{path: "prompts/broken.md", content: "open {{ brace"}]};
+    const {callModel} = fakeModel([JSON.stringify([candidate])]);
+    const result = await propose(makeInput(), {callModel, systemPromptTemplate: TEMPLATE});
+    expect(result.candidates[0]!.verdict).toBe("rejected");
+    expect(result.candidates[0]!.reasons.some((r) => r.includes("unbalanced {{ without }}"))).toBe(true);
+  });
+});
+
+describe("template + subagent inclusion (S8)", () => {
+  test("includeTemplates: manifest covers all, contents greedy under budget, first-line description", () => {
+    const snapshot = snap("", [], [
+      {relPath: "prompts/a-mode.md", content: "# A mode\n\nbody"},
+      {relPath: "prompts/b-mode.md", content: "b".repeat(30)},
+    ]);
+    const inclusion = includeTemplates(snapshot, 20);
+    expect(inclusion.manifestLines).toEqual([
+      "- prompts/a-mode.md (14B) — # A mode",
+      "- prompts/b-mode.md (30B) — " + "b".repeat(30),
+    ]);
+    expect(inclusion.included.map((f) => f.relPath)).toEqual(["prompts/a-mode.md"]);
+    expect(inclusion.includedChars).toBe(14);
+  });
+
+  test("includeSubagents: manifest uses the frontmatter description", () => {
+    const snapshot = snap("", [], [], [
+      {relPath: "agents/miner.md", content: "---\nname: miner\ndescription: Mines logs.\n---\nbody"},
+    ]);
+    const inclusion = includeSubagents(snapshot, 1000);
+    expect(inclusion.manifestLines).toEqual(["- agents/miner.md (49B) — Mines logs."]);
+    expect(inclusion.included).toHaveLength(1);
+  });
+});
+
+describe("buildPrompt (S8 components)", () => {
+  test("includes templates and subagents in the components section", () => {
+    const snapshot = snap("", [], [{relPath: "prompts/mode-ask.md", content: "# Ask mode\n"}], [
+      {relPath: "agents/scout.md", content: "---\nname: scout\ndescription: Fast recon.\n---\nbody"},
+    ]);
+    const prompt = buildPrompt(makeInput({snapshot}), TEMPLATE);
+    expect(prompt.system).toContain("## Prompt templates manifest (ALL 1");
+    expect(prompt.system).toContain("- prompts/mode-ask.md (11B) — # Ask mode");
+    expect(prompt.system).toContain("### templates-source: prompts/mode-ask.md");
+    expect(prompt.system).toContain("## Subagent manifest (ALL 1");
+    expect(prompt.system).toContain("- agents/scout.md (");
+    expect(prompt.system).toContain("— Fast recon.");
+    expect(prompt.system).toContain("### subagents-source: agents/scout.md");
+  });
+
+  test("empty template/subagent kinds render '(none found)' manifests", () => {
+    const prompt = buildPrompt(makeInput({snapshot: snap("# rules\n")}), TEMPLATE);
+    expect(prompt.system).toContain("## Prompt templates manifest (ALL 0");
+    expect(prompt.system).toContain("(none found)");
+    expect(prompt.system).toContain("## Subagent manifest (ALL 0");
   });
 });
 
@@ -300,7 +402,7 @@ describe("buildLedgerDigest", () => {
 
 describe("buildPrompt", () => {
   test("mentions un-included skills are not editable this round", () => {
-    const prompt = buildPrompt(makeInput({snapshot: {agentsMd: "", skills: [{relPath: "a/SKILL.md", content: "x"}]}}), TEMPLATE);
+    const prompt = buildPrompt(makeInput({snapshot: snap("", [{relPath: "a/SKILL.md", content: "x"}])}), TEMPLATE);
     expect(prompt.system).toContain("a/SKILL.md");
     expect(prompt.system).toContain("manifest-only");
   });
@@ -315,7 +417,7 @@ describe("buildPrompt", () => {
 
   test("single-pass substitution: $-patterns and placeholders in content stay literal", () => {
     const tricky = "value $& $' $` {{LEDGER}}";
-    const prompt = buildPrompt(makeInput({snapshot: {agentsMd: tricky, skills: []}}), TEMPLATE);
+    const prompt = buildPrompt(makeInput({snapshot: snap(tricky)}), TEMPLATE);
     // The bytes appear verbatim in the components section (AGENTS.md full text).
     expect(prompt.system).toContain(tricky);
     // Exactly ONE ledger section — the template's own placeholder, not the
@@ -360,6 +462,11 @@ describe("system prompt template", () => {
     for (const placeholder of ["{{COMPONENTS}}", "{{BASELINE}}", "{{LEDGER}}", "{{HARNESS_FINDINGS}}"]) {
       expect(text).toContain(placeholder);
     }
+    // S8 contracts: template invocation syntax + subagent frontmatter rules
+    // are part of the prompt the Proposer sees.
+    expect(text).toContain("{{");
+    expect(text).toContain("unbalanced");
+    expect(text).toContain("`description:` is REQUIRED");
     const lines = text.split("\n").length;
     expect(lines).toBeGreaterThanOrEqual(80);
     expect(lines).toBeLessThanOrEqual(120);

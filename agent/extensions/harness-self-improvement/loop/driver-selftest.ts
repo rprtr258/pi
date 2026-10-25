@@ -95,7 +95,7 @@ function makeEnv(probe: RunProbeFn, over: Partial<RunLoopOptions> = {}): Selftes
   const opts: RunLoopOptions = {
     callModel: (async () => CANDIDATE_JSON) as CallModel,
     runProbeFn: probe,
-    snapshotFn: () => ({agentsMd: "selftest agents md", skills: []}),
+    snapshotFn: () => ({kinds: {agents: [{relPath: "AGENTS.md", content: "selftest agents md"}], skills: [], templates: [], subagents: []}}),
     captureModelFn: () => "selftest/model",
     resolvePiBinaryFn: () => ({bin: "fake-pi", version: "selftest"}),
     tasksFn: () => [fakeTask("smoke-a"), fakeTask("smoke-b")],
@@ -365,7 +365,7 @@ async function scenarioFingerprintDrift(check: Check): Promise<void> {
     runProbeFn: makeProbe(WIN_PASS_MAP, probeCalls),
     // The agent config changed while the run was down: the recorded iteration
     // fingerprint no longer matches the current snapshot.
-    snapshotFn: () => ({agentsMd: "CHANGED after the crash", skills: []}),
+    snapshotFn: () => ({kinds: {agents: [{relPath: "AGENTS.md", content: "CHANGED after the crash"}], skills: [], templates: [], subagents: []}}),
   });
   check(res.status === "failed", "run FAILS on fingerprint drift (no mismatched pairing)");
   check((res.stopReason ?? "").includes("snapshot changed between crash and resume"), "failure reason names the snapshot change");
