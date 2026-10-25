@@ -2,7 +2,9 @@
  * Selftest for the /hloop driver state machine (loop/driver.ts): full happy
  * path with a winning candidate, stop-flag, budget-exceeded,
  * no-valid-candidates, resume after a simulated crash (state.json + partial
- * per-task results reused), and single-flight refusal.
+ * per-task results reused), stale-boundTo re-probe, resume of an alive-pid
+ * active run refused, --suite mismatch on resume refused, fingerprint drift
+ * between crash and resume fails the run, and single-flight refusal.
  *
  * Everything is faked (callModel, runProbe, snapshot, suite tasks, config,
  * dirs) — NO real model calls, NO real probes, NO writes outside temp dirs.
@@ -136,6 +138,8 @@ async function scenarioHappyPath(check: Check): Promise<void> {
   check(iter1.decision === "dry-run", "iteration decision dry-run");
   check(iter1.baseline!.cached === false, "iter1 baseline probed");
   check(state.iterations[1]!.baseline!.cached === true, "iter2 baseline served from cache (no probes)");
+  const cachedBaseline = JSON.parse(readFileSync(join(env.runsDir, runId, "iter-2", "baseline", "tasks", "smoke-a.json"), "utf8")) as {boundTo?: string};
+  check(cachedBaseline.boundTo === undefined, "cache-hit baseline materializes WITHOUT boundTo (never resumable as this run's probe)");
   // budget: iter1 baseline 2×1000 + iter1 candidate 2×1000 + iter2 candidate 2×1000
   check(state.budgetSpent === 6000, "budget = 3 scored runs × 2000 tokens (cached baseline free)");
   check(probeCalls.filter((c) => c.startsWith("baseline/")).length === 2, "baseline probed only in iter1");
@@ -252,6 +256,124 @@ async function scenarioSingleFlight(check: Check): Promise<void> {
   check(res2.status === "completed", "starts normally when the other run's pid is dead (crashed → resumable, not active)");
 }
 
+/**
+ * Crash a run mid-candidate-scoring: baseline completes, candidate smoke-a
+ * probes, then the planted stop flag aborts before candidate smoke-b. The
+ * state.json is rewound to status "running" (crash residue) and the runId
+ * is returned; the iteration is left in phase "score" with cand-0 pending.
+ */
+async function crashMidCandidate(env: SelftestEnv): Promise<string> {
+  const probeCalls: string[] = [];
+  const stopFlag = env.stopFlagPath;
+  const crashProbe = makeProbe(WIN_PASS_MAP, probeCalls, 1000, (task, sandboxDir) => {
+    if (task === "smoke-a" && /sandbox-\d+$/.test(sandboxDir)) writeFileSync(stopFlag, "stop");
+  });
+  const res = await runLoop({...env.opts, runProbeFn: crashProbe});
+  if (res.status !== "stopped" || res.stopReason !== "stop-flag" || res.runId === null) {
+    throw new Error(`crashMidCandidate: expected a stop-flag-stopped run, got ${res.status} (${res.stopReason})`);
+  }
+  const runId = res.runId;
+  const crashedState = readState(env.runsDir, runId);
+  crashedState.status = "running";
+  crashedState.stopReason = null;
+  writeFileSync(join(env.runsDir, runId, "state.json"), `${JSON.stringify(crashedState, null, 2)}\n`);
+  return runId;
+}
+
+async function scenarioResumeActiveRun(check: Check): Promise<void> {
+  console.log("== scenario: resume of an active (alive-pid) run is refused ==");
+  const env = makeEnv(makeProbe(WIN_PASS_MAP, []));
+  const done = await runLoop(env.opts);
+  check(done.status === "completed", "seed run completes");
+  const runId = done.runId!;
+  // Crash residue: state.json says "running" again.
+  const state = readState(env.runsDir, runId);
+  state.status = "running";
+  state.stopReason = null;
+  writeFileSync(join(env.runsDir, runId, "state.json"), `${JSON.stringify(state, null, 2)}\n`);
+
+  const resLive = await runLoop({...env.opts, resumeRunId: runId, isPidAliveFn: () => true});
+  check(resLive.status === "refused" && !resLive.ok, "refuses to resume a run whose pid is alive (it is still ACTIVE)");
+  check((resLive.stopReason ?? "").includes(`run ${runId} is still active`), "refusal names the still-active run");
+  check((resLive.stopReason ?? "").includes("/hloop stop"), "refusal points at /hloop stop, not --resume");
+
+  const resDead = await runLoop({...env.opts, resumeRunId: runId, isPidAliveFn: () => false});
+  check(resDead.status === "completed", "resumes (proceeds) when the pid is dead — crashed runs are resumable");
+}
+
+async function scenarioStaleBoundToReprobed(check: Check): Promise<void> {
+  console.log("== scenario: stale-boundTo candidate result is re-probed, not reused ==");
+  const env = makeEnv(makeProbe(WIN_PASS_MAP, []));
+  const runId = await crashMidCandidate(env);
+  const candTasksDir = join(env.runsDir, runId, "iter-1", "cand-0", "tasks");
+  check(existsSync(join(candTasksDir, "smoke-a.json")), "candidate smoke-a result persisted before the crash");
+  // Plant a result bound to a DIFFERENT run/candidate over the crashed one.
+  const stale = {
+    task: "smoke-a",
+    category: "smoke",
+    pass: true,
+    durationMs: 5,
+    usage: {input: 1, output: 0, cacheRead: 0, cacheWrite: 0, totalTokens: 1, cost: {input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0}},
+    exit: 0,
+    piBinary: {bin: "fake-pi", version: "selftest"},
+    timedOut: false,
+    checkerOutput: "",
+    stderrExcerpt: null,
+    trajectory: "",
+    boundTo: "some-other-run/iter-9/cand-9",
+  };
+  writeFileSync(join(candTasksDir, "smoke-a.json"), `${JSON.stringify(stale, null, 2)}\n`);
+
+  const probeCalls2: string[] = [];
+  const res2 = await runLoop({...env.opts, resumeRunId: runId, runProbeFn: makeProbe(WIN_PASS_MAP, probeCalls2), iterations: 1});
+  check(res2.status === "completed", "resumed run completes");
+  check(probeCalls2.includes("candidate/smoke-a"), "stale-boundTo result was re-probed, not reused");
+  const materialized = JSON.parse(readFileSync(join(candTasksDir, "smoke-a.json"), "utf8")) as {boundTo?: string; usage: {totalTokens: number}};
+  check(materialized.boundTo === `${runId}/iter-1/cand-0`, "re-probe rewrote the result with THIS run's boundTo");
+  check(materialized.usage.totalTokens === 1000, "fresh result (1000 tokens) replaced the stale one");
+  check(res2.budgetSpent === 5000, "budget counts the re-probe: 3000 pre-crash + 1000 smoke-a + 1000 smoke-b");
+}
+
+async function scenarioResumeSuiteMismatch(check: Check): Promise<void> {
+  console.log("== scenario: --suite mismatch on resume is refused ==");
+  const env = makeEnv(makeProbe(WIN_PASS_MAP, []));
+  const done = await runLoop({...env.opts, suiteGlob: "smoke-*"});
+  check(done.status === "completed", "seed run with --suite completes");
+  const runId = done.runId!;
+  check(readState(env.runsDir, runId).suiteGlob === "smoke-*", "state.json records the suite glob");
+  const state = readState(env.runsDir, runId);
+  state.status = "running";
+  state.stopReason = null;
+  writeFileSync(join(env.runsDir, runId, "state.json"), `${JSON.stringify(state, null, 2)}\n`);
+
+  const resMismatch = await runLoop({...env.opts, resumeRunId: runId, suiteGlob: "other-*"});
+  check(resMismatch.status === "refused" && !resMismatch.ok, "refuses resume when --suite differs from the recorded suite");
+  check((resMismatch.stopReason ?? "").includes("does not match the run's recorded suite"), "refusal explains the suite mismatch");
+
+  const resMatch = await runLoop({...env.opts, resumeRunId: runId, suiteGlob: "smoke-*"});
+  check(resMatch.status === "completed", "resumes when --suite matches the recorded suite");
+}
+
+async function scenarioFingerprintDrift(check: Check): Promise<void> {
+  console.log("== scenario: snapshot drift between crash and resume fails the run ==");
+  const env = makeEnv(makeProbe(WIN_PASS_MAP, []));
+  const runId = await crashMidCandidate(env);
+  const probeCalls: string[] = [];
+  const res = await runLoop({
+    ...env.opts,
+    resumeRunId: runId,
+    runProbeFn: makeProbe(WIN_PASS_MAP, probeCalls),
+    // The agent config changed while the run was down: the recorded iteration
+    // fingerprint no longer matches the current snapshot.
+    snapshotFn: () => ({agentsMd: "CHANGED after the crash", skills: []}),
+  });
+  check(res.status === "failed", "run FAILS on fingerprint drift (no mismatched pairing)");
+  check((res.stopReason ?? "").includes("snapshot changed between crash and resume"), "failure reason names the snapshot change");
+  check(probeCalls.length === 0, "no probes ran against the drifted snapshot");
+  const state = readState(env.runsDir, runId);
+  check(state.status === "failed" && (state.stopReason ?? "").includes("snapshot changed"), "state.json records the drift failure");
+}
+
 async function scenarioResumeMissingState(check: Check): Promise<void> {
   console.log("== scenario: resume with missing state ==");
   const env = makeEnv(makeProbe(WIN_PASS_MAP, []));
@@ -277,6 +399,10 @@ export async function runSelftest(): Promise<number> {
     await scenarioBudgetExceeded(check);
     await scenarioNoValidCandidates(check);
     await scenarioResume(check);
+    await scenarioResumeActiveRun(check);
+    await scenarioStaleBoundToReprobed(check);
+    await scenarioResumeSuiteMismatch(check);
+    await scenarioFingerprintDrift(check);
     await scenarioSingleFlight(check);
     await scenarioResumeMissingState(check);
   } catch (err) {

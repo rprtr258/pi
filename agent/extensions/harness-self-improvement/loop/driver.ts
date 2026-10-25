@@ -33,7 +33,10 @@
  *
  * SINGLE-FLIGHT: a new run refuses to start while any run's state.json says
  * status "running" with a live pid (crashed runs — dead pid — are resumable,
- * not active).
+ * not active). The fresh run's state is persisted BEFORE the guard check so
+ * near-simultaneous starts serialize via the persisted state files. Resuming
+ * a still-active (alive-pid) run is refused: only dead-pid runs resume. A
+ * --suite on --resume must match the run's recorded suiteGlob.
  *
  * TESTABILITY: every side effect is injectable (snapshotFn, captureModelFn,
  * resolvePiBinaryFn, tasksFn, runProbeFn, callModel, configOverride,
@@ -201,11 +204,16 @@ function defaultIsPidAlive(pid: number): boolean {
   }
 }
 
-/** The runId of any run whose state.json says "running" with a live pid. */
-export function findActiveRunId(runsDir: string, isPidAlive: (pid: number) => boolean = defaultIsPidAlive): string | null {
+/**
+ * The runId of any run whose state.json says "running" with a live pid.
+ * `excludeRunId` skips one run (the driver's own just-persisted fresh state,
+ * which must not make the run refuse itself).
+ */
+export function findActiveRunId(runsDir: string, isPidAlive: (pid: number) => boolean = defaultIsPidAlive, excludeRunId?: string): string | null {
   if (!existsSync(runsDir)) return null;
   for (const entry of readdirSync(runsDir, {withFileTypes: true})) {
     if (!entry.isDirectory()) continue;
+    if (entry.name === excludeRunId) continue;
     const statePath = join(runsDir, entry.name, "state.json");
     if (!existsSync(statePath)) continue;
     try {
@@ -301,26 +309,30 @@ export async function runLoop(opts: RunLoopOptions): Promise<LoopRunResult> {
   const refused = (reason: string, statePath: string | null = null): LoopRunResult =>
     ({ok: false, runId: null, status: "refused", stopReason: reason, budgetSpent: 0, iterationsCompleted: 0, statePath});
 
-  // Single-flight: never start (or resume a DIFFERENT run) while another run
-  // is live. A crashed run (dead pid) is resumable, not active.
-  const active = findActiveRunId(runsDir, isPidAlive);
-  if (active !== null && active !== opts.resumeRunId) {
-    return refused(`another loop run appears active: ${active} (its state.json says "running" and its pid is alive) — wait for it, or resume it with /hloop start --resume ${active}`, join(runsDir, active, "state.json"));
-  }
-
   let runId: string;
   let state: LoopState;
   if (opts.resumeRunId !== undefined) {
     runId = opts.resumeRunId;
-    const statePath = join(runsDir, runId, "state.json");
-    if (!existsSync(statePath)) return refused(`cannot resume: no state.json for run ${runId} (expected ${statePath})`);
+    const resumeStatePath = join(runsDir, runId, "state.json");
+    if (!existsSync(resumeStatePath)) return refused(`cannot resume: no state.json for run ${runId} (expected ${resumeStatePath})`);
     try {
-      state = JSON.parse(readFileSync(statePath, "utf8")) as LoopState;
+      state = JSON.parse(readFileSync(resumeStatePath, "utf8")) as LoopState;
     } catch (err) {
-      return refused(`cannot resume run ${runId}: state.json is unreadable: ${err instanceof Error ? err.message : String(err)}`, statePath);
+      return refused(`cannot resume run ${runId}: state.json is unreadable: ${err instanceof Error ? err.message : String(err)}`, resumeStatePath);
     }
     if (state.status !== "running") {
-      return refused(`cannot resume run ${runId}: status is "${state.status}" (${state.stopReason ?? "no stop reason"}) — start a new run instead`, statePath);
+      return refused(`cannot resume run ${runId}: status is "${state.status}" (${state.stopReason ?? "no stop reason"}) — start a new run instead`, resumeStatePath);
+    }
+    // A run whose pid is alive is still ACTIVE, not resumable: resuming it
+    // would run two loops against the same state.json. Only a crashed run
+    // (dead pid) may be resumed.
+    if (typeof state.pid === "number" && isPidAlive(state.pid)) {
+      return refused(`cannot resume: run ${runId} is still active (pid ${state.pid}) — use /hloop stop`, resumeStatePath);
+    }
+    // A --suite that differs from the recorded one would silently score a
+    // different task set against the persisted partial results — refuse.
+    if (opts.suiteGlob !== undefined && opts.suiteGlob !== state.suiteGlob) {
+      return refused(`cannot resume run ${runId}: --suite '${opts.suiteGlob}' does not match the run's recorded suite '${state.suiteGlob ?? "<full suite>"}' — resume without --suite (or with the recorded one), or start a new run`, resumeStatePath);
     }
     if (opts.iterations !== undefined) state.config.maxIterations = maxIterations;
     if (opts.maxCandidates !== undefined) state.config.maxCandidates = maxCandidates;
@@ -365,6 +377,22 @@ export async function runLoop(opts: RunLoopOptions): Promise<LoopRunResult> {
     mkdirSync(runDir, {recursive: true});
     writeFileSync(statePath, `${JSON.stringify(state, null, 2)}\n`);
   };
+
+  // Persist the fresh run's state BEFORE the single-flight guard: two
+  // near-simultaneous starts then serialize via the persisted state files
+  // (the loser sees the winner's live state.json and refuses).
+  const fresh = opts.resumeRunId === undefined;
+  if (fresh) persist();
+
+  // Single-flight: never start (or resume a DIFFERENT run) while another run
+  // is live. A crashed run (dead pid) is resumable, not active. The fresh
+  // run's own just-persisted state is excluded from the scan and removed
+  // again on refusal (a refused start leaves no run directory behind).
+  const active = findActiveRunId(runsDir, isPidAlive, fresh ? runId : undefined);
+  if (active !== null && active !== opts.resumeRunId) {
+    if (fresh) rmSync(runDir, {recursive: true, force: true});
+    return refused(`another loop run appears active: ${active} (its state.json says "running" and its pid is alive) — wait for it to finish or stop it with /hloop stop`, join(runsDir, active, "state.json"));
+  }
 
   const finish = (status: "completed" | "stopped", stopReason: string): LoopRunResult => {
     if (stopReason === "stop-flag") rmSync(stopFlagPath, {force: true}); // consume the flag
@@ -425,7 +453,15 @@ export async function runLoop(opts: RunLoopOptions): Promise<LoopRunResult> {
       let baselineResults: TaskScoreResult[];
       let cached: boolean;
       if (hit !== null && cacheMatchesTaskSet(hit.results, taskNames)) {
-        baselineResults = hit.results;
+        // Cache payloads carry the probing run's boundTo (score.ts stamps it
+        // on every probed result); strip it so the materialized baseline
+        // results can never be reused by THIS run's resume as if it probed
+        // them itself.
+        baselineResults = hit.results.map((r) => {
+          const stripped = {...r};
+          delete stripped.boundTo;
+          return stripped;
+        });
         cached = true;
         log(`[hloop] iter ${index}: baseline cache hit (${taskNames.length} tasks) — no probes`);
         // Materialize into the iteration dir so resume and /hloop status see
@@ -530,6 +566,15 @@ export async function runLoop(opts: RunLoopOptions): Promise<LoopRunResult> {
 
     // (4)+(5) score each validated candidate (capped) and select winners.
     if (iter.phase === "score") {
+      // Mid-resume drift guard: candidate results are paired against this
+      // iteration's recorded fingerprint. If the snapshot changed between the
+      // crash and the resume, pairing would compare mismatched runs — fail
+      // the run instead.
+      const scoreSnapshot = opts.snapshotFn?.() ?? snapshotReal();
+      const scoreFingerprint = fingerprintSnapshot(scoreSnapshot, model ?? undefined, opts.resolvePiBinaryFn?.() ?? resolvePiBinary());
+      if (iter.fingerprint !== null && scoreFingerprint !== iter.fingerprint) {
+        throw new Error(`snapshot changed between crash and resume: iteration ${index} was fingerprinted ${iter.fingerprint.slice(0, 12)}…, the current snapshot is ${scoreFingerprint.slice(0, 12)}… — refusing to pair results from different snapshots`);
+      }
       const baselineResults = readResultDir(join(iterDir, "baseline"));
       const accepted = iter.candidates.filter((c) => c.verdict === "accepted");
       // Cap: deterministic by candidate index, so resume picks the same set.
@@ -540,7 +585,7 @@ export async function runLoop(opts: RunLoopOptions): Promise<LoopRunResult> {
       for (const cState of toScore) {
         const candIdx = cState.index;
         const sandboxDir = join(runDir, `sandbox-${candIdx}`); // self-created; buildSandbox wipes it
-        buildSandbox(opts.snapshotFn?.() ?? snapshotReal(), sandboxDir);
+        buildSandbox(scoreSnapshot, sandboxDir);
         log(`[hloop] iter ${index}: scoring candidate ${candIdx + 1}...`);
         const scored = await scoreSuite(tasksFn(), sandboxDir, join(iterDir, `cand-${candIdx}`), {
           model: model ?? undefined,
