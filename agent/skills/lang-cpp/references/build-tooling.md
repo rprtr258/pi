@@ -374,7 +374,7 @@ jobs:
         build_type: [Debug, Release]
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v7
 
     - name: Install dependencies
       run: |
@@ -398,7 +398,7 @@ jobs:
         sanitizer: [asan, ubsan, tsan]
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v7
 
     - name: Build with sanitizer
       run: |
@@ -412,7 +412,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v7
 
     - name: Run clang-tidy
       run: |

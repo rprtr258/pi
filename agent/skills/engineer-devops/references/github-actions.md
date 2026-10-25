@@ -19,7 +19,7 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
@@ -37,7 +37,7 @@ jobs:
     outputs:
       image-tag: ${{ steps.meta.outputs.tags }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: docker/setup-buildx-action@v3
       - uses: docker/login-action@v3
         with:
@@ -65,7 +65,7 @@ jobs:
     runs-on: ubuntu-latest
     environment: staging
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - run: |
           kubectl set image deployment/app app=${{ needs.build.outputs.image-tag }}
 
@@ -75,7 +75,7 @@ jobs:
     runs-on: ubuntu-latest
     environment: production
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - run: |
           kubectl set image deployment/app app=${{ needs.build.outputs.image-tag }}
 ```
@@ -132,7 +132,7 @@ jobs:
 
 | Action | Purpose |
 |--------|---------|
-| `actions/checkout@v4` | Clone repository |
+| `actions/checkout@v7` | Clone repository |
 | `actions/setup-node@v4` | Install Node.js |
 | `docker/build-push-action@v5` | Build and push Docker image |
 | `docker/metadata-action@v5` | Generate Docker tags |
