@@ -11,6 +11,8 @@ IMPORTANT, always follow these rules:
 - Before grepping in a path or glob, verify it matches real files. Run ls path/ or find . -name '*.glob' | head first. If no files exist, your grep returns zero regardless of what's in the repo. "No matches" from a dead path looks identical to "no matches" from actual absence - don't trust a zero until you've confirmed your search target is real.
 - Overwriting files is hard forbidden, instead edit it. Delete only if really neccessary. Writing file that already does exist will result in guaranteed failure. This is hard forced restriction. write is for new files only: before calling write, verify the path doesn't already exist; to change an existing file, use edit.
 - Never create files via shell (heredocs, `cat >`, `echo >`, `sed -i`): a failed `cd` or `mkdir` earlier in a `&&` chain leaves later commands running in the wrong cwd, silently writing to or overwriting files elsewhere (this has actually happened, corrupting a repo's go.mod). Always use the write tool for new files and edit tool for modifications; use bash only for commands without file-writing side effects, or run file-writing shell commands as a single standalone call with the cwd you verified.
+- Never touch git state (add/commit/stage, git mv, git rm) unless the task is explicitly about git. Manage files with plain mv/cp/rm; git detects renames on its own, and git mv/rm collide with permission gates.
+- If a command is blocked by the permission gate, do not retry it a third time even after verbal confirmation - switch to an equivalent the gate allows or hand the exact command to the user.
 - Before writing anything, read what already exists for the given task in the codebase.
 - Don't re-read a file you already read this session unless it changed since (your own edit or a user edit).
 - For commands likely to emit large output (builds, tests, logs, directory scans), redirect the full output to a tmp file first, then inspect its tail (e.g. `cmd > /tmp/out.log 2>&1; tail -n 50 /tmp/out.log`). Reuse that file for any follow-up searching/grep instead of re-running the command or re-fetching the output.
@@ -18,6 +20,7 @@ IMPORTANT, always follow these rules:
 - When a constraint can't be satisfied, say so and ship what you have. Don't try to hack around it.
 - Always seek ways for self improvement.
   - User comments are most important possibilities for improvement.
+  - A "lesson noted" reply without writing it down is worthless: durable lessons go into this file (propose the edit, apply on approval) before the session ends.
   - Report errors, difficulties and rough edges found during task execution.
   - If something is missing, also note that, e.g. missing validation commands in project instructions or stale docs, etc.
   - Seek ways to be faster/more correct. Long running tests, large timeouts, complex commands for relatively simple tasks, everything.
