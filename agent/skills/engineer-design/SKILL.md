@@ -1,6 +1,6 @@
 ---
 name: engineer-design
-description: This skill encodes Emil Kowalski's philosophy on UI polish, component design, animation decisions, and the invisible details that make software feel great. Use this when asked for polish on CSS or designs, UI fixes from screenshots, dashboards and data visualization, native-app motion, or AI-generated visual assets.
+description: Encodes a design-engineering philosophy on UI polish, component design, animation decisions, and the invisible details that make software feel great. Use this when asked for polish on CSS or designs, UI fixes from screenshots, dashboards and data visualization, native-app motion, or AI-generated visual assets.
 ---
 
 # Design Engineering
