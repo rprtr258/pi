@@ -114,7 +114,9 @@ The loop runs run_eval → improve_description → re-eval until all pass or max
 
 ### Validation and audits (manual)
 
-Structural: `python3 <path>/scripts/quick_validate.py <skill-dir>` (frontmatter, name/description constraints, token count). Token audit, description spot-check, rationalization coverage, and re-benchmark triggers: [references/quality-and-feedback.md](references/quality-and-feedback.md).
+Structural: `python3 <path>/scripts/quick_validate.py <skill-dir>` (frontmatter, name/description constraints, token count).
+Lint: `uvx skillsaw lint <skill-dir>` (rule-based linter, 40+ rules; catches malformed frontmatter quick_validate's hand-parser can miss — run both).
+Token audit, description spot-check, rationalization coverage, and re-benchmark triggers: [references/quality-and-feedback.md](references/quality-and-feedback.md).
 
 ## Packaging
 

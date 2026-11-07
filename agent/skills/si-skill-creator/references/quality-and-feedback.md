@@ -5,6 +5,7 @@ Companion to si-skill-creator Scenario C.
 ## Validation and audits (manual)
 
 - **Structural:** `python3 <path>/scripts/quick_validate.py <skill-dir>` — frontmatter, name/description constraints, token count.
+- **Lint:** `uvx skillsaw lint <skill-dir>` — rule-based linter for agent skills (frontmatter validity, packaging, description quality; `list-rules` / `explain <rule-id>` / `--strict` flags). Complements quick_validate.py: its hand-rolled parser can pass YAML that skillsaw catches (e.g. an unterminated description string) — run both.
 - **Token audit:** anything in SKILL.md that could move to a reference file should; compare body cost vs. Scenario B benefit.
 - **Description spot-check:** would a fresh agent reading only name+description know exactly when to read this — and when not to? Could it trigger on the near-miss negatives you wrote?
 - **Rationalization coverage:** every rationalization observed during RED/REFACTOR has a table row or explicit counter.
