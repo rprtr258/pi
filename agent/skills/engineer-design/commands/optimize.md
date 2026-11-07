@@ -1,15 +1,11 @@
----
-description: Improve interface performance across loading speed, rendering, animations, images, and bundle size. Makes experiences faster and smoother.
----
-
-Identify and fix performance issues to create faster, smoother user experiences.
+Performance is a feature. Identify the actual bottleneck for THIS interface, fix it, then measure. Don't optimize what isn't slow.
 
 ## Assess Performance Issues
 
 Understand current performance and identify problems:
 
 1. **Measure current state**:
-   - **Core Web Vitals**: LCP, FID/INP, CLS scores
+   - **Core Web Vitals**: LCP, INP, CLS scores
    - **Load time**: Time to interactive, first contentful paint
    - **Bundle size**: JavaScript, CSS, image sizes
    - **Runtime performance**: Frame rate, memory usage, CPU usage
@@ -21,7 +17,7 @@ Understand current performance and identify problems:
    - How bad is it? (Perceivable? Annoying? Blocking?)
    - Who's affected? (All users? Mobile only? Slow connections?)
 
-**CRITICAL**: Measure before and after. Premature optimization wastes time. Optimize what actually matters.
+Measure before and after. Optimizing without a measurement spends effort on things that do not matter.
 
 ## Optimization Strategy
 
@@ -38,11 +34,10 @@ Create systematic improvement plan:
 - Use CDN for faster delivery
 
 ```html
-<img
+<img 
   src="hero.webp"
   srcset="hero-400.webp 400w, hero-800.webp 800w, hero-1200.webp 1200w"
   sizes="(max-width: 400px) 400px, (max-width: 800px) 800px, 1200px"
-  loading="lazy"
   alt="Hero image"
 />
 ```
@@ -110,13 +105,13 @@ elements.forEach((el, i) => {
 - Minimize DOM depth (flatter is faster)
 - Reduce DOM size (fewer elements)
 - Use `content-visibility: auto` for long lists
-- Virtual scrolling for very long lists (react-window, react-virtualized)
+- Virtual scrolling for very long lists (react-window, TanStack Virtual)
 
 **Reduce Paint & Composite**:
-- Use `transform` and `opacity` for animations (GPU-accelerated)
-- Avoid animating layout properties (width, height, top, left)
+- Use `transform` and `opacity` for reliable movement, but allow blur, filters, masks, clip paths, shadows, and color shifts when they create meaningful polish
+- Avoid casual animation of layout-driving properties (`width`, `height`, `top`, `left`, margins)
 - Use `will-change` sparingly for known expensive operations
-- Minimize paint areas (smaller is faster)
+- Bound expensive paint areas for blur/filter/shadow effects (smaller and isolated is faster)
 
 ### Animation Performance
 
@@ -200,7 +195,7 @@ const observer = new IntersectionObserver((entries) => {
 - Use CDN
 - Server-side rendering
 
-### First Input Delay (FID < 100ms) / INP (< 200ms)
+### Interaction to Next Paint (INP < 200ms)
 - Break up long tasks
 - Defer non-critical JavaScript
 - Use web workers for heavy computation
@@ -230,16 +225,16 @@ const observer = new IntersectionObserver((entries) => {
 - Performance monitoring (Sentry, DataDog, New Relic)
 
 **Key metrics**:
-- LCP, FID/INP, CLS (Core Web Vitals)
+- LCP, INP, CLS (Core Web Vitals; INP replaced FID in March 2024)
 - Time to Interactive (TTI)
 - First Contentful Paint (FCP)
 - Total Blocking Time (TBT)
 - Bundle size
 - Request count
 
-**IMPORTANT**: Measure on real devices with real network conditions. Desktop Chrome with fast connection isn't representative.
+Measure on real devices with real network conditions. Desktop Chrome on a fast connection isn't representative.
 
-**NEVER**:
+**Avoid**:
 - Optimize without measuring (premature optimization)
 - Sacrifice accessibility for performance
 - Break functionality while optimizing
@@ -259,4 +254,4 @@ Test that optimizations worked:
 - **No regressions**: Ensure functionality still works
 - **User perception**: Does it *feel* faster?
 
-Remember: Performance is a feature. Fast experiences feel more responsive, more polished, more professional. Optimize systematically, measure ruthlessly, and prioritize user-perceived performance.
+When the user-facing numbers move, hand off to `/impeccable polish` for the final pass.
