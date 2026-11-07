@@ -1,8 +1,4 @@
----
-description: Improve interface resilience through better error handling, i18n support, text overflow handling, and edge case management. Makes interfaces robust and production-ready.
----
-
-Strengthen interfaces against edge cases, errors, internationalization issues, and real-world usage scenarios that break idealized designs.
+Designs that only work with perfect data aren't production-ready. Harden the interface against the inputs, errors, languages, and network conditions that real users will throw at it.
 
 ## Assess Hardening Needs
 
@@ -32,7 +28,7 @@ Identify weaknesses and edge cases:
    - Number formats (1,000 vs 1.000)
    - Currency symbols
 
-**CRITICAL**: Designs that only work with perfect data aren't production-ready. Harden against reality.
+Designs that only work with perfect data aren't production-ready.
 
 ## Hardening Dimensions
 
@@ -82,7 +78,7 @@ Systematically improve resilience:
 
 **Responsive text sizing**:
 - Use `clamp()` for fluid typography
-- Set minimum readable sizes (14px on mobile)
+- Set minimum readable sizes (16px body on mobile, the same floor the typography guidance sets; 14px only for genuinely secondary text. iOS Safari force-zooms focused inputs under 16px, which breaks form layouts)
 - Test text scaling (zoom to 200%)
 - Ensure containers expand with text
 
@@ -113,6 +109,25 @@ border-inline-end: 1px solid; /* Not border-right */
 [dir="rtl"] .arrow { transform: scaleX(-1); }
 ```
 
+**Arabic-script specifics** (Arabic, Persian, Urdu, Pashto, Kurdish):
+- Preserve Zero-Width Non-Joiner (U+200C). Persian and Kurdish use ZWNJ between compound-word parts to break cursive joining while keeping the word together. A filter or sanitizer that strips it changes meaning. Never normalize it away.
+- Handle Yeh and Kaf variants. Persian uses ی (U+06CC) and ک (U+06A9), while Arabic uses ي (U+064A) and ك (U+0643). Preserve the original form in storage. For search and validation, treat the corresponding letters as equivalent so that Arabic-keyboard input matches Persian text. Rejecting one variant locks out users whose keyboard sends the other.
+- Support locale-aware digits. Persian (`fa-IR`) and Arabic locales use Eastern Arabic-Indic numerals (۰-۹ and ٠-٩). Use `Intl.NumberFormat` with the correct locale rather than hardcoding Western digits.
+
+```javascript
+// ✅ Locale-aware digit formatting
+new Intl.NumberFormat('fa-IR').format(1234); // ۱٬۲۳۴
+new Intl.NumberFormat('ar-SA').format(1234); // ١٬٢٣٤
+```
+
+- Respect calendar systems. Persian users expect the Solar Hijri (Jalali) calendar; many Arabic-speaking users expect the Hijri (Islamic) calendar. Use `Intl.DateTimeFormat` with the appropriate locale or calendar parameter.
+
+```javascript
+// ✅ Locale-appropriate calendar
+new Intl.DateTimeFormat('fa-IR').format(new Date());
+new Intl.DateTimeFormat('ar-SA-u-ca-islamic').format(new Date());
+```
+
 **Character set support**:
 - Use UTF-8 encoding everywhere
 - Test with Chinese/Japanese/Korean (CJK) characters
@@ -125,9 +140,9 @@ border-inline-end: 1px solid; /* Not border-right */
 new Intl.DateTimeFormat('en-US').format(date); // 1/15/2024
 new Intl.DateTimeFormat('de-DE').format(date); // 15.1.2024
 
-new Intl.NumberFormat('en-US', {
-  style: 'currency',
-  currency: 'USD'
+new Intl.NumberFormat('en-US', { 
+  style: 'currency', 
+  currency: 'USD' 
 }).format(1234.56); // $1,234.56
 ```
 
@@ -209,6 +224,11 @@ t('items', { count }) // Handles complex plural rules
 - Optimistic updates with rollback
 - Conflict resolution
 
+**Interrupted gestures** (custom sliders, drag surfaces, scrollable control strips):
+- A second finger or pointer lands mid-drag: the first drag keeps its pointer or ends cleanly, never jumps to the new one
+- The browser cancels the gesture to scroll (`pointercancel`), capture is lost (`lostpointercapture`), the pointer is released outside the control, or the window loses focus (`blur`) mid-drag: clear the dragging state and release capture
+- After each of these, the next tap or drag works without a reload
+
 **Permission states**:
 - No permission to view
 - No permission to edit
@@ -239,7 +259,7 @@ t('items', { count }) // Handles complex plural rules
 **Constraint handling**:
 ```html
 <!-- Set clear constraints -->
-<input
+<input 
   type="text"
   maxlength="100"
   pattern="[A-Za-z0-9]+"
@@ -264,17 +284,6 @@ t('items', { count }) // Handles complex plural rules
 - Announce dynamic changes (live regions)
 - Descriptive alt text
 - Semantic HTML
-
-**Motion sensitivity**:
-```css
-@media (prefers-reduced-motion: reduce) {
-  * {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-  }
-}
-```
 
 **High contrast mode**:
 - Test in Windows high contrast mode
@@ -319,12 +328,11 @@ const throttledScroll = throttle(handleScroll, 100);
 - Unit tests for edge cases
 - Integration tests for error scenarios
 - E2E tests for critical paths
+- A behavioral regression for each confirmed gesture fix, when the project's test runner can drive input
 - Visual regression tests
 - Accessibility tests (axe, WAVE)
 
-**IMPORTANT**: Hardening is about expecting the unexpected. Real users will do things you never imagined.
-
-**NEVER**:
+**Avoid**:
 - Assume perfect input (validate everything)
 - Ignore internationalization (design for global)
 - Leave error messages generic ("Error occurred")
@@ -345,7 +353,10 @@ Test thoroughly with edge cases:
 - **Network issues**: Disable internet, throttle connection
 - **Large datasets**: Test with 1000+ items
 - **Concurrent actions**: Click submit 10 times rapidly
+- **Interrupted gestures**: Add a second finger mid-drag, scroll across the control, release outside it, switch windows mid-drag; then drag again
 - **Errors**: Force API errors, test all error states
 - **Empty**: Remove all data, test empty states
 
-Remember: You're hardening for production reality, not demo perfection. Expect users to input weird data, lose connection mid-flow, and use your product in unexpected ways. Build resilience into every component.
+For gestures, say what produced the evidence (emulated viewport, synthesized touch, which engine, physical device) and name what stayed untested.
+
+When edge cases are covered, hand off to `/impeccable polish` for the final pass.

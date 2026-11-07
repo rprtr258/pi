@@ -1,25 +1,12 @@
+Quiet design is harder than bold design. Subtlety needs precision. Reduce visual intensity in designs that are too loud, aggressive, or overstimulating without losing personality or making the result generic.
+
 ---
-description: Tone down overly bold or visually aggressive designs. Reduces intensity while maintaining design quality and impact.
----
 
-Reduce visual intensity in designs that are too bold, aggressive, or overstimulating, creating a more refined and approachable aesthetic without losing effectiveness.
+## Visitor mode
 
-## MANDATORY PREPARATION
+Persuade + Experience: "quieter" means more restrained palette, more whitespace, more typographic air. Drama is reduced, not eliminated; the POV stays intact.
 
-### Context Gathering (Do This First)
-
-You cannot do a great job without having necessary context, such as target audience (critical), desired use-cases (critical), brand personality/tone, and everything else that a great human designer would need as well.
-
-Attempt to gather these from the current thread or repository.
-
-1. If you don't find *exact* information and have to infer from existing design and functionality, you MUST STOP and ask the user directly to clarify what you cannot infer. whether you got it right.
-2. Otherwise, if you can't fully infer or your level of confidence is medium or lower, you MUST ask the user directly to clarify what you cannot infer. clarifying questions first to complete your context.
-
-Do NOT proceed until you have answers. Guessing leads to generic design.
-
-### Use frontend-design skill
-
-Use the frontend-design skill for design principles and anti-patterns. Do NOT proceed until it has executed and you know all DO's and DON'Ts.
+Operate + Read: "quieter" means reducing visual noise. Fewer background accents, flatter cards, less color, less motion. The tool should disappear more completely into the task.
 
 ---
 
@@ -41,20 +28,20 @@ Analyze what makes the design feel too intense:
    - What's working? (Don't throw away good ideas)
    - What's the core message? (Preserve what matters)
 
-If any of these are unclear from the repository, ask the user directly to clarify what you cannot infer.
+If any of these are unclear from the codebase, do not guess. Ask the user directly to clarify what you cannot infer.
 
-**CRITICAL**: "Quieter" doesn't mean boring or generic. It means refined, sophisticated, and easier on the eyes. Think luxury, not laziness.
+"Quieter" means refined and easier on the eyes, not generic. Generic quiet looks like gray text on white, one sans at a uniform weight, and a grid of identical cards; restraint still needs a point of view.
 
 ## Plan Refinement
 
 Create a strategy to reduce intensity while maintaining impact:
 
-- **Color approach**: Desaturate or shift to more sophisticated tones?
+- **Color approach**: Desaturate or shift to more restrained tones?
 - **Hierarchy approach**: Which elements should stay bold (very few), which should recede?
 - **Simplification approach**: What can be removed entirely?
 - **Sophistication approach**: How can we signal quality through restraint?
 
-**IMPORTANT**: Great quiet design is harder than great bold design. Subtlety requires precision.
+Subtlety requires precision. Quiet without intent collapses to generic.
 
 ## Refine the Design
 
@@ -62,11 +49,11 @@ Systematically reduce intensity across these dimensions:
 
 ### Color Refinement
 - **Reduce saturation**: Shift from fully saturated to 70-85% saturation
-- **Soften palette**: Replace bright colors with muted, sophisticated tones
+- **Soften palette**: Replace bright colors with muted tones
 - **Reduce color variety**: Use fewer colors more thoughtfully
 - **Neutral dominance**: Let neutrals do more work, use color as accent (10% rule)
 - **Gentler contrasts**: High contrast only where it matters most
-- **Tinted grays**: Use warm or cool tinted grays instead of pure gray—adds sophistication without loudness
+- **Tinted grays**: Use warm or cool tinted grays instead of pure gray. Adds depth without loudness
 - **Never gray on color**: If you have gray text on a colored background, use a darker shade of that color or transparency instead
 
 ### Visual Weight Reduction
@@ -85,7 +72,7 @@ Systematically reduce intensity across these dimensions:
 - **Reduce animation intensity**: Shorter distances (10-20px instead of 40px), gentler easing
 - **Remove decorative animations**: Keep functional motion, remove flourishes
 - **Subtle micro-interactions**: Replace dramatic effects with gentle feedback
-- **Refined easing**: Use ease-out-quart for smooth, understated motion—never bounce or elastic
+- **Refined easing**: Use ease-out-quart for smooth, understated motion. Never bounce or elastic
 - **Remove animations entirely** if they're not serving a clear purpose
 
 ### Composition Refinement
@@ -93,7 +80,7 @@ Systematically reduce intensity across these dimensions:
 - **Align to grid**: Bring rogue elements back into systematic alignment
 - **Even out spacing**: Replace extreme spacing variations with consistent rhythm
 
-**NEVER**:
+**Avoid**:
 - Make everything the same size/weight (hierarchy still matters)
 - Remove all color (quiet ≠ grayscale)
 - Eliminate all personality (maintain character through refinement)
@@ -107,6 +94,6 @@ Ensure refinement maintains quality:
 - **Still functional**: Can users still accomplish tasks easily?
 - **Still distinctive**: Does it have character, or is it generic now?
 - **Better reading**: Is text easier to read for extended periods?
-- **Sophistication**: Does it feel more refined and premium?
+- **Restrained, not absent**: Does the POV survive the cuts?
 
-Remember: Quiet design is confident design. It doesn't need to shout. Less is more, but less is also harder. Refine with precision and maintain intentionality.
+When the result feels right, hand off to `/impeccable polish` for the final pass.

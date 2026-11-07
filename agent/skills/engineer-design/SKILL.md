@@ -1,6 +1,10 @@
 ---
 name: engineer-design
-description: Encodes a design-engineering philosophy on UI polish, component design, animation decisions, and the invisible details that make software feel great. Use this when asked for polish on CSS or designs, UI fixes from screenshots, dashboards and data visualization, native-app motion, or AI-generated visual assets.
+description: |
+  Design-engineering philosophy for UI polish, component design, animation decisions, and the invisible details that make software feel great. Use when the user wants to design, redesign, shape, critique, audit, polish, simplify, harden, animate, or improve a frontend interface: websites, landing pages, dashboards, product UI, components, forms, settings, onboarding, empty states, and native iOS or Android screens. Handles UX review, hierarchy, layout, typography, color, motion, UX copy, accessibility, responsive behavior, edge cases, screenshot-driven fixes, data visualization, native-app motion, generated visual assets, and design systems (DESIGN.md, tokens). Also for making bland UI bolder or loud UI quieter, or ambitious visual effects. Not for backend-only or non-UI tasks.
+allowed-tools:
+  - Bash(npx impeccable *)
+  - Bash(.pi/skills/engineer-design/scripts/impeccable *)
 ---
 
 # Design Engineering
@@ -52,6 +56,85 @@ A dimension can be "none": a quiet utility surface may deliberately have no sign
 
 **Adding a surface to a mature product skips direction lock**: the direction is the app. Grep for the existing sibling component first and reuse its container, motion, and typography tokens; inventing a new style needs a stated reason why no existing component fits. **Existing native apps keep their platform direction**: do not propose a wholesale port to a newer platform style (Liquid Glass, Material You, Fluent) as a default improvement; default to incremental polish, and load [design-native-motion](design-native-motion.md) when the change touches motion, press states, or animation timing. Only propose a platform-style migration when the user explicitly asked for it this turn.
 
+## Impeccable Command System (binary-backed)
+
+The `commands/` directory also hosts a complete binary-backed command system: the Impeccable engine (v4.8.0), bundled in `scripts/`. Explicit or clearly implied sub-commands route through this section's Commands table; every other visual request follows Request Routing above.
+
+Work as an award-winning design director would: production-grade code, a clear POV, a deep grasp of what the client and its users need, and exceptional craft. Finish the job: no hedging, no shortcuts, the deliverable is complete except assets the user must provide. Scale ambition to the surface's mode: Persuade and Experience get full commitment with a point of view; on Operate and Read, ambition shows as precision and restraint, and patterns the visitor already knows earn their place. Verify by looking at the rendered result at the sizes it ships at, and batch the checks: fix what one look shows before looking again, rather than screenshotting after every tweak.
+
+### Setup
+
+1. Run `<skill-base-dir>/scripts/impeccable context` once per session, where `<skill-base-dir>` is the directory that contains this SKILL.md (the skill folder, not a plugin root two levels above it); keep cwd at the user's project. That base directory resolves every `.pi/skills/engineer-design/scripts/impeccable <verb>` command in this skill and its references, and `.pi/skills/engineer-design/scripts` is the fallback only when the runtime reports no base directory. On a Windows shell without `sh`, call `.pi/skills/engineer-design/scripts/impeccable.cmd` instead. The launcher runs a self-contained binary that ships next to it or is downloaded once on first run; no Node or other runtime is required. Pass a named source file or route as `--target <path>`. It loads PRODUCT.md, DESIGN.md, the matching surface brief, and native-platform guidance when applicable; follow its directives and do not rerun it.
+2. Load the request's playbook: its Commands-table reference for an explicit/implied sub-command, or [commands/new-work.md](commands/new-work.md) for a new surface or replacement visual world. Inspect target and incumbent visual truth before editing. When the app cannot run, start with committed visual-regression goldens or screenshot fixtures; verify target and freshness against current tokens, CSS, components, or assets, resolve conflicts, and compare theme/variant captures.
+3. After resolving analysis and direction, read [commands/craft-floor.md](commands/craft-floor.md) immediately before any UI edit, including small refinements. It carries the quality floor, the absolute bans, and the reflexes no detector catches. Do not load it for planning-only work.
+
+**Launcher unavailable:** On refusal or failure, send a separate message **before the next tool call**: “Context loading did not run; I’ll read the existing project context directly.” Then read existing PRODUCT.md and DESIGN.md without inventing missing context, follow applicable steps 2–3, including reading [commands/craft-floor.md](commands/craft-floor.md) immediately before any UI edit, and continue through permitted tools. This applies to planning and editing; launcher failure alone does not block either.
+
+### How to design
+
+- **The brief wins.** Honor pinned aesthetics, eras, materials, fonts, and palettes even when they conflict with a saturated-pattern warning. Redirecting a clear brief toward your taste is failure.
+- **Refinement preserves; redesign replaces.** Refinement keeps the incumbent identity, behavior, copy, and everything outside scope. Ask before replacing factual copy or adding claims. Redesign keeps product truth, content, function, native affordances, and constraints, but treats the old look as evidence and anti-reference; choose a replacement world in new-work and replace DESIGN.md. Never split the difference into polish on the discarded look.
+- **Loaded symbols stay out of the decoration.** A subject's world does not license emblems tied to militarism, supremacy, or hate movements as motifs, badges, or ornament, such as the Rising Sun flag's rays, the Confederate battle flag, or Nazi-era insignia and their stylised variants; reach for that world's neutral forms instead. Content that documents such a symbol as fact stays as it is.
+- **Visual authority is evidence, not a filename.** Missing DESIGN.md alone does not make a project greenfield; new-work decides whether to preserve, expand, or replace the incumbent world.
+
+### Modes
+
+The mode names what the visitor's success looks like on this surface.
+
+- **Persuade:** the visitor decides and acts; design is the product. Landing pages, marketing, campaigns, pricing. Earn attention and action. Ship real imagery when the brief needs it; follow the committed world, not category habit.
+- **Operate:** the visitor completes a task. App UI, dashboards, editors, admin, settings, tools. Scanability, consistency, native expectations, and the real usage scene outrank expression. Brand lives in precise details.
+- **Read:** the visitor understands something. Docs, articles, guides, help, changelogs. Structure for comprehension, then make the reading experience worth staying in.
+- **Experience:** the visitor is inside the work itself. Portfolios, galleries, showcases. Let the artifact lead from the first viewport; the interface recedes.
+
+Choose the mode from the requested surface, not the product, and persist it only in that surface brief. A tool's landing page is still Persuade; a fashion house's documentation is still Read; a docs index is Read, not Persuade. See [commands/new-work.md](commands/new-work.md) for new surfaces and [commands/operate.md](commands/operate.md) for deeper Operate/Read guidance.
+
+### Commands
+
+| Command | Category | Description | Reference |
+|---|---|---|---|
+| `craft [feature]` | Build | Deprecated alias for an ordinary new-work request | [commands/craft.md](commands/craft.md) |
+| `shape [feature]` | Build | Plan UX/UI before writing code | [commands/shape.md](commands/shape.md) |
+| `init` | Build | Capture durable product context in PRODUCT.md | [commands/init.md](commands/init.md) |
+| `document` | Build | Generate DESIGN.md from existing project code | [commands/document.md](commands/document.md) |
+| `extract [target]` | Build | Pull reusable tokens and components into design system | [commands/extract.md](commands/extract.md) |
+| `critique [target]` | Evaluate | UX design review with heuristic scoring | [commands/critique.md](commands/critique.md) |
+| `audit [target]` | Evaluate | Technical quality checks (a11y, perf, responsive) | [commands/audit.md](commands/audit.md) · native: [commands/audit.native.md](commands/audit.native.md) |
+| `polish [target]` | Refine | Final quality pass before shipping | [commands/polish.md](commands/polish.md) |
+| `bolder [target]` | Refine | Amplify safe or bland designs | [commands/bolder.md](commands/bolder.md) |
+| `quieter [target]` | Refine | Tone down aggressive or overstimulating designs | [commands/quieter.md](commands/quieter.md) |
+| `distill [target]` | Refine | Strip to essence, remove complexity | [commands/distill.md](commands/distill.md) |
+| `harden [target]` | Refine | Production-ready: errors, i18n, edge cases | [commands/harden.md](commands/harden.md) |
+| `onboard [target]` | Refine | Design first-run flows, empty states, activation | [commands/onboard.md](commands/onboard.md) |
+| `animate [target]` | Enhance | Add purposeful animations and motion | [commands/animate.md](commands/animate.md) |
+| `colorize [target]` | Enhance | Add strategic color to monochromatic UIs | [commands/colorize.md](commands/colorize.md) |
+| `typeset [target]` | Enhance | Improve typography hierarchy and fonts | [commands/typeset.md](commands/typeset.md) |
+| `layout [target]` | Enhance | Fix spacing, rhythm, and visual hierarchy | [commands/layout.md](commands/layout.md) |
+| `delight [target]` | Enhance | Add personality and memorable touches | [commands/delight.md](commands/delight.md) |
+| `overdrive [target]` | Enhance | Push past conventional limits | [commands/overdrive.md](commands/overdrive.md) |
+| `clarify [target]` | Fix | Improve UX copy, labels, and error messages | [commands/clarify.md](commands/clarify.md) |
+| `adapt [target]` | Fix | Adapt for different devices and screen sizes | [commands/adapt.md](commands/adapt.md) · native: [commands/adapt.native.md](commands/adapt.native.md) |
+| `optimize [target]` | Fix | Diagnose and fix UI performance | [commands/optimize.md](commands/optimize.md) |
+| `live` | Iterate | Visual variant mode: pick elements in the browser, iterate on alternatives | [commands/live.md](commands/live.md) |
+| `generate [n] [action] [element]` | Iterate | Variants, versions, or alternatives of a named element to choose from in the live browser; no manual picking | [commands/generate.md](commands/generate.md) |
+
+Routing:
+
+- **No argument:** read [commands/routing.md](commands/routing.md) and present its context-aware menu; never auto-run a command.
+- **Explicit or clearly implied request to run a command:** load its reference (native variant on native platforms) and follow it. Ask once if two commands fit.
+- **Workflow or command-selection question:** read [Workflow questions](commands/routing.md#workflow-questions).
+- **Otherwise:** treat the request as general design work. Missing PRODUCT.md routes a new surface or replacement world through init, then new-work; a narrow refinement of existing code proceeds on the incumbent implementation as `impeccable context` directs, offering init afterward rather than blocking on it.
+- `craft` is a deprecated alias for ordinary new-work and adds nothing. `shape` owns task discovery, then enters new-work only for visual-world and surface-concept decisions.
+
+After init writes PRODUCT.md, resume without rerunning `impeccable context`; init loads the native platform reference itself when the platform it recorded is `ios`, `android`, or `adaptive`.
+
+**Pin / Unpin:** `.pi/skills/engineer-design/scripts/impeccable pin <pin|unpin> <command>` creates or removes a standalone `/<command>` shortcut. Report the script's result concisely; relay stderr verbatim on error.
+
+**Hooks:** the `hooks` command (`.pi/skills/engineer-design/scripts/impeccable hooks <on|off|status|ignore-rule|ignore-file|ignore-value|reset>`) manages the design detector hook for this project (auto-runs the detector after UI file edits and surfaces findings). Load [commands/hooks.md](commands/hooks.md) when the user invokes it with any argument.
+
+**Doctor:** the `doctor` command (`.pi/skills/engineer-design/scripts/impeccable doctor`) reports and repairs drift between this project's Impeccable artifacts (PRODUCT.md, DESIGN.md and its sidecar, config, surface briefs, the hook) and what this version reads. Load [commands/doctor.md](commands/doctor.md) when the user invokes it, or when they ask what is out of date, stale, or needs refreshing. A `CONTEXT_STALE` directive in Setup's output is the cheap subset of the same report; act on it there per its own instructions rather than running doctor unasked.
+
+**Never repair drift as a side effect of a design task.** A `CONTEXT_STALE` finding is reported, not acted on, unless the user asks. The one exception is a finding marked `auto`, which the next write to that file performs anyway.
+
 ## Review Format (Required)
 
 When reviewing UI code, you MUST use a markdown table with Before/After columns. Do NOT use a list with "Before:" and "After:" on separate lines. Always output an actual markdown table like this:
@@ -66,201 +149,19 @@ When reviewing UI code, you MUST use a markdown table with Before/After columns.
 
 Wrong format (never do this): a list with "Before:"/"After:" on separate lines. Always one markdown table, one row per issue found, with a brief "Why".
 
-## The Animation Decision Framework
+## Craft Rules (details in craft-details.md)
 
-Before writing any animation code, answer these questions in order:
+The full [animation decision framework](craft-details.md) (frequency gate, purpose, easing, duration) and the component craft rules (press feedback, popover origins, tooltip delay, interruptible transitions, blur masking, `@starting-style`) live in [craft-details](craft-details.md); read it before writing any animation code. Even without it, these stay in force:
 
-### 1. Should this animate at all?
-
-**Ask:** How often will users see this animation?
-
-| Frequency                                                   | Decision                     |
-| ----------------------------------------------------------- | ---------------------------- |
-| 100+ times/day (keyboard shortcuts, command palette toggle) | No animation. Ever.          |
-| Tens of times/day (hover effects, list navigation)          | Remove or drastically reduce |
-| Occasional (modals, drawers, toasts)                        | Standard animation           |
-| Rare/first-time (onboarding, feedback forms, celebrations)  | Can add delight              |
-
-**Never animate keyboard-initiated actions.** They repeat hundreds of times daily; animation makes them feel slow, delayed, and disconnected from the user's actions.
-
-### 2. What is the purpose?
-
-Every animation must have a clear answer to "why does this animate?"
-
-Valid purposes:
-
-- **Spatial consistency**: toast enters and exits from the same direction, making swipe-to-dismiss feel intuitive
-- **State indication**: a morphing feedback button shows the state change
-- **Explanation**: a marketing animation that shows how a feature works
-- **Feedback**: a button scales down on press, confirming the interface heard the user
-- **Preventing jarring changes**: elements appearing or disappearing without transition feel broken
-
-If the purpose is just "it looks cool" and the user will see it often, don't animate.
-
-### 3. What easing should it use?
-
-Is the element entering or exiting?
-  Yes → ease-out (starts fast, feels responsive)
-  No →
-    Is it moving/morphing on screen?
-      Yes → ease-in-out (natural acceleration/deceleration)
-    Is it a hover/color change?
-      Yes → ease
-    Is it constant motion (marquee, progress bar)?
-      Yes → linear
-    Default → ease-out
-
-**Critical: use custom easing curves.** The built-in CSS easings are too weak. They lack the punch that makes animations feel intentional.
-
-```css
-/* Strong ease-out for UI interactions */
---ease-out: cubic-bezier(0.23, 1, 0.32, 1);
-
-/* Strong ease-in-out for on-screen movement */
---ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
-
-/* iOS-like drawer curve (from Ionic Framework) */
---ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
-```
-
-**Never use ease-in for UI animations.** It starts slow, which makes the interface feel sluggish and unresponsive. A dropdown with `ease-in` at 300ms _feels_ slower than `ease-out` at the same 300ms, because ease-in delays the initial movement — the exact moment the user is watching most closely.
-
-**Easing curve resources:** Don't create curves from scratch. Use [easing.dev](https://easing.dev/) or [easings.co](https://easings.co/) to find stronger custom variants of standard easings.
-
-### 4. How fast should it be?
-
-| Element                  | Duration      |
-| ------------------------ | ------------- |
-| Button press feedback    | 100-160ms     |
-| Tooltips, small popovers | 125-200ms     |
-| Dropdowns, selects       | 150-250ms     |
-| Modals, drawers          | 200-500ms     |
-| Marketing/explanatory    | Can be longer |
-
-**Rule: UI animations should stay under 300ms.** A 180ms dropdown feels more responsive than a 400ms one. Perceived speed matters as much as actual speed: a fast-spinning spinner makes loading feel faster; instant tooltips (skip delay and animation after the first one is open) make the whole toolbar feel faster. Easing amplifies this — `ease-out` at 200ms _feels_ faster than `ease-in` at 200ms because movement starts immediately.
-
-## Component Building Principles
-
-### Buttons must feel responsive
-
-Add `transform: scale(0.97)` on `:active`. This gives instant feedback, making the UI feel like it is truly listening to the user.
-
-```css
-.button {
-  transition: transform 160ms ease-out;
-}
-
-.button:active {
-  transform: scale(0.97);
-}
-```
-
-This applies to any pressable element. The scale should be subtle (0.95-0.98).
-
-### Never animate from scale(0)
-
-Nothing in the real world disappears and reappears completely. Elements animating from `scale(0)` look like they come out of nowhere.
-
-Start from `scale(0.9)` or higher, combined with opacity. Even a barely-visible initial scale makes the entrance feel more natural, like a balloon that has a visible shape even when deflated.
-
-```css
-/* Bad */
-.entering {
-  transform: scale(0);
-}
-
-/* Good */
-.entering {
-  transform: scale(0.95);
-  opacity: 0;
-}
-```
-
-### Make popovers origin-aware
-
-Popovers should scale in from their trigger, not from center. The default `transform-origin: center` is wrong for almost every popover. **Exception: modals.** Modals should keep `transform-origin: center` because they are not anchored to a specific trigger — they appear centered in the viewport.
-
-```css
-/* Radix UI */
-.popover {
-  transform-origin: var(--radix-popover-content-transform-origin);
-}
-
-/* Base UI */
-.popover {
-  transform-origin: var(--transform-origin);
-}
-```
-
-Whether the user notices the difference individually does not matter; in the aggregate, unseen details compound.
-
-### Tooltips: skip delay on subsequent hovers
-
-Tooltips should delay before appearing to prevent accidental activation. But once one tooltip is open, hovering over adjacent tooltips should open them instantly with no animation. This feels faster without defeating the purpose of the initial delay.
-
-```css
-.tooltip {
-  transition: transform 125ms ease-out, opacity 125ms ease-out;
-}
-
-/* Skip animation on subsequent tooltips */
-.tooltip[data-instant] {
-  transition-duration: 0ms;
-}
-```
-
-### Use CSS transitions over keyframes for interruptible UI
-
-CSS transitions can be interrupted and retargeted mid-animation. Keyframes restart from zero. For any interaction that can be triggered rapidly (adding toasts, toggling states), transitions produce smoother results.
-
-```css
-/* Interruptible - good for UI */
-.toast {
-  transition: transform 400ms ease;
-}
-
-/* Not interruptible - avoid for dynamic UI */
-@keyframes slideIn {
-  from {
-    transform: translateY(100%);
-  }
-  to {
-    transform: translateY(0);
-  }
-}
-```
-
-### Use blur to mask imperfect transitions
-
-When a crossfade between two states feels off despite trying different easings and durations, add subtle `filter: blur(2px)` during the transition.
-
-**Why blur works:** without it, you see two distinct objects overlapping during a crossfade — the old state and the new state. Blur bridges the visual gap, blending them into what the eye perceives as a single smooth transformation. Combine blur with `scale(0.97)` press feedback for polished button transitions.
-
-Keep blur under 20px. Heavy blur is expensive, especially in Safari.
-
-### Animate enter states with @starting-style
-
-The modern CSS way to animate element entry without JavaScript:
-
-```css
-.toast {
-  opacity: 1;
-  transform: translateY(0);
-  transition: opacity 400ms ease, transform 400ms ease;
-
-  @starting-style {
-    opacity: 0;
-    transform: translateY(100%);
-  }
-}
-```
-
-This replaces the legacy pattern of a `useEffect` that sets `mounted: true` after initial render. Use `@starting-style` when browser support allows; fall back to a `data-mounted` attribute otherwise.
+- Never animate from `scale(0)`; start at `scale(0.9)` or higher, with opacity.
+- Use custom ease-out curves, never `ease-in` for UI, and keep UI animations under 300ms.
+- Pressable elements scale to 0.97 on `:active`; popovers scale from their trigger (modals from center); tooltips open instantly once one is already open.
 
 ## Deeper Details
 
 Detail sections are bundled with this skill and loaded on demand:
 
+- [craft-details](craft-details.md) - the animation decision framework and component craft rules: press feedback, popover origins, tooltips, interruptible transitions, blur masking, @starting-style
 - [animation-techniques](animation-techniques.md) - spring animations, gesture and drag interactions, stagger animations, debugging animations
 - [css-techniques](css-techniques.md) - CSS transform mastery and clip-path animation patterns
 - [performance-and-a11y](performance-and-a11y.md) - performance rules and accessibility (prefers-reduced-motion, touch hover)
@@ -276,10 +177,11 @@ Detail sections are bundled with this skill and loaded on demand:
 - [review](review.md) - structured design critique against the brief
 - [design-frontend](design-frontend.md) - build distinctive, production-grade frontend interfaces without generic AI aesthetics
 - [design-reference](design-reference.md) - canonical craft canon: tech stack conflicts, common traps, content authenticity, production baseline, absolute bans, app shell rules, options guide
-- [mode-quick-fix](mode-quick-fix.md) - bounded visual corrections: spacing unification, loading states, safety-bound destructive actions
-- [mode-screenshot-iteration](mode-screenshot-iteration.md) - screenshot-grounded fix loop with the target/preserve/evidence contract and the checked/changed/left matrix
+- [mode-quick-fix](mode-quick-fix.md) - bounded visual corrections: spacing, loading states, safety-bound destructive actions
+- [mode-screenshot-iteration](mode-screenshot-iteration.md) - screenshot-grounded fix loop with the target/preserve/evidence contract
 - [mode-generated-asset](mode-generated-asset.md) - spec-before-pixels workflow for AI-generated diagrams, covers, and social cards
-- [design-data-viz](design-data-viz.md) - dashboard defaults, chart selection, number alignment, data-viz benchmark extraction
+- [design-data-viz](design-data-viz.md) - dashboard defaults, chart selection, number alignment, benchmark extraction
 - [design-native-motion](design-native-motion.md) - SwiftUI/UIKit/Compose translation of the web motion judgment
-- [commands/](commands/) - focused slash commands (adapt, animate, audit, bolder, colorize, critique, delight, extract, harden, normalize, onboard, optimize, polish, quieter, simplify, teach)
+- [commands/](commands/) - web refinements, build and iterate commands, native platform guides, operating docs, and degraded-mode fallbacks
+- [scripts/](scripts/) - the Impeccable engine: launcher binary, live-browser DOM automation, font indexes
 - [reference/](reference/) - deeper references on typography, color and contrast, motion, interaction, responsive, spatial design, and UX writing
