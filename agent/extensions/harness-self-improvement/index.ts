@@ -8,7 +8,7 @@
  */
 import type {ExtensionAPI, ExtensionCommandContext} from "@earendil-works/pi-coding-agent";
 import {Type} from "@earendil-works/pi-ai";
-import {existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync} from "node:fs";
+import {chmodSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync} from "node:fs";
 import {join} from "node:path";
 // === harness-loop (S4): /hloop-propose debug command (superseded by S6 driver) ===
 // Generates + validates improvement candidates against a fixture baseline run.
@@ -186,6 +186,7 @@ function registerHloopPropose(pi: ExtensionAPI): void {
 import {runLoop, type LoopState} from "./loop/driver.ts";
 import {loadLoopConfig, revertByRunId} from "./loop/lib/apply.ts";
 import {ledgerPath} from "./loop/lib/ledger.ts"; // readLedger/extensionRoot already imported in the S4 block above
+import {buildDraftPrompt, extractDraft, MINE_SYSTEM_PROMPT, mineStamp, printEpisodes, scanSessions, type MinedEpisode} from "./loop/mine.ts";
 
 function hloopRunsDir(): string {
   return join(extensionRoot, "runs");
@@ -215,6 +216,14 @@ function hloopLatestRun(): {runId: string, state: LoopState} | null {
   return best;
 }
 
+/** Strip one layer of matching surrounding quotes (pi's slash-command tokenizer keeps them). */
+function unquoteArg(value: string): string {
+  if (value.length >= 2 && ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'")))) {
+    return value.slice(1, -1);
+  }
+  return value;
+}
+
 async function hloopStart(argv: string[], ctx: ExtensionCommandContext): Promise<void> {
   let iterations: number | undefined;
   let suiteGlob: string | undefined;
@@ -229,7 +238,7 @@ async function hloopStart(argv: string[], ctx: ExtensionCommandContext): Promise
         console.error(`/hloop start: --suite requires a value (a task-name glob like "smoke-*"), not another flag`);
         return;
       }
-      suiteGlob = value;
+      suiteGlob = unquoteArg(value);
     }
     else if (arg === "--max-candidates") maxCandidates = Number(argv[++i]);
     else if (arg === "--resume") {
@@ -238,7 +247,7 @@ async function hloopStart(argv: string[], ctx: ExtensionCommandContext): Promise
         console.error(`/hloop start: --resume requires a value (a run id), not another flag`);
         return;
       }
-      resumeRunId = value;
+      resumeRunId = unquoteArg(value);
     }
     else {
       console.error(`/hloop start: unknown argument '${arg}'`);
@@ -280,6 +289,72 @@ async function hloopStart(argv: string[], ctx: ExtensionCommandContext): Promise
   } catch (err) {
     console.error(`[hloop] runLoop failed: ${err instanceof Error ? err.message : String(err)}`);
   }
+}
+
+async function hloopMine(argv: string[], ctx: ExtensionCommandContext): Promise<void> {
+  let limit = 5;
+  let projectGlob: string | undefined;
+  let scanOnly = false;
+  for (let i = 0; i < argv.length; i++) {
+    const arg = argv[i]!;
+    if (arg === "--limit") limit = Number(argv[++i]);
+    else if (arg === "--project") projectGlob = argv[++i];
+    else if (arg === "--scan-only") scanOnly = true;
+    else {
+      console.error(`/hloop mine: unknown argument '${arg}'`);
+      return;
+    }
+  }
+  if (!Number.isInteger(limit) || limit < 1) {
+    console.error("/hloop mine: --limit must be an integer >= 1");
+    return;
+  }
+  const sessionsRoot = join(realPiAgentDir(), "sessions");
+  if (!existsSync(sessionsRoot)) {
+    console.error(`[hloop-mine] no sessions directory: ${sessionsRoot}`);
+    return;
+  }
+  console.log(`[hloop-mine] scanning ${sessionsRoot}${projectGlob !== undefined ? ` (project glob: ${projectGlob})` : ""} — deterministic, no model calls ...`);
+  const {episodes, filesScanned} = scanSessions(sessionsRoot, {projectGlob});
+  const outDir = join(hloopRunsDir(), "mine", mineStamp());
+  mkdirSync(outDir, {recursive: true});
+  const indexPath = join(outDir, "episodes.jsonl");
+  writeFileSync(indexPath, episodes.map((e) => JSON.stringify(e)).join("\n") + (episodes.length > 0 ? "\n" : ""));
+  console.log(`[hloop-mine] scanned ${filesScanned} session file(s) → ${episodes.length} candidate episode(s); index: ${indexPath}`);
+  const top = episodes.slice(0, limit);
+  printEpisodes(top, top.length);
+  if (scanOnly || top.length === 0) return;
+
+  console.log(`[hloop-mine] drafting ${top.length} task(s) with the session model (real tokens) — drafts land in loop/suite-drafts/ (git-tracked: review them with git diff), nothing touches loop/suite/`);
+  const draftsDir = join(extensionRoot, "loop", "suite-drafts");
+  mkdirSync(draftsDir, {recursive: true});
+  let drafted = 0;
+  for (const [i, ep] of top.entries()) {
+    try {
+      const raw = await callModelViaRegistry(ctx, MINE_SYSTEM_PROMPT, buildDraftPrompt(ep), {temperature: 0.2, maxTokens: 8192});
+      const draft = extractDraft(raw);
+      // Collision with an earlier draft of the same name → suffix, never overwrite.
+      let dirName = draft.name;
+      for (let n = 2; existsSync(join(draftsDir, dirName)); n++) dirName = `${draft.name}-${n}`;
+      const dir = join(draftsDir, dirName);
+      mkdirSync(dir, {recursive: true});
+      writeFileSync(join(dir, "TASK.md"), `---\nname: ${draft.name}\ndescription: ${draft.summary.replace(/\n+/g, " ")}\ntimeout_s: 300\n---\n\n${draft.taskMd}\n`);
+      writeFileSync(join(dir, "check.ts"), draft.checker.endsWith("\n") ? draft.checker : `${draft.checker}\n`);
+      chmodSync(join(dir, "check.ts"), 0o755);
+      writeFileSync(join(dir, "draft.json"), `${JSON.stringify({draft, provenance: {episode: ep}}, null, 2)}\n`);
+      drafted++;
+      console.log(`draft ${i + 1}/${top.length}: ${dir} (${draft.difficulty}) — ${draft.summary.replace(/\n+/g, " ").slice(0, 100)}`);
+      console.log(`   preserved challenge: ${draft.challenge.replace(/\n+/g, " ").slice(0, 160)}`);
+    } catch (err) {
+      console.error(`[hloop-mine] draft ${i + 1}/${top.length} failed: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+  console.log(`[hloop-mine] ${drafted}/${top.length} draft(s) written under ${draftsDir}`);
+  console.log("[hloop-mine] NEXT STEPS (human review gate — the loop never auto-adds tasks):");
+  console.log("  1. Review each draft (git diff / read loop/suite-drafts/<name>/): TASK.md + check.ts against the provenance in draft.json; the checker is a DRAFT — verify it against a workspace you build yourself.");
+  console.log("  2. ACCEPT: build broken/ (reconstruct from draft.json broken_files + notes) and ref/ (the correct outcome) inside the draft dir, verify check.ts, delete draft.json, then: mv loop/suite-drafts/<name> loop/suite/<name>");
+  console.log("  3. REJECT: just rm -rf loop/suite-drafts/<name> (the draft never entered the suite).");
+  console.log('  4. Calibrate before a loop run: /hloop start --suite "<new-task-name>" (exact name or category glob like "git-*") — dryRun stays true, nothing is applied.');
 }
 
 function hloopStatus(): void {
@@ -363,16 +438,17 @@ function hloopReport(argv: string[]): void {
 
 function registerHloop(pi: ExtensionAPI): void {
   pi.registerCommand("hloop", {
-    description: "harness-loop S6: recursive optimization loop — start | status | stop | revert <runId> | report [runId]",
+    description: "harness-loop S6: recursive optimization loop — start | mine | status | stop | revert <runId> | report [runId]",
     handler: async (args: string, ctx: ExtensionCommandContext) => {
       const argv = args.trim().split(/\s+/).filter(Boolean);
       const sub = argv.shift() ?? "";
       if (sub === "start") return hloopStart(argv, ctx);
+      if (sub === "mine") return hloopMine(argv, ctx);
       if (sub === "status") return hloopStatus();
       if (sub === "stop") return hloopStop();
       if (sub === "revert") return hloopRevert(argv);
       if (sub === "report") return hloopReport(argv);
-      console.error("usage: /hloop start [--iterations N] [--suite <glob>] [--max-candidates K] [--resume <runId>] | status | stop | revert <runId> | report [runId]");
+      console.error("usage: /hloop start [--iterations N] [--suite <glob>] [--max-candidates K] [--resume <runId>] | mine [--limit N] [--project <glob>] [--scan-only] | status | stop | revert <runId> | report [runId]");
     },
   });
 }
