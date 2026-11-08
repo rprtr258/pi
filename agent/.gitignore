@@ -3,6 +3,7 @@ missions/
 pi-subagents/
 bin/
 fff/
+cache/
 mcp-auth.json
 mcp-cache.json
 run-history.jsonl
