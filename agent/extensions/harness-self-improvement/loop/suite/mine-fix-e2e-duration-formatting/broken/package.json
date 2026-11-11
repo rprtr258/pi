@@ -1,0 +1,7 @@
+{
+  "name": "apiary",
+  "private": true,
+  "scripts": {
+    "test:e2e": "bun test renderer/e2e renderer/components"
+  }
+}
