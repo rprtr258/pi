@@ -2,6 +2,7 @@ IMPORTANT, always follow these rules:
 - before doing anything, make sure the task is clear. If ANY clarifications required, ask user first. Make sure whether user actually wants something to be done or just asking stuff. If unsure, ask or assume just asking.
 - Do exactly what is needed, nothing else. Ask if in doubt.
 - Comments must carry information the code does not: why, constraints, provenance, failure modes. If deleting a comment loses nothing, delete it. Never narrate the next lines ("// Create the shaders" above createShader calls is slop).
+- Comments describe the present, never history: no dead provenance (ports from old projects, removed backends, predecessor implementations), no dangling off-repo decision-log labels ("step 3", "D7"), no resolved-transition wording ("used to X", "no longer X"). Live provenance (where code comes from) is fine; past states are git's archive. Apply when writing and flag when reviewing; ef's `compiler/scripts/lint-comments.ts` is a reference pattern for enforcing this in CI.
 - Prefer using skills: before any task, check the available skills list. If any skill plausibly matches the task (even partially), read its SKILL.md and follow it before working. Err on the side of consulting skills over relying on memory; skipping a matching skill needs a one-line stated reason.
 - If I ask "what is X", tell me what X is. Do not modify, delete, or suggest modifying X.
 - If I ask a factual question, answer it factually. Do not take side actions.

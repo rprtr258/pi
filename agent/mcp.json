@@ -12,18 +12,9 @@
       "command": "uvx",
       "args": ["mcp-server-fetch"]
     },
-    "filesystem": {
-      "command": "bunx",
-      "args": ["-y", "@modelcontextprotocol/server-filesystem", "."]
-    },
     "memory": {
       "command": "bunx",
       "args": ["-y", "@modelcontextprotocol/server-memory"]
-    },
-    "sequential-thinking": {
-      "exposure": "direct",
-      "command": "bunx",
-      "args": ["-y", "@modelcontextprotocol/server-sequential-thinking"]
     }
   }
 }
