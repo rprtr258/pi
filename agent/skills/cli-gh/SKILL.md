@@ -33,6 +33,25 @@ View logs for failed steps only:
 gh run view <run-id> --repo owner/repo --log-failed
 ```
 
+## Issues
+
+**Never pass issue/PR bodies inline** (`--body "..."` or `--body '...'`): backticks, `$`, and parens get command-substituted by the shell, silently mangling the body. Always write the body to a file (write tool, not a shell heredoc) and pass it with `-F body=@file`:
+
+```bash
+# create
+gh issue create --repo owner/repo --title "..." --label compiler -F body=@/tmp/issue.md
+# update existing body
+gh api -X PATCH repos/owner/repo/issues/123 -F body=@/tmp/issue.md --jq .number
+```
+
+Formal blocking relationships between issues (newer gh):
+
+```bash
+gh issue edit 123 --repo owner/repo --add-blocked-by 456   # or --add-blocking
+```
+
+If `add-blocked-by` errors with "Target issue has already been taken", the relationship already exists — don't retry.
+
 ## Create a PR
 
 ```bash
