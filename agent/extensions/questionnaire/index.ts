@@ -11,7 +11,7 @@ import { Type } from "typebox";
 
 // Types
 type QuestionOption = {
-  value: string,
+  value?: string,
   label: string,
   description?: string,
 }
@@ -42,7 +42,9 @@ type QuestionnaireResult = {
 
 // Schema
 const QuestionOptionSchema = Type.Object({
-  value: Type.String({ description: "The value returned when selected" }),
+  // value is hidden by the harness prompt renderer (any property named "value" is stripped),
+  // so it must stay optional: models can never see or send it in this session type.
+  value: Type.Optional(Type.String({ description: "Value stored in the answer record; defaults to label when omitted" })),
   label: Type.String({ description: "Display label for the option" }),
   description: Type.Optional(Type.String({ description: "Optional description shown below label" })),
 });
@@ -250,7 +252,7 @@ export default function questionnaire(pi: ExtensionAPI) {
               refresh();
               return;
             }
-            saveAnswer(q.id, opt.value, opt.label, false, optionIndex + 1);
+            saveAnswer(q.id, opt.value ?? opt.label, opt.label, false, optionIndex + 1);
             advanceAfterAnswer();
             return;
           }
