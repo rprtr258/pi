@@ -35,14 +35,16 @@ gh run view <run-id> --repo owner/repo --log-failed
 
 ## Issues
 
-**Never pass issue/PR bodies inline** (`--body "..."` or `--body '...'`): backticks, `$`, and parens get command-substituted by the shell, silently mangling the body. Always write the body to a file (write tool, not a shell heredoc) and pass it with `-F body=@file`:
+**Never pass issue/PR bodies inline** (`--body "..."` or `--body '...'`): backticks, `$`, and parens get command-substituted by the shell, silently mangling the body. Always write the body to a file (write tool, not a shell heredoc) and pass it with `--body-file`:
 
 ```bash
 # create
-gh issue create --repo owner/repo --title "..." --label compiler -F body=@/tmp/issue.md
+gh issue create --repo owner/repo --title "..." --label compiler --body-file /tmp/issue.md
 # update existing body
-gh api -X PATCH repos/owner/repo/issues/123 -F body=@/tmp/issue.md --jq .number
+gh issue edit 123 --repo owner/repo --body-file /tmp/issue.md
 ```
+
+On `gh issue create/edit` and `gh pr create/edit`, `-F` is an alias for `--body-file` (a bare path), not the `gh api` field syntax — `-F body=@file` fails with a misleading `open body=@file: no such file or directory` because the whole `body=@...` string is taken as the path. The `key=@file` form is only valid for `gh api -F`.
 
 Formal blocking relationships between issues (newer gh):
 
