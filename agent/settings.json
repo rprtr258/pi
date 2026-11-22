@@ -21,8 +21,7 @@
     "git:github.com/nicobailon/visual-explainer",
     "git:github.com/cathrynlavery/diagram-design",
     "npm:@rprtr258/md-pi",
-    "npm:pi-context",
-    "npm:pi-observational-memory"
+    "npm:pi-context"
   ],
   "enableInstallTelemetry": false,
   "hideThinkingBlock": false,
