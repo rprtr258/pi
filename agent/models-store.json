@@ -197,7 +197,6 @@
         "maxTokens": 384000,
         "compat": {
           "supportsStore": false,
-          "supportsDeveloperRole": false,
           "maxTokensField": "max_tokens",
           "requiresReasoningContentOnAssistantMessages": true,
           "thinkingFormat": "deepseek",
@@ -235,7 +234,6 @@
         "maxTokens": 384000,
         "compat": {
           "supportsStore": false,
-          "supportsDeveloperRole": false,
           "maxTokensField": "max_tokens",
           "requiresReasoningContentOnAssistantMessages": true,
           "thinkingFormat": "deepseek",
@@ -252,8 +250,8 @@
         "type": "chat"
       }
     ],
-    "checkedAt": 1794803527027,
-    "lastModified": 1791044216000,
-    "etag": "W/\"833a51b4211b57d882564ca5f56383e8\""
+    "lastModified": 1795785736000,
+    "etag": "W/\"868b2d3840afd9211f191bc5edce7a03\"",
+    "checkedAt": 1795829894320
   }
 }
