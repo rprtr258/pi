@@ -1,0 +1,11 @@
+// squares_sum.ef — sum the squares of a list of numbers.
+
+fn sumSquares<T: Num>(xs: List<T>): T {
+  let total: T = 0
+  for x in xs {
+    total = total + x * x
+  }
+  return total
+}
+
+print(sumSquares(range(1, 11)))
